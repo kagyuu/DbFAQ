@@ -1,0 +1,29 @@
+# P010 設計書横断レビュー
+
+## 実行回数
+
+* 3 回目(通常フロー)。
+  * 1 回目: 矛盾点 7 件(中 1、低 6)→ P011・P012 で修正(注記「※P011矛盾点#N」)。
+  * 2 回目: 矛盾点 2 件(中 1、低 1)→ P011・P012 で修正(注記「※P011(2回目)矛盾点#N」)。
+
+## 実施したレビュー観点と方法
+
+| 観点 | 方法と結果 |
+|---|---|
+| 識別子の表記(API パス・パスパラメータ名) | 全文書から `/api/...` を抜き出して正規化・集計。`/api/schema`、`/api/schema/refresh`、`/api/schema/tables/{owner}/{table}`、`/api/schema/tables/{owner}/{table}/rows`、`/api/health` の 5 種のみで、パスパラメータ名は `{owner}`・`{table}` に統一されている |
+| 識別子の表記(エラーコード) | API: `VALIDATION_ERROR`、`SCHEMA_NOT_LOADED`、`TABLE_NOT_FOUND`、`REFRESH_IN_PROGRESS`、`ORACLE_ERROR`、`ORACLE_TIMEOUT`、`MCP_UNAVAILABLE`、`INTERNAL_ERROR`。MCP: `INVALID_ARGUMENT`、`NOT_FOUND`、`ORACLE_TIMEOUT`、`ORACLE_ERROR`、`INTERNAL_ERROR`。クライアント内部: `NETWORK_ERROR`。別表記なし。MCP→API の対応は P003 §4.1 の表のみで定義 |
+| 識別子の表記(MCP ツール・SQLite テーブル・画面 ID・ポート) | ツール 3 種(`get_schema_snapshot`、`get_table_rows`、`ping`)、テーブル 8 種、画面 SC-01・SC-02、ポート 8000(backend 開発)・5173(Vite)・8088(web 公開)で統一。1 回目に使っていた別ポート(8010)の手順は削除済み |
+| 参照関係 | P003 のメソッド名・問い合わせ番号と P007 の指示が一致(1 回目 #1・#2 で修正)。P008・P009 の参照先節は存在する。スクリプトの作成順と使用順(`reset-and-up.sh`・`hr_checksum.py` は A01 で作成、A06・A07 で使用)が一致(2 回目 #1 で修正) |
+| 実行可能性 | テスト手順で使うコマンドが対象の環境に存在するか(api イメージに `pkill`・`ps` が無い点を 2 回目 #2 で修正し、`/proc` 走査に変更。自分自身を除外する条件も付けた) |
+| スコープ | P001 の画面 2・API 5 がすべて P002〜P009 で扱われ、P001 に無い画面・API は追加されていない。過剰実装 3 件は P004 §2 に非ブロッキングとして記録済み(P302 へ引き継ぐ) |
+| P004 の状態 | 全 39 件 OK |
+| OKF 目次と P005・P006 | P007 の U001〜U006 は P005 のスプリントと一致。P008 の T01〜T12 はスプリント内結合(P006 §2.1 の「結合」)、P009 の A01〜A07 はスプリント横断・システム・受入(P006 §2.2・§2.3 と再実行性)を網羅 |
+| 図と本文 | P001 §3.1(frontend/backend/mcp-oracle)と P003 §1.1(web/api/子プロセス)の対応は P003 §1.1 の対応表で解消(1 回目 #6)。P002 §5 のシーケンス図は P003 §4.3 の手順と一致。P002 §4.1 の ER 図は §4.2 のテーブル定義と一致。P005 §4 の依存図は §1 の順序と一致 |
+
+## 矛盾点
+
+* なし(0 件)。
+
+## 結論
+
+矛盾点 0 件。Plan Loop Step を終了し、Overview Step(P020)へ進む。

@@ -1,0 +1,16 @@
+# DbFAQ 設定ファイルのひな型。config.yaml にコピーして値を埋める(config.yaml は Git 管理外)。
+oracle:
+  host: localhost
+  port: 1521
+  service_name: FREEPDB1
+  user: hr
+  password: "change-me"
+  schema: HR                 # 省略時は user を大文字にしたもの
+  query_timeout_sec: 30      # 1 回の問い合わせの上限(python-oracledb の call_timeout)
+  connect_timeout_sec: 10
+  pool_min: 1
+  pool_max: 4
+app:
+  sqlite_path: ./data/dbfaq.sqlite3
+  log_level: INFO
+  mcp_call_timeout_sec: 90   # backend が MCP ツールの応答を待つ上限(query_timeout_sec より長くする)

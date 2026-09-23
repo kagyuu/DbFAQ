@@ -1,0 +1,42 @@
+"""T03: 読み取り専用トランザクションの実効性(docs/P008-test-direction/T03-mcp-readonly.md)。"""
+
+import pytest
+
+from dbfaq_mcp.db import Database
+from dbfaq_mcp.errors import ToolFailure
+
+CHECKSUM = "SELECT COUNT(*), SUM(ORA_HASH(EMPLOYEE_ID || '|' || SALARY || '|' || EMAIL)) FROM HR.EMPLOYEES"
+
+
+async def checksum(db: Database):
+    async def work(conn):
+        cur = conn.cursor()
+        await cur.execute(CHECKSUM)
+        return tuple(await cur.fetchall())[0]
+
+    return await db.run_readonly(work)
+
+
+async def test_dml_rejected_and_data_unchanged(base_config, mcp_client):
+    db = Database(base_config.oracle)
+    try:
+        before = await checksum(db)
+
+        async def update(conn):
+            try:
+                await conn.execute("UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1 WHERE EMPLOYEE_ID = 100")
+            finally:
+                await conn.rollback()  # 万一成功してしまった場合にも元に戻す
+
+        with pytest.raises(ToolFailure) as ei:
+            await db.run_readonly(update)
+        assert ei.value.ora_code == "ORA-01456"
+
+        await mcp_client.call_tool("get_schema_snapshot", {})
+        for offset in (0, 50, 100):
+            await mcp_client.call_tool("get_table_rows", {"owner": "HR", "table": "EMPLOYEES", "offset": offset})
+        await mcp_client.call_tool("ping", {})
+
+        assert await checksum(db) == before
+    finally:
+        await db.close()
