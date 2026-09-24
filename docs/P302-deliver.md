@@ -3,19 +3,19 @@
 ## 1. 概要
 
 * アプリケーション: DbFAQ v0.1.0(第 1 リリース)。Oracle のスキーマを MCP サーバ(FastMCP、stdio)経由で読み取り SQLite に保存し、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データのタブ)を表示する。
-* 作成日: 2026-09-23。実行モード: `一気通貫`(`docs/.mode`)。
-* 結果: 単体テスト 185 件(Python 131、クライアント 54)、結合テスト T01〜T12、受け入れ結合テスト A01〜A07 がすべて合格(docs/test-records/20260923-0350-test-record.md)。
-* リリース判定: **保留**(11 章。出荷影響「要対応」2 件と、未解消の ★FIXME★ 58 件を人間が確認するため)。
+* 作成日: 2026-09-23(2026-09-24 に CR-001 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
+* 結果: 単体テスト 185 件(Python 131、クライアント 54)、結合テスト T01〜T12、受け入れ結合テスト A01〜A08 がすべて合格(docs/test-records/20260923-0350-test-record.md、CR-001 で追加した A01 手順 8・9 と A08 は docs/test-records/20260924-2352-test-record.md)。
+* リリース判定: **OK**(11 章。出荷影響「要対応」0 件、未解消の ★FIXME★ 0 件)。
 
 ## 2. 参照した成果物
 
 * 仕様: docs/P001-requirement.md、P002-frontend-spec.md、P003-backend-spec.md、P004-traceability-matrix.md、P005-impl-plan.md、P006-test-plan.md
-* 指示: docs/P007-impl-direction.md(U001〜U006)、P008-test-direction.md(T01〜T12)、P009-acceptance-direction.md(A01〜A07)
+* 指示: docs/P007-impl-direction.md(U001〜U006)、P008-test-direction.md(T01〜T12)、P009-acceptance-direction.md(A01〜A08)
 * レビュー・修正: docs/P010-design-review.md、P011-impact-analysis.md、P201-review-report.md、P202-fix-plan.md(fixed/F001〜F006)、P202-fix-plan/P202-fix-resolved.md、P202-fix-plan/P202-fix-unresolved.md(未解決なし)、P204-impact-analysis.md
-* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)
+* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)、20260924-2352-test-record.md(CR-001 の P201)
 * 技術: docs/ADR.md(ADR-001〜013)、docs/ArchitectureHandbook.md、./INDEX.md、server/INDEX.md、client/INDEX.md
 * 配布資産: compose.yaml、deploy/api.Dockerfile、deploy/web.Dockerfile、deploy/nginx.conf、config.example.yaml、.dockerignore、server/pyproject.toml、client/package.json、README.md、docs/BUILD_HISTORY.md
-* 存在しないもの: docs/P000-concept-analysis.md(要求はプロンプトで受領)、.env.example(設定は config.yaml。compose の上書き用の環境変数は 7 章に記載)、docs/CR.md(CR はまだ無い)
+* 存在しないもの: docs/P000-concept-analysis.md(要求はプロンプトで受領)、.env.example(設定は config.yaml。compose の上書き用の環境変数は 7 章に記載)、(CR は docs/CR.md。CR-001 完了)
 
 ## 3. アプリケーション種別と配布方針
 
@@ -49,7 +49,7 @@
 | REQ-SCREEN-007-処理中 | REQ-SCREEN-007 | 読み込み中はボタンを押せない表示 | P006 §2.1 | U003-T4(409 の API 側) | test_api.py::test_refresh_in_progress | PASS | 同上 | NO_TEST_IMPL | 自明: ボタンは `loading`・`disabled={refresh.isPending}`(Mantine の Button は loading 中クリック不可)。二重実行はサーバ側でも 409 で防いでおり単体テスト済み |
 | REQ-SCREEN-008 | REQ-SCREEN-008 | 未取得・0 件のときの表示 | P006 §2.1 | A01 手順 1、U004-T4 | a01、ErDiagramPage.test | PASS | 同上 | OK | - |
 | REQ-SCREEN-009 | REQ-SCREEN-009 | 取得日時の表示 | P006 §2.1 | A01 手順 2、U004-T4 | a01、AppShell.test | PASS | 同上 | OK | - |
-| REQ-SCREEN-009-ドラッグ | REQ-SCREEN-009 | ノードのドラッグ(位置は保存しない) | P006 §2.1 | - | - | - | - | NO_TEST_IMPL | 要対応: 実装(`onNodesChange` + `applyNodeChanges`、`nodeDragThreshold={5}`)はあるが、ドラッグ操作とドラッグ後にクリック扱いにならないことをテストしていない |
+| REQ-SCREEN-009-ドラッグ | REQ-SCREEN-009 | ノードのドラッグ(クリック扱いにならない、位置は保存しない) | P006 §2.1「ノードのドラッグ」 | A01 手順 8・9 | `e2e/tests/a01-er-diagram.spec.ts` の「ノードのドラッグ」 | PASS | docs/test-records/20260924-2352-test-record.md | OK | -(CR-001 で追加) |
 | REQ-SCREEN-010 | REQ-SCREEN-010 | タブ切替と URL の保持 | P006 §2.1 SC-02 | A02 手順 4・6、U005-T1 | a02、TableDetailPage.test | PASS | 同上 | OK | - |
 | REQ-SCREEN-011 | REQ-SCREEN-011 | スキーマ情報タブ | P006 §2.1 | A02 手順 1・2、U005-T2、T06 | a02、SchemaTab.test、test_t06 | PASS | 同上 | OK | - |
 | REQ-SCREEN-012 | REQ-SCREEN-012 | 外部キー先・参照元への遷移 | P006 §2.1 | A02 手順 2、U005-T2 | a02、SchemaTab.test | PASS | 同上 | OK | - |
@@ -80,7 +80,7 @@
 | REQ-NFR-004 | REQ-NFR-004 | セキュリティのうち認証なしの前提での公開範囲・読み取りのみ・パスワード非露出(TLS は副 ID へ分離) | P006 §2.2 | A06、T12、T04 | a06-security.sh、T12 の手順、test_t04 | PASS | 同上 | OK | - |
 | REQ-NFR-004-TLS | REQ-NFR-004 | TLS 終端 | P006 §2.2 | - | - | - | 本書 10 章 | BLOCKED | 本番検証: TLS は運用環境のリバースプロキシで終端する前提(P003 §6)で、本環境に該当構成が無い |
 | REQ-NFR-005 | REQ-NFR-005 | スケーラビリティのうち SQLite WAL と refresh の排他(同時 10 名の負荷は副 ID へ分離) | P006 §2.2 | U003-T1・T4 | test_migrate.py::test_foreign_keys_pragma、test_api.py::test_refresh_in_progress | PASS | 単体テスト | OK | - |
-| REQ-NFR-005-同時10名 | REQ-NFR-005 | 同時利用者 10 名程度での動作 | P006 §2.2 | - | - | - | - | NO_TEST_IMPL | 要対応: 負荷テストを計画・実施していない(P006 にも観点が無い) |
+| REQ-NFR-005-同時10名 | REQ-NFR-005 | 同時利用者 10 名でエラー 0・性能目標内(P001 §8.4) | P006 §2.2「同時利用」 | A08 | `e2e/scripts/a08-concurrency.sh`(`server/scripts/a08_concurrent_load.py`) | PASS(schema 最大 0.273 s、detail 0.251 s、rows オーバーヘッド 0.095 s、エラー 0) | docs/test-records/20260924-2352-test-record.md | OK | -(CR-001 で追加) |
 | REQ-NFR-006 | REQ-NFR-006 | ログ(JSON、backend は stdout、MCP は stderr)と /api/health | P006 §2.2 | T05、U001-T3、A04 手順 6 | test_t05、test_logging.py | PASS | 同上 | OK | - |
 | REQ-TEST-001 | REQ-TEST-001 | テスト方針(pytest / Vitest / 結合 / Playwright、HR を変更しない、2 回実行) | P006 | 全体 | 全テスト、A06 のチェックサム、A07 | PASS | 同上 | OK | - |
 
@@ -95,7 +95,7 @@
 | フロントエンド | `client/package.json` の `version = "0.1.0"` | 画面には表示しない(10 章) |
 | E2E | `e2e/package.json` の `version = "0.1.0"` | - |
 
-* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B003)。コミットは初期コミット e0afb86 以降未コミット。
+* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B004)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
 
 ## 6. 配布資産一覧
 
@@ -138,7 +138,7 @@
 | 結合 T01〜T09(実 Oracle) | `cd server && uv run pytest tests/integration -v` | 17 passed(`config.yaml` の Oracle に接続できること) |
 | 結合 T10・T11 | backend(8000)と `npx vite --port 5173` を起動し、`docs/P008-test-direction/T10-*.md`・`T11-*.md` の curl を実行 | 各手順が期待どおり |
 | 結合 T12 | `docs/P008-test-direction/T12-compose-stack.md` の手順 | 各手順が期待どおり |
-| 受け入れ結合 A01〜A07 | `cd e2e && npm ci && npx playwright install chromium` の後、`bash e2e/scripts/run-suite.sh` を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
+| 受け入れ結合 A01〜A08 | `cd e2e && npm ci && npx playwright install chromium` の後、`bash e2e/scripts/run-suite.sh`(A01〜A06・A08)を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
 
 * テスト結果の格納先: `docs/test-records/`、Playwright の失敗時の証跡は `e2e/test-results/`・`e2e/playwright-report/`。
 * 注意: `run-suite.sh` は `docker compose down -v` でボリュームを消してから始める(ベースライン復元)。運用中の環境では実行しない。
@@ -148,13 +148,13 @@
 * 2026-09-23 03:30〜03:50 に P205 として全テストを実行: 単体 185 件合格、T01〜T09 を 2 回続けて 17 passed、T10〜T12 合格、A01〜A06 を 2 回続けて全 PASS・出力同一(A07 PASS)。
 * compose でのビルド・起動・ヘルスチェック・画面表示を実際に確認済み(Docker は利用可能だった)。
 * HR のデータはスイートの前後でチェックサムが一致(A06)。
+* 2026-09-24 23:47〜23:52 に CR-001 として、A01(ドラッグの手順 8・9 を追加)〜A06・A08(同時 10 名、新規)を 2 回続けて実行し、すべて PASS・出力同一(A07 PASS)(docs/test-records/20260924-2352-test-record.md)。アプリケーションコードは変えていないため、単体・結合は B003 の結果を引き継ぐ(単体 Python 131 件は 2026-09-24 に再実行して合格)。
 
 ## 10. 未整備事項・人間による確認事項
 
-### 10.1 出荷影響「要対応」(2 件)
+### 10.1 出荷影響「要対応」(0 件)
 
-1. REQ-SCREEN-009-ドラッグ: ER 図のノードのドラッグ(とドラッグ後にクリック扱いにならないこと)が未テスト。実装はある。
-2. REQ-NFR-005-同時10名: 同時利用者 10 名程度での負荷テストが未計画・未実施。
+* なし。以前の 2 件(REQ-SCREEN-009-ドラッグ、REQ-NFR-005-同時10名)は CR-001 でテストを追加し、合格した(4 章)。
 
 ### 10.2 本番検証・代替検証・自明とした項目
 
@@ -167,7 +167,7 @@
 * ★ACCEPTED★ LOB を全体でメモリに読み込む(ADR-005)/★ACCEPTED★ OFFSET 方式のページ送り(ADR-006)。詳細は docs/ArchitectureHandbook.md §9。
 * Oracle に接続できないとき、画面・API のメッセージは `DPY-4005: timed out waiting for the connection pool ...` となり、根本原因(接続拒否など)は直接は分からない(F006 の残課題)。ヘッダの Oracle 状態と `docker compose logs api` で判断する。
 * 同時の Oracle 問い合わせが `pool_max`(既定 4)を超えると、超えた分は `connect_timeout_sec`(既定 10 秒)待って DPY-4005 で失敗する(F006 による変更。以前は無期限に待った)。
-* uvicorn は 1 ワーカー固定(ADR-001)。
+* uvicorn は 1 ワーカー固定(ADR-001)。同時 10 名は A08 で確認済み。ただし api の起動直後など接続プールが広がる前は、データタブの応答が遅くなる(A08 の単独実行でオーバーヘッドの最大 0.916 秒。目標 1 秒に対して余裕が小さい)。気になる場合は `config.yaml` の `pool_min` を上げる。
 * 接続拒否の検証(T08)以外の Oracle 障害(ネットワーク断の途中など)は未検証。
 * 開発・テストで使った接続ユーザー hr は書き込み権限を持つ。本番は読み取り専用ユーザーを推奨(7 章)。
 * フロントエンドのバージョンは画面に表示していない(backend のバージョンは `/api/health` で確認できる)。
@@ -177,9 +177,11 @@
 
 * ヘッダの Oracle 状態表示(60 秒ごとの health 取得)、データタブのページ番号の URL 保持、関数索引の式の表示。いずれも実装・テスト済み。要求書に追加するか、削るかを人間が判断する(CR の起票候補)。
 
-### 10.5 未解消の ★FIXME★ 一覧(58 件)
+### 10.5 ★FIXME★ 一覧(58 件。未解消 0 件)
 
-`docs/.mode` が `一気通貫` のため、Agent が想定で補った箇所が残っている。人間が確認し、変更が必要なものは CR(P900/P901)として起票する。「CR 起票候補か」は、業務上の判断が必要で後から変わりうるものに ○ を付けた。
+**未解消の★FIXME★: 0件。** 2026-09-24 に人間が下表の 58 件をすべて確認し、Agent の想定をそのまま受け入れた。各箇所の ★FIXME★ は ★ACCEPTED★ に書き換え、検討内容・承認理由・残存リスクを同じ行に記載した。同じ判断で `server/src/dbfaq_mcp/snapshot.py` の `iso_utc` の注記(#50 と同じ論点)も ★ACCEPTED★ にした。#57 は指示文中の手順の説明であり、印ではないため書き換えていない。
+
+下表は受け入れの記録として残す。「CR 起票候補か」の ○ は、受け入れの前提(業務の条件)が変わったときに CR で見直す候補を示す。
 
 | # | 所在(ファイル・章節) | 想定で補った内容 | CR起票候補か |
 | --- | --- | --- | --- |
@@ -246,16 +248,17 @@
 
 ### 10.6 その他
 
-* 作業ツリーは未コミット(初期コミット e0afb86 のまま)。コミット・リモートへのプッシュは人間の判断で行う。
+* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミットに含まれる。リモートへのプッシュは人間の判断で行う。
 * `e2e/scripts/run-suite.sh` はボリュームを消すため、運用環境では実行しない。
 
 ## 11. リリース判定
 
-**保留**
+**OK**
 
 根拠:
 
-* テスト: 単体・結合・受け入れ結合がすべて合格(9 章)。未解決の障害なし(P202-fix-unresolved.md)。配布資産は整備済みで、compose での起動を実際に確認した。
-* 出荷影響「要対応」: **2 件**(REQ-SCREEN-009-ドラッグ、REQ-NFR-005-同時10名)。いずれも未テストの項目で、既知の不具合ではない。
-* 未解消の ★FIXME★: **58 件**(10.5)。業務判断が必要な想定(接続先 1 つ、ビューを ER 図から除外、認証なしの前提でのネットワーク制限、性能目標値、1 ページ 50 行など)が含まれる。
-* 以上から、人間が 10.1 と 10.5 を確認し、リリースしてよいか、CR で直すかを判断する。
+* テスト: 単体・結合・受け入れ結合がすべて合格(9 章)。CR-001 で追加した A01 手順 8・9 と A08 も 2 回続けて合格し、スイートの再実行性(A07)も確認した。未解決の障害なし(P202-fix-unresolved.md)。配布資産は整備済みで、compose での起動を実際に確認した。
+* 出荷影響「要対応」: **0 件**(10.1)。以前の 2 件は CR-001 で解消した。
+* 本番検証・代替検証・自明: 理由を記載済み(10.2)。判定の根拠には数えない。本番検証の REQ-NFR-004-TLS は稼働前に運用側で確認する。
+* 未解消の ★FIXME★: **0 件**(10.5)。58 件は 2026-09-24 に人間が全件受け入れ、★ACCEPTED★ にした。
+* 4 章の対応表で状態が OK 以外の行は、NO_TEST_IMPL 3 件(自明)・NO_TEST_CASE 1 件(代替検証)・NO_TEST_PLAN 2 件(自明)・BLOCKED 1 件(本番検証の REQ-NFR-004-TLS)で、いずれも理由を記載済み。

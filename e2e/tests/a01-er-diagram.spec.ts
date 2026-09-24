@@ -64,4 +64,45 @@ test.describe.serial('A01 ER 図', () => {
     await page.goBack()
     await waitForNodes(page, 7)
   })
+
+  // ※CR-001 により追加(REQ-SCREEN-009 ノードのドラッグ)。前のテストが作ったスナップショットを使う
+  test('ノードのドラッグ(クリック扱いにならず、位置は保存しない)', async ({ page }) => {
+    const box = async (name: string) => (await page.getByTestId(`er-node-${name}`).boundingBox())!
+    // 表示倍率に左右されないよう、LOCATIONS からの相対位置を scale で割ったものを比べる
+    const relative = async () => {
+      const [d, l, s] = [await box('DEPARTMENTS'), await box('LOCATIONS'), await viewportScale(page)]
+      return { x: (d.x - l.x) / s, y: (d.y - l.y) / s }
+    }
+
+    // 8
+    await page.goto('/')
+    await waitForNodes(page, 7)
+    await page.waitForTimeout(500)
+    const before = await box('DEPARTMENTS')
+    const loc = await box('LOCATIONS')
+    const rel0 = await relative()
+    await page.mouse.move(before.x + before.width / 2, before.y + 12)
+    await page.mouse.down()
+    await page.mouse.move(before.x + before.width / 2 + 120, before.y + 12 + 80, { steps: 10 })
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+    await expect(page).toHaveURL(/\/$/)
+    const after = await box('DEPARTMENTS')
+    // ドラッグ判定のしきい値(nodeDragThreshold)を超えるまでの最初の移動分は動かないため、範囲で見る
+    expect(after.x - before.x).toBeGreaterThan(90)
+    expect(after.x - before.x).toBeLessThan(125)
+    expect(after.y - before.y).toBeGreaterThan(55)
+    expect(after.y - before.y).toBeLessThan(85)
+    const loc2 = await box('LOCATIONS')
+    expect(Math.abs(loc2.x - loc.x)).toBeLessThan(1)
+    expect(Math.abs(loc2.y - loc.y)).toBeLessThan(1)
+
+    // 9
+    await page.reload()
+    await waitForNodes(page, 7)
+    await page.waitForTimeout(500)
+    const rel1 = await relative()
+    expect(Math.abs(rel1.x - rel0.x)).toBeLessThan(2)
+    expect(Math.abs(rel1.y - rel0.y)).toBeLessThan(2)
+  })
 })

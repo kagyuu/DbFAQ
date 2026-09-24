@@ -7,7 +7,7 @@ Oracle のスキーマを MCP 経由で読み取って SQLite に保存し、ブ
 - [server/INDEX.md](./server/INDEX.md) — Python(uv)。MCP サーバ `dbfaq_mcp`、backend `dbfaq_api`、共通部品 `dbfaq_common`、単体・結合テスト
 - [client/INDEX.md](./client/INDEX.md) — フロントエンド(React + Vite)。SC-01 ER 図、SC-02 テーブル詳細、単体テスト
 - [deploy/](./deploy/) — `api.Dockerfile`、`web.Dockerfile`、`nginx.conf`
-- [e2e/](./e2e/) — 受入テスト(Playwright の `tests/`、手順スクリプトの `scripts/`)
+- [e2e/](./e2e/) — 受入テスト(Playwright の `tests/`、手順スクリプトの `scripts/`。`scripts/run-suite.sh` が A01〜A06・A08 を順に実行する)
 - [compose.yaml](./compose.yaml) — web(nginx、8088)と api(非公開)
 - [config.example.yaml](./config.example.yaml) — 設定ファイルのひな型(実物の `config.yaml` は Git 管理外)
 - [README.md](./README.md) — 概要と最短の起動手順
@@ -23,7 +23,7 @@ Oracle のスキーマを MCP 経由で読み取って SQLite に保存し、ブ
 - [docs/P006-test-plan.md](./docs/P006-test-plan.md) — テスト計画
 - [docs/P007-impl-direction.md](./docs/P007-impl-direction.md) — プログラム実装定義(目次)
 - [docs/P008-test-direction.md](./docs/P008-test-direction.md) — 結合テスト定義 T01〜T12(目次)
-- [docs/P009-acceptance-direction.md](./docs/P009-acceptance-direction.md) — 受け入れ結合テスト定義 A01〜A07(目次)
+- [docs/P009-acceptance-direction.md](./docs/P009-acceptance-direction.md) — 受け入れ結合テスト定義 A01〜A08(目次)
 - [docs/P010-design-review.md](./docs/P010-design-review.md) — 設計書横断レビュー(3 回目で矛盾 0 件)
 - [docs/P011-impact-analysis.md](./docs/P011-impact-analysis.md) — 設計の矛盾点の影響分析
 - [docs/ADR.md](./docs/ADR.md) — 設計判断(ADR-001〜013)
@@ -35,3 +35,7 @@ Oracle のスキーマを MCP 経由で読み取って SQLite に保存し、ブ
 - [docs/test-records/](./docs/test-records/) — テスト実行記録
 - [docs/P302-deliver.md](./docs/P302-deliver.md) — 納品物まとめ・起動手順・リリース判定
 - [docs/BUILD_HISTORY.md](./docs/BUILD_HISTORY.md) — ビルド履歴
+- [docs/CR.md](./docs/CR.md) — 変更要求(CR)の状態の台帳
+- [docs/P901-cr-direction/](./docs/P901-cr-direction/) — 変更要求書(CR-001: 要対応 2 件のテスト追加)
+- [docs/P903-cr-records/](./docs/P903-cr-records/) — CR の対処記録(スコープ決定・反映確認・ADR 判定)
+- [docs/P001-requirement-old/](./docs/P001-requirement-old/) — CR 対応前の要件定義の原本(無効)

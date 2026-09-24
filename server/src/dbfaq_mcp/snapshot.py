@@ -14,7 +14,7 @@ from .type_format import format_data_type
 
 
 def iso_utc(value: dt.datetime | None) -> str | None:
-    """naive な日時は UTC とみなす(LAST_ANALYZED は DB のタイムゾーン。★FIXME★ P003 §3.5)。"""
+    """naive な日時は UTC とみなす(LAST_ANALYZED は DB のタイムゾーン。★ACCEPTED★(2026-09-24 人間承認) P003 §3.5)。"""
     if value is None:
         return None
     if value.tzinfo is not None:

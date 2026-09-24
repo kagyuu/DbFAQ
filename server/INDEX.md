@@ -31,6 +31,7 @@ Python の uv プロジェクト(Python 3.12)。MCP サーバ・backend・共通
   - schemas.py — API のレスポンス型(pydantic)
   - errors.py — API エラーとエラーコード
 - scripts/check_oracle.py — 開発用 Oracle への疎通確認
+- scripts/a08_concurrent_load.py — 受入テスト A08(同時利用者 10 名の負荷)。CR-001 で追加
 - tests/ — テスト
   - fakes.py — backend 用の偽ゲートウェイ
   - unit/ — 単体テスト(Oracle 不要)。`mcp/`(MCP サーバ)、`api/`(backend。`echo_mcp.py` はゲートウェイ試験用の小さな MCP サーバ)、`test_config.py`・`test_logging.py`・`test_compose.py`

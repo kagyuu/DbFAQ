@@ -1,5 +1,5 @@
 #!/bin/bash
-# A07: 受入テストのスイート全体(A01〜A06)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
+# A07: 受入テストのスイート全体(A01〜A06、A08)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -29,6 +29,9 @@ bash e2e/scripts/a05-perf-api.sh large >> "$LOG/a05.log" 2>&1 || a05=1
 (cd e2e && npx playwright test tests/a05-performance.spec.ts -g "large:" >> "$LOG/a05.log" 2>&1) || a05=1
 bash e2e/scripts/a05-restore-hr.sh >> "$LOG/a05.log" 2>&1 || a05=1
 res A05 $a05
+
+# ※CR-001 により追加。読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く
+bash e2e/scripts/a08-concurrency.sh > "$LOG/a08.log" 2>&1; res A08 $?
 
 bash e2e/scripts/a06-security.sh > "$LOG/a06.log" 2>&1; res A06 $?
 echo "logs: $LOG" >&2
