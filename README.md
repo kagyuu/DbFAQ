@@ -1,9 +1,9 @@
 # DbFAQ
 Save your routine SQL queries as FAQs (Frequent Asked Queries) and re-run them against your database at any time.
 
-## 現在の機能(v0.1.0 / 第 1 リリース)
+## 現在の機能(v0.2.1 / 第 1 リリース + CR-001〜CR-003)
 
-Oracle のスキーマを MCP サーバ経由で読み取って SQLite に保存し、ブラウザで次の画面を提供します。FAQ(クエリの保存・実行)は今後のリリースで追加予定です。
+Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し、ブラウザで次の画面を提供します。FAQ(クエリの保存・実行)は今後のリリースで追加予定です。
 
 * **ER 図**: テーブルと外部キーの関係を表示。拡大・縮小、全体の略図(ミニマップ)、テーブル名検索。テーブルをクリックすると詳細へ
 * **テーブル詳細**: 「スキーマ情報」(列・主キー・一意制約・外部キー・参照元・インデックス)と「データ」(50 行ずつのページ送り)をタブで切り替え

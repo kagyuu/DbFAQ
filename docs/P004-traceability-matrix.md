@@ -26,26 +26,30 @@ P001 には要求 ID が無いため、本書で一時 ID を付ける。
 | REQ-API-002 | POST /api/schema/refresh | §3.3 | §4.3、§3.5 | OK | - | - |
 | REQ-API-003 | GET /api/schema/tables/{owner}/{table} | §3.4 | §4.3 | OK | - | - |
 | REQ-API-004 | GET /api/schema/tables/{owner}/{table}/rows(limit 最大 500) | §3.5 | §4.3、§3.6 | OK | - | - |
-| REQ-API-005 | GET /api/health | §3.7 | §4.3、§3.8 | OK | - | - |
-| REQ-MCP-001 | MCP ツール get_schema_snapshot | §5.1 | §3.5 | OK | - | - |
-| REQ-MCP-002 | MCP ツール get_table_rows(実在確認+クォート、バインド変数) | §5.2 | §3.6、§3.3 | OK | - | - |
-| REQ-MCP-003 | MCP ツール ping | §3.7 | §3.8 | OK | - | - |
-| REQ-MCP-004 | 全ツールを読み取り専用トランザクションで実行し必ずロールバック | - | §3.1 | OK | - | - |
-| REQ-ARCH-001 | Oracle へのアクセスはすべて MCP 経由(backend は直接接続しない) | §5 | §1.1、§4.1 | OK | - | - |
-| REQ-ARCH-002 | MCP は stdio、backend の子プロセス | - | §1.1、§4.1 | OK | - | - |
+| REQ-API-005 | GET /api/health(CR-002 で mcp を削除) | §3.7 | §4.3、§3.8 | OK | - | - |
+| REQ-ORA-001 | backend のスキーマの読み取り(旧 REQ-MCP-001) | §5.1 | §3.5、§3.9 | OK | - | - |
+| REQ-ORA-002 | backend のテーブルデータの取得(実在確認+クォート、バインド変数)(旧 REQ-MCP-002) | §5.2 | §3.6、§3.3、§3.9 | OK | - | - |
+| REQ-ORA-003 | backend の疎通確認(旧 REQ-MCP-003) | §3.7 | §3.8、§3.9 | OK | - | - |
+| REQ-ORA-004 | Oracle へのすべてのアクセスを読み取り専用トランザクションで実行し必ずロールバック(旧 REQ-MCP-004) | - | §3.1 | OK | - | - |
+| REQ-ARCH-001 | Oracle へは backend(FastAPI)が直接接続する。MCP は使わない(CR-002 で変更) | §5 | §1.1、§3、§4.1 | OK | - | - |
 | REQ-ARCH-003 | スキーマ情報を SQLite に保存し、再起動後も保持 | §4 | §5 | OK | - | - |
 | REQ-ARCH-004 | 接続パラメータを設定ファイル(config.yaml、Git 管理外)に保持 | §3.7(config 表示) | §2 | OK | - | - |
 | REQ-ARCH-005 | Python は uv で管理 | - | §1.2 | OK | - | - |
-| REQ-ARCH-006 | React / FastAPI / FastMCP / python-oracledb | §6 | §1.2、§3.1 | OK | - | - |
+| REQ-ARCH-006 | React / FastAPI / python-oracledb(CR-002 で FastMCP を削除) | §6 | §1.2、§3.1 | OK | - | - |
 | REQ-ARCH-007 | Docker Compose で起動、コンテナから Oracle へは host.docker.internal | - | §1.1、§2.2(環境変数上書き)、§6 | OK | - | インフラ構成は P005・P302 に委譲と明記済み |
-| REQ-ARCH-008 | MCP の設計は ../OracleSearchMCP を参考にする | - | §3.1、§3.5 | OK | - | - |
+| REQ-ARCH-008 | Oracle アクセスの設計は ../OracleSearchMCP を参考にする(CR-002 で主語を変更) | - | §3.1、§3.5 | OK | - | - |
 | REQ-NFR-001 | 性能(ER 図 1 秒/300 テーブル 3 秒、再読み込み 10 秒、データ 1 ページ) | - | §6 | OK | - | 測定は P006/P009 |
 | REQ-NFR-002 | タイムアウト 30 秒(設定で変更可) | - | §2.1、§3.1 | OK | - | - |
-| REQ-NFR-003 | 可用性(単一ホスト、restart、Oracle 無しでも起動、MCP 子プロセスの再起動) | - | §4.1、§6(P005・P302 へ委譲) | OK | - | - |
+| REQ-NFR-003 | 可用性(単一ホスト、restart、Oracle 無しでも起動、Oracle が戻れば再起動なしで使える)(CR-002 で変更) | - | §3.1、§4.1、§6(P005・P302 へ委譲) | OK | - | - |
 | REQ-NFR-004 | セキュリティ(認証なし、公開は frontend のみ、読み取りのみ、パスワード非表示、TLS は外部) | §3.1、§3.7 | §3.1〜3.3、§6、§7 | OK | - | - |
 | REQ-NFR-005 | スケーラビリティ(10 名、WAL、refresh の排他) | §3.3(409) | §4.2、§5.1 | OK | - | - |
-| REQ-NFR-006 | ログ(JSON、backend は stdout、MCP は stderr)と /api/health | - | §4.5、§6 | OK | - | - |
+| REQ-NFR-006 | ログ(JSON、backend は stdout)と /api/health(CR-002 で MCP の stderr を削除) | - | §4.5、§6 | OK | - | - |
 | REQ-TEST-001 | テスト方針(pytest / Vitest / 結合(HR)/ Playwright、HR を変更しない、2 回実行) | - | §5.2(再起動耐性を P009 で) | OK | - | 詳細は P006 |
+
+※CR-002により更新(2026-09-27):
+* REQ-MCP-001〜004 は、MCP サーバの廃止にともない要求内容を backend の Oracle アクセス処理(P001 §7.1)に置き換え、ID を REQ-ORA-001〜004 に改めた。
+* REQ-ARCH-002(MCP は stdio、backend の子プロセス)は、要求そのものが P001 から無くなったため削除した。
+* REQ-SCREEN-*、REQ-API-001〜004 の対応箇所は変わらない(画面と API の形は変えていない。REQ-API-005 は応答から mcp を除いた)。
 
 ## 2. 過剰実装の確認(P001 に無い項目)
 

@@ -28,14 +28,11 @@ check "schema_migrations の件数" "$N" "1"
 E=$(docker compose logs api 2>&1 | grep -cE 'Traceback|MigrationError')
 check "起動時の例外" "$E" "0"
 
-docker compose exec -T api python -c "import os,signal; [os.kill(int(p),signal.SIGKILL) for p in os.listdir('/proc') if p.isdigit() and int(p)!=os.getpid() and b'-m\x00dbfaq_mcp' in open(f'/proc/{p}/cmdline','rb').read()]"
-status=""
-for i in 1 2 3; do
-  status=$(curl -s "$BASE/api/health" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
-  [ "$status" = "ok" ] && break
-  sleep 1
-done
-check "MCP 強制終了後の回復" "$status" "ok"
+# 手順 7(CR-002): api コンテナに MCP の子プロセスが無い
+M=$(docker compose exec -T api python -c "import os; print(sum(1 for p in os.listdir('/proc') if p.isdigit() and int(p)!=os.getpid() and b'dbfaq_mcp' in open(f'/proc/{p}/cmdline','rb').read()))")
+check "dbfaq_mcp のプロセス数" "$M" "0"
+status=$(curl -s "$BASE/api/health" | python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+check "health の status" "$status" "ok"
 
 [ $fail -eq 0 ] && echo "A04 PASS" || echo "A04 FAIL"
 exit $fail

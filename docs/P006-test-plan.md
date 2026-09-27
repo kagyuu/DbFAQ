@@ -7,8 +7,8 @@
 
 | テストレベル | 目的 | 定義する文書 | ツール |
 |---|---|---|---|
-| 単体テスト | P002・P003 で定義した画面・API・MCP ツール・内部モジュールが単体で仕様どおりに動くか | P007(各スプリントの実装指示の中) | pytest(+pytest-asyncio)、Vitest + Testing Library |
-| 結合テスト | 画面・API・MCP・Oracle・SQLite が連携して仕様どおりか(スプリント内/モジュール間) | P008 | pytest(実 Oracle HR、実 MCP 子プロセス)、Vitest |
+| 単体テスト | P002・P003 で定義した画面・API・Oracle アクセスの処理・内部モジュールが(※CR-002により「MCP ツール」を変更)単体で仕様どおりに動くか | P007(各スプリントの実装指示の中) | pytest(+pytest-asyncio)、Vitest + Testing Library |
+| 結合テスト | 画面・API・Oracle・SQLite が連携して仕様どおりか(スプリント内/モジュール間) | P008 | pytest(実 Oracle HR)、Vitest(※CR-002により MCP・実 MCP 子プロセスを削除) |
 | システムテスト | P001 の要件・非機能要件(性能、再起動耐性、Oracle 停止時の振る舞い、秘密情報)を満たしているか | P009 | pytest、Playwright、docker compose |
 | 受け入れテスト | 運用担当者の視点で、compose で起動した本番相当環境で一連の操作ができるか | P009 | Playwright(compose の web に対して) |
 
@@ -23,18 +23,18 @@
 | 型表記 | P003 §3.4 の全分岐 | - | 単体 |
 | 値の文字列化 | P003 §3.7 の全分岐(Decimal、DATE、TIMESTAMP、TZ 付き、bytes、長文) | - | 単体 |
 | スナップショット組み立て | 複合 PK/FK、自己参照 FK、別スキーマ参照、関数索引、主キー無し表、ビューの列を捨てる | 空スキーマ | 単体(辞書の結果を偽データで与える) |
-| MCP get_schema_snapshot | HR: 7 表、列 35、PK 7、UK 1、FK 10、インデックス 19 | 存在しないスキーマ → NOT_FOUND | 結合(実 Oracle) |
-| MCP get_table_rows | HR.EMPLOYEES の 1〜50 行目・51〜100 行目・101〜107 行目、複合 PK(JOB_HISTORY)の並び | 存在しない表 → NOT_FOUND、offset/limit 範囲外 → INVALID_ARGUMENT、`"` を含む名前 | 結合(実 Oracle) |
-| MCP 読み取り専用 | ツール実行後に HR のデータが変わっていない | 読み取り専用トランザクション内で DML → ORA-01456 | 結合(実 Oracle) |
-| MCP ping | バージョン・ユーザー | 誤ったパスワード → ORACLE_ERROR(ORA-01017)、到達不能ホスト → ORACLE_ERROR/TIMEOUT | 結合 |
+| Oracle: スキーマの読み取り(※CR-002により「MCP get_schema_snapshot」から変更) | HR: 7 表、列 35、PK 7、UK 1、FK 10、インデックス 19 | 存在しないスキーマ → NOT_FOUND | 結合(実 Oracle) |
+| Oracle: テーブルデータ(※CR-002により「MCP get_table_rows」から変更) | HR.EMPLOYEES の 1〜50 行目・51〜100 行目・101〜107 行目、複合 PK(JOB_HISTORY)の並び | 存在しない表 → NOT_FOUND、offset/limit 範囲外 → INVALID_ARGUMENT、`"` を含む名前 | 結合(実 Oracle) |
+| Oracle: 読み取り専用(※CR-002により「MCP」を変更) | 各処理の実行後に HR のデータが変わっていない | 読み取り専用トランザクション内で DML → ORA-01456 | 結合(実 Oracle) |
+| Oracle: 疎通確認(※CR-002により「MCP ping」から変更) | バージョン・ユーザー | 誤ったパスワード → ORACLE_ERROR(ORA-01017)、到達不能ホスト → ORACLE_ERROR/TIMEOUT | 結合 |
 | マイグレーション | 空ファイルに適用、同じファイルに 2 回適用しても失敗しない | 不正 SQL でロールバックして例外 | 単体 |
 | スナップショット保存 | 置き換え、別 owner は消さない | 挿入途中の失敗で前回が残る | 単体(一時 SQLite) |
-| GET /api/schema | 未取得、取得済み(is_pk/is_fk、relations) | - | 単体(偽ゲートウェイ)、結合 |
-| POST /api/schema/refresh | 成功で置き換わる | 409(実行中)、502/503/504、失敗時に前回が残る | 単体(偽ゲートウェイ)、結合(実 MCP + Oracle) |
+| GET /api/schema | 未取得、取得済み(is_pk/is_fk、relations) | - | 単体(偽の Oracle アクセス)、結合 |
+| POST /api/schema/refresh | 成功で置き換わる | 409(実行中)、502/504、失敗時に前回が残る | 単体(偽の Oracle アクセス)、結合(実 Oracle)(※CR-002により 503・MCP を削除) |
 | GET /api/schema/tables/... | 詳細、referenced_by、ref_in_snapshot | 404(未取得/無い表/owner 違い)、422(129 文字) | 単体、結合 |
-| GET .../rows | ページ、has_next | 422(offset/limit)、404、502(MCP の NOT_FOUND → ORA-00942)、503、504 | 単体(偽ゲートウェイ)、結合 |
-| GET /api/health | ok | MCP 停止時 degraded、Oracle エラー時 degraded、パスワードを含まない | 単体、結合 |
-| MCP ゲートウェイ | 呼び出し、エラー JSON の解析 | 子プロセスの強制終了後の再起動、解析不能なエラー | 結合(実子プロセス) |
+| GET .../rows | ページ、has_next | 422(offset/limit)、404、502(Oracle アクセスの NOT_FOUND → ORA-00942)、504 | 単体(偽の Oracle アクセス)、結合(※CR-002により 503・MCP を変更) |
+| GET /api/health | ok(`mcp` を含まない) | Oracle エラー時 degraded、パスワードを含まない | 単体、結合(※CR-002により「MCP 停止時 degraded」を削除) |
+| Oracle アクセスの入口(`OracleClient`) | 3 つの処理が読み取り専用トランザクションで実行される、疎通確認の問い合わせ上限が 5 秒 | - | 単体(偽のプール)※CR-002により「MCP ゲートウェイ」(子プロセスの再起動、エラー JSON の解析)から置き換え |
 | frontend buildGraph | ノード・エッジ(自己参照、別スキーマ参照は線なし、30 列超の省略) | 0 件 | 単体(Vitest) |
 | frontend layout | 全ノードに座標が付く、重ならない | - | 単体(Vitest、elkjs を実際に使う) |
 | SC-01 | 描画、検索候補、再読み込みの成功・失敗通知、未取得表示 | API エラー | 単体(Vitest、API を偽物に) |
@@ -48,10 +48,10 @@
 |---|---|---|
 | 性能 | HR で `GET /api/schema` < 1 秒、refresh < 10 秒、rows 1 ページ < Oracle 処理時間 + 1 秒 | システム(P009) |
 | 性能(規模) | 300 表・5,000 列の偽スナップショットを SQLite に入れ、`GET /api/schema` < 3 秒、ブラウザでの ER 図表示 < 3 秒 | システム(P009) ★ACCEPTED★(2026-09-24 人間承認)大規模な実 Oracle スキーマは用意できないため偽データで代替。検討: 実スキーマでの測定/承認理由: 表示性能は SQLite 側のデータで決まる/残存リスク: 大規模スキーマの Oracle からの再読み込み時間は未測定 |
-| タイムアウト | `query_timeout_sec` を 1 秒にして、MCP の読み取り専用トランザクション内で `DBMS_SESSION.SLEEP(3)` を呼ぶと ORACLE_TIMEOUT になり、その後の呼び出しは正常に動く | 結合(P008) |
+| タイムアウト | `query_timeout_sec` を 1 秒にして、backend の読み取り専用トランザクション内で(※CR-002により「MCP の」を変更) `DBMS_SESSION.SLEEP(3)` を呼ぶと ORACLE_TIMEOUT になり、その後の呼び出しは正常に動く | 結合(P008) |
 | セキュリティ | API 応答・ログにパスワードが出ない、backend は CORS ヘッダを返さない、compose で api のポートが公開されていない、`config.yaml` がイメージに含まれない | システム(P009) |
 | 読み取りのみ | テストスイートの前後で HR の各表の行数とチェックサム(`ORA_HASH` の合計)が同じ | システム(P009) |
-| ログ | backend のログが JSON で出る、MCP のログが stderr に出る(stdout を汚さない) | 結合(P008) |
+| ログ | backend のログが JSON で出る(※CR-002により「MCP のログが stderr に出る(stdout を汚さない)」を削除) | 単体 |
 | 同時利用 | 10 名の仮想利用者が同時に ER 図の取得・テーブル詳細・データタブの 1・2 ページ目を各 10 回繰り返す。応答はすべて 200、ER 図の取得・テーブル詳細は各 1 秒以内、データ 1 ページは Oracle の処理時間(`elapsed_ms`)+ 1 秒以内(P001 §8.4)。API に対して測る(ER 図の描画はブラウザ内の処理で、同時利用者数の影響を受けないため) | システム(P009、A08)※CR-001により追加 |
 
 ### 2.3 運用観点(再起動耐性)
@@ -59,7 +59,7 @@
 * **アプリケーションを停止・再起動しても正常に起動すること**を独立した観点とする。P003 §5.2 のマイグレーションは管理テーブルによる差分適用で冪等だが、これは永続化された SQLite ファイルに対して 2 回以上起動して初めて確認できる。単体テスト・結合テストは一時ファイルを使うため常に初回になり検出できない。
 * 確認内容: compose で起動 → refresh → `docker compose restart api` → 起動に成功し、`GET /api/schema` が再起動前と同じスナップショットを返す。さらに `docker compose down` → `up`(ボリュームは残す)でも同じ。
 * Oracle が停止している状態で api を起動しても起動に成功し、ER 図(保存済み)が表示できる。
-* MCP 子プロセスを強制終了しても、次の API 呼び出しで回復する。
+* ※CR-002により「MCP 子プロセスを強制終了しても、次の API 呼び出しで回復する」を削除(子プロセスが無くなった)。代わりに、Oracle との通信が切れて戻ったときに api を再起動せずに回復することを **T09(結合)** で確認する(テスト内の TCP 中継を止めて再開する。共有の Oracle 本体は止めない)。A03 の回復確認は api を作り直して行うため、この観点の代わりにはならない。
 * 担当: 受け入れ結合テスト(P009)。
 
 ## 3. テスト遂行上の決め事
@@ -70,7 +70,7 @@
 |---|---|
 | Oracle | 人間が指定した既存の Oracle(`localhost:1521/FREEPDB1`、ユーザー hr、HR サンプルスキーマ)。接続情報は `config.yaml`(Git 管理外)から読む。テストは環境変数 `DBFAQ_CONFIG` で設定ファイルを指定できる |
 | Oracle が使えない場合 | 実 Oracle を使うテスト(pytest マーカー `oracle`)は、`ping` に失敗したら **失敗として扱う**(スキップしない。黙って 0 件にならないようにする)。単体テストだけを回すときは `-m "not oracle"` を明示する |
-| MCP | 結合テストは実際の子プロセス(`python -m dbfaq_mcp`)を使う。backend の単体テストは偽ゲートウェイ(`FakeGateway`: ツール名ごとに応答・例外を登録できる)を使う |
+| Oracle アクセス | 結合テストは実際の `OracleClient`(実 Oracle)を使う。backend の単体テストは偽物(`FakeOracle`: 処理ごとに応答・例外を登録できる)を使う。※CR-002により「MCP(実際の子プロセス、偽ゲートウェイ)」から変更 |
 | frontend の API | Vitest では `fetch` を偽物(`vi.fn` で差し替える)にする。MSW は使わない ★ACCEPTED★(2026-09-24 人間承認)検討: MSW/承認理由: 依存を増やさない/残存リスク: 特になし |
 | ブラウザ | Playwright の Chromium |
 

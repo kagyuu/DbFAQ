@@ -1,3 +1,7 @@
+> **※CR-003 による注記(※P011(CR-003)矛盾点#2にもとづき追加)。** CR-003(U008)で `dbfaq_common` を `dbfaq_api` に統合した。`dbfaq_common/config.py` は `dbfaq_api/config.py`、`dbfaq_common/logging.py` は `dbfaq_api/log.py` に読み替える。現在の構成は `docs/P003-backend-spec.md` §1.2 を正とする。
+
+> **※CR-002 による注記(※P011(CR-002)矛盾点#4にもとづき追加)。** 本書は第 1 リリース時点の実装指示の記録として残す。CR-002(U007)で次のとおり変わった: パッケージは `dbfaq_common`・`dbfaq_api` の 2 つ(`dbfaq_mcp` を削除)、依存から `fastmcp` を削除、`AppSection.mcp_call_timeout_sec` を削除、`test_packages.py` は `dbfaq_mcp` の代わりに `dbfaq_api.oracle` を import。`config_file_path` は `load_config` が設定ファイルの場所を決めるために使う(MCP 子プロセスへの受け渡しは無くなった)。現在の構成は `docs/P003-backend-spec.md` §1.2・§2 を正とする。
+
 あなたはExecutor(実装担当)です。以下は1スプリント分の作業範囲と完了条件を定義したものです。スプリントは複数のタスクから成り、各タスクに個別の完了条件とチェックボックスを持ちます。実施後は、そのタスクの完了条件を満たしたことを確認したうえで、Executor Stepの「停止条件」(`SKILL.md` 参照)に該当しない限り、自動的に次のタスクへ進んでください。人間の指示を待って停止しないでください。
 
 # 【スプリントID】U001 — foundation

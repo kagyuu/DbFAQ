@@ -13,13 +13,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from dbfaq_common.config import AppConfig, config_file_path, load_config
-from dbfaq_common.logging import setup_logging
-
+from . import __version__
+from .config import AppConfig, load_config
 from .db import create_sqlite_engine
-from .errors import INTERNAL_ERROR, VALIDATION_ERROR, ApiError, McpUnavailable
-from .mcp_gateway import Gateway, StdioMcpGateway
+from .errors import INTERNAL_ERROR, VALIDATION_ERROR, ApiError
+from .log import setup_logging
 from .migrate import apply_all
+from .oracle.client import OracleAccess, OracleClient
 from .routers import health, schema
 from .services import SchemaService
 from .snapshot_repo import SnapshotRepository
@@ -33,7 +33,7 @@ def _utc_now() -> dt.datetime:
 
 def create_app(
     config: AppConfig | None = None,
-    gateway: Gateway | None = None,
+    oracle: OracleAccess | None = None,
     now: Callable[[], dt.datetime] | None = None,
 ) -> FastAPI:
     config = config if config is not None else load_config()
@@ -51,20 +51,17 @@ def create_app(
         applied = apply_all(engine, now=lambda: now().strftime("%Y-%m-%dT%H:%M:%SZ"))
         if applied:
             logger.info("migrations applied", extra={"versions": applied})
-        gw = gateway if gateway is not None else StdioMcpGateway(config_file_path(), config.app.mcp_call_timeout_sec)
-        try:
-            await gw.start()
-        except McpUnavailable as e:  # MCP が起動できなくても backend は起動を続ける(次の呼び出しで再試行)
-            logger.warning("MCP server is not available at startup", extra={"error": str(e)})
+        # 接続プールは最初の Oracle アクセスで作る(Oracle に届かなくても backend は起動する)
+        ora = oracle if oracle is not None else OracleClient(config.oracle)
         app.state.now = now
-        app.state.service = SchemaService(SnapshotRepository(engine), gw, config, asyncio.Lock())
+        app.state.service = SchemaService(SnapshotRepository(engine), ora, config, asyncio.Lock())
         try:
             yield
         finally:
-            await gw.close()
+            await ora.close()
             engine.dispose()
 
-    app = FastAPI(title="DbFAQ", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="DbFAQ", version=__version__, lifespan=lifespan)
 
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):

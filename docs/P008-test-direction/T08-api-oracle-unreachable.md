@@ -12,7 +12,7 @@
 
 ## 【対象モジュール】
 
-* `dbfaq_api` + `dbfaq_mcp`(U003)
+* `dbfaq_api`(U003、CR-002 で U007 により変更)
 
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
@@ -34,7 +34,7 @@
 2. `GET /api/schema` → `loaded=true`、tables 7(前回のスナップショット)。
 3. `POST /api/schema/refresh` → 502 `ORACLE_ERROR` または 504 `ORACLE_TIMEOUT`。
 4. `GET /api/schema` → 変わらず tables 7、fetched_at が 1 回目と同じ。
-5. `GET /api/health` → 200、status=degraded、mcp.status=ok、oracle.status=error、message が空でない。
+5. `GET /api/health` → 200、status=degraded、oracle.status=error、message が空でない、`mcp` が無い(※CR-002により「mcp.status=ok」を変更)。
 
 ## 【実行コマンド】
 

@@ -6,7 +6,7 @@
 
 ## 【目的】
 
-* 同時利用者 10 名で、エラーが出ず、各操作が性能目標内に収まることを確認する(REQ-NFR-005、P001 §8.4 の合格基準)。uvicorn 1 ワーカー(ADR-001)・MCP 子プロセス 1 つ・Oracle 接続プール(既定 `pool_max` 4)の構成で捌けることを確かめる。
+* 同時利用者 10 名で、エラーが出ず、各操作が性能目標内に収まることを確認する(REQ-NFR-005、P001 §8.4 の合格基準)。uvicorn 1 ワーカー(ADR-014)・api プロセス内の Oracle 接続プール(既定 `pool_max` 4)(※CR-002により「MCP 子プロセス 1 つ」を削除)の構成で捌けることを確かめる。
 
 ## 【参照テスト計画】
 
@@ -14,7 +14,7 @@
 
 ## 【対象モジュール】
 
-* web(nginx)、api(dbfaq_api + dbfaq_mcp)、SQLite、Oracle
+* web(nginx)、api(dbfaq_api。CR-002 で dbfaq_mcp を削除)、SQLite、Oracle
 
 ## 【前提条件】全モジュールビルドが成功していること
 

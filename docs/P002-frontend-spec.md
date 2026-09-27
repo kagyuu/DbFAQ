@@ -1,7 +1,7 @@
 # P002 ユーザインタフェース設計書 — DbFAQ(第1リリース)
 
 入力: `docs/P001-requirement.md`。本書は画面の振る舞い、入力のバリデーション、API の外部仕様(契約)、画面を成り立たせるデータモデルを確定する。
-内部の実現方法(MCP の呼び出し方、SQL、SQLite への保存手順など)は `docs/P003-backend-spec.md` で確定する。
+内部の実現方法(Oracle へのアクセス方法、SQL、SQLite への保存手順など。※CR-002により「MCP の呼び出し方」を変更)は `docs/P003-backend-spec.md` で確定する。
 
 ## 1. 画面共通
 
@@ -200,10 +200,11 @@
 | `REFRESH_IN_PROGRESS` | 409 | 別のスキーマ再読み込みが実行中 |
 | `ORACLE_ERROR` | 502 | Oracle がエラーを返した(接続拒否・認証失敗・ORA-00942 など)。`ora_code` 付き(取れた場合) |
 | `ORACLE_TIMEOUT` | 504 | Oracle の処理がタイムアウトした |
-| `MCP_UNAVAILABLE` | 503 | MCP サーバを起動できない、または応答しない |
 | `INTERNAL_ERROR` | 500 | 上記以外の想定外のエラー。`message` は「内部エラーが発生しました」固定(詳細はログのみ) |
 
 `ora_code` は `ORACLE_ERROR` のときのみ(取得できれば)含める。パスワードは `message` に決して含めない。
+
+※CR-002により `MCP_UNAVAILABLE`(503、MCP サーバを起動できない/応答しない)を削除。MCP サーバが無くなり発生しなくなったため。Oracle に届かない場合は従来どおり `ORACLE_ERROR`(502)または `ORACLE_TIMEOUT`(504)になる。
 
 ### 3.2 `GET /api/schema`
 
@@ -242,7 +243,7 @@ ER 図用のスキーマ情報を返す(SQLite から。Oracle にはアクセ�
 
 ### 3.3 `POST /api/schema/refresh`
 
-MCP 経由で Oracle からスキーマ情報を読み取り、SQLite のスナップショットを置き換える。
+Oracle からスキーマ情報を読み取り、SQLite のスナップショットを置き換える(※CR-002により「MCP 経由で」を削除)。
 
 * リクエストボディ: なし(空、または `{}`)。対象スキーマは設定ファイルで決まる。
 * 200:
@@ -251,7 +252,7 @@ MCP 経由で Oracle からスキーマ情報を読み取り、SQLite のスナ�
 { "snapshot": { "owner": "HR", "fetched_at": "2026-09-23T01:15:02Z", "oracle_version": "23.26.3.0.0", "table_count": 7, "relation_count": 10 } }
 ```
 
-* エラー: 409 `REFRESH_IN_PROGRESS` / 502 `ORACLE_ERROR` / 504 `ORACLE_TIMEOUT` / 503 `MCP_UNAVAILABLE` / 500 `INTERNAL_ERROR`。いずれのエラーでも既存のスナップショットは変わらない。
+* エラー: 409 `REFRESH_IN_PROGRESS` / 502 `ORACLE_ERROR` / 504 `ORACLE_TIMEOUT` / 500 `INTERNAL_ERROR`(※CR-002により 503 `MCP_UNAVAILABLE` を削除)。いずれのエラーでも既存のスナップショットは変わらない。
 * 処理時間は数秒〜数十秒かかりうる。画面側のタイムアウトは設けない(backend 側のタイムアウトで終わる)。
 
 ### 3.4 `GET /api/schema/tables/{owner}/{table}`
@@ -291,7 +292,7 @@ MCP 経由で Oracle からスキーマ情報を読み取り、SQLite のスナ�
 
 ### 3.5 `GET /api/schema/tables/{owner}/{table}/rows`
 
-テーブルのデータを 1 ページ分、MCP 経由で Oracle から取得する(SQLite には保存しない)。
+テーブルのデータを 1 ページ分、Oracle から取得する(SQLite には保存しない。※CR-002により「MCP 経由で」を削除)。
 
 * クエリパラメータ:
 
@@ -316,7 +317,7 @@ MCP 経由で Oracle からスキーマ情報を読み取り、SQLite のスナ�
 
 * `rows` の各セルは表示用の文字列または `null`(§3.6)。`truncated[i]` は `rows[i]` のうち切り詰めたセルの列インデックスの配列。
 * `order_basis` は `PRIMARY_KEY`(主キーの昇順)または `ROWID`(主キーが無い)。
-* エラー: 404 `SCHEMA_NOT_LOADED` / 404 `TABLE_NOT_FOUND`(スナップショットに無い)/ 422 `VALIDATION_ERROR` / 502 `ORACLE_ERROR`(Oracle 側で削除済み=ORA-00942、権限不足など)/ 504 `ORACLE_TIMEOUT` / 503 `MCP_UNAVAILABLE` / 500。
+* エラー: 404 `SCHEMA_NOT_LOADED` / 404 `TABLE_NOT_FOUND`(スナップショットに無い)/ 422 `VALIDATION_ERROR` / 502 `ORACLE_ERROR`(Oracle 側で削除済み=ORA-00942、権限不足など)/ 504 `ORACLE_TIMEOUT` / 500(※CR-002により 503 `MCP_UNAVAILABLE` を削除)。
 
 ### 3.6 セル値の表示用文字列(rows)
 
@@ -343,14 +344,14 @@ VARCHAR2 などの文字列も 1,000 文字を超えたら切り詰める。
 {
   "status": "ok",
   "backend": { "status": "ok", "version": "0.1.0" },
-  "mcp": { "status": "ok", "message": null },
   "oracle": { "status": "ok", "version": "23.26.3.0.0", "user": "HR", "message": null },
   "config": { "host": "localhost", "port": 1521, "service_name": "FREEPDB1", "user": "hr", "schema": "HR", "query_timeout_sec": 30 },
   "checked_at": "2026-09-23T01:20:00Z"
 }
 ```
 
-* `status` は `mcp`・`oracle` がともに `ok` なら `ok`、それ以外は `degraded`。`mcp.status`・`oracle.status` は `ok` / `error`。`error` のとき `message` にエラー内容(`ORA-xxxxx: ...` など)。MCP が使えないときは `oracle.status` も `error`(`message`: 「MCP サーバに接続できないため確認できません」)。
+* `status` は `oracle.status` が `ok` なら `ok`、それ以外は `degraded`。`oracle.status` は `ok` / `error`。`error` のとき `message` にエラー内容(`ORA-xxxxx: ...` など)。
+* ※CR-002により `mcp`(MCP サーバの状態)を削除し、`status` を `oracle` だけで決めるように変更。
 * `config` にパスワードは含めない。
 
 ## 4. データモデル(SQLite)
@@ -471,15 +472,13 @@ sequenceDiagram
   actor U as 運用担当者
   participant FE as frontend
   participant BE as backend (FastAPI)
-  participant M as MCP サーバ (stdio)
   participant O as Oracle
   participant S as SQLite
   U->>FE: [Oracle から再読み込み]
   FE->>BE: POST /api/schema/refresh
-  BE->>M: call_tool get_schema_snapshot(owner)
-  M->>O: SET TRANSACTION READ ONLY / 辞書ビューを SELECT / ROLLBACK
-  O-->>M: 結果
-  M-->>BE: スナップショット(JSON)
+  BE->>O: SET TRANSACTION READ ONLY / 辞書ビューを SELECT / ROLLBACK
+  O-->>BE: 結果
+  BE->>BE: スナップショットを組み立てる
   BE->>S: 1 トランザクションで旧スナップショット削除 + 新規挿入
   BE-->>FE: 200 snapshot
   FE->>BE: GET /api/schema
@@ -496,17 +495,17 @@ sequenceDiagram
   participant FE as frontend
   participant BE as backend
   participant S as SQLite
-  participant M as MCP サーバ
   participant O as Oracle
   U->>FE: データタブを開く / 次へ
   FE->>BE: GET /api/schema/tables/HR/EMPLOYEES/rows?offset=50&limit=50
   BE->>S: テーブルの実在確認(スナップショット)
-  BE->>M: call_tool get_table_rows(owner, table, offset, limit)
-  M->>O: 実在確認 + SELECT ... ORDER BY 主キー OFFSET :o ROWS FETCH NEXT :n+1 ROWS ONLY
-  O-->>M: 行
-  M-->>BE: columns, rows, has_next
+  BE->>O: 実在確認 + SELECT ... ORDER BY 主キー OFFSET :o ROWS FETCH NEXT :n+1 ROWS ONLY
+  O-->>BE: 行
+  BE->>BE: セル値を表示用の文字列にする
   BE-->>FE: 200
 ```
+
+※CR-002により §5.1・§5.2 のシーケンス図から MCP サーバを削除(backend が Oracle に直接問い合わせる)。
 
 ## 6. フロントエンドの構成
 

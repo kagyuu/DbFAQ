@@ -2,7 +2,7 @@
 
 import httpx
 
-from dbfaq_common.config import load_config
+from dbfaq_api.config import load_config
 
 from .conftest import make_app, write_config
 
@@ -17,7 +17,7 @@ async def test_unreachable(tmp_path, base_config):
 
     bad_path = write_config(tmp_path, port=1, connect_timeout_sec=3)
     bad = load_config(str(bad_path), env={})
-    app = make_app(bad, db, config_path=bad_path)
+    app = make_app(bad, db)
     async with app.router.lifespan_context(app):  # 起動に成功する
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=120) as c:
             view = (await c.get("/api/schema")).json()
@@ -31,5 +31,5 @@ async def test_unreachable(tmp_path, base_config):
 
             h = (await c.get("/api/health")).json()
             assert h["status"] == "degraded"
-            assert h["mcp"]["status"] == "ok"
+            assert "mcp" not in h
             assert h["oracle"]["status"] == "error" and h["oracle"]["message"]

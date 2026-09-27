@@ -1,4 +1,4 @@
-"""T06: backend→MCP→Oracle→SQLite のスキーマ再読み込み(docs/P008-test-direction/T06-api-refresh-schema.md)。"""
+"""T06: backend→Oracle→SQLite のスキーマ再読み込み(docs/P008-test-direction/T06-api-refresh-schema.md)。"""
 
 import sqlite3
 

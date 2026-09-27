@@ -1,7 +1,7 @@
 # P003 システム詳細設計書 — DbFAQ(第1リリース)
 
 入力: `docs/P001-requirement.md`、`docs/P002-frontend-spec.md`。
-本書は P002 §3 で確定した API の外部仕様と P002 §4 のデータモデルを、backend(FastAPI)・MCP サーバ(FastMCP)・SQLite でどう実現するかを確定する。
+本書は P002 §3 で確定した API の外部仕様と P002 §4 のデータモデルを、backend(FastAPI)・SQLite でどう実現するかを確定する。Oracle へは backend が直接接続する(※CR-002により MCP サーバ(FastMCP)を廃止し、Oracle アクセスを backend に統合した)。
 
 ## 1. 構成
 
@@ -13,17 +13,15 @@ flowchart LR
     NG[nginx<br/>静的ファイル + /api 中継]
   end
   subgraph api[コンテナ: api]
-    UV[uvicorn + FastAPI<br/>dbfaq_api]
-    MC[MCP サーバ 子プロセス<br/>python -m dbfaq_mcp<br/>stdio]
-    UV -- stdin/stdout JSON-RPC --> MC
+    UV[uvicorn + FastAPI<br/>dbfaq_api<br/>Oracle 接続プールを保持]
   end
   NG -->|http://api:8000| UV
   UV --> SQ[(SQLite<br/>/data/dbfaq.sqlite3<br/>ボリューム)]
-  MC -->|TCP 1521| ORA[(Oracle)]
+  UV -->|TCP 1521<br/>python-oracledb Thin| ORA[(Oracle)]
 ```
 
-* backend(`dbfaq_api`)は起動時(lifespan)に MCP サーバ(`dbfaq_mcp`)を **子プロセスとして 1 つだけ起動し、stdio セッションを張り続ける**。リクエストのたびに子プロセスを起動しない(Python の起動と Oracle 接続に 1〜2 秒かかるため)。ADR-001
-* MCP サーバは Oracle への接続プール(python-oracledb の非同期プール)を持つ。backend は Oracle に接続しない。
+* backend(`dbfaq_api`)が Oracle への接続プール(python-oracledb の非同期プール)を持ち、Oracle に直接問い合わせる。子プロセスは起動しない。ADR-014
+* ※CR-002により変更。以前は backend が MCP サーバ(`dbfaq_mcp`)を子プロセスとして起動し、stdio の MCP セッション経由で Oracle にアクセスしていた(旧 ADR-001)。
 * 開発時は frontend を Vite 開発サーバ(5173)、backend を uvicorn(8000)で動かす(§7)。
 
 呼び名の対応(※P011矛盾点#6にもとづき追加):
@@ -32,34 +30,30 @@ flowchart LR
 | --- | --- | --- |
 | frontend(React SPA / nginx) | `web` | `client/`、`deploy/web.Dockerfile`、`deploy/nginx.conf` |
 | backend(FastAPI) | `api` | `server/src/dbfaq_api` |
-| mcp-oracle(FastMCP サーバ) | `api` の子プロセス | `server/src/dbfaq_mcp` |
 
 ### 1.2 ソースツリー
 
 ```
 DbFAQ/
 ├── server/                       # Python(uv プロジェクト 1 つ)ADR-007
-│   ├── pyproject.toml            # 依存: fastapi, uvicorn, fastmcp, oracledb, sqlalchemy, pydantic, pyyaml / dev: pytest, pytest-asyncio, httpx, ruff
+│   ├── pyproject.toml            # 依存: fastapi, uvicorn, oracledb, sqlalchemy, pydantic, pyyaml / dev: pytest, pytest-asyncio, httpx, ruff
 │   ├── uv.lock
 │   ├── src/
-│   │   ├── dbfaq_common/         # backend と MCP サーバの共通部品
-│   │   │   ├── config.py         # config.yaml の読み込み(§2)
-│   │   │   └── logging.py        # JSON ログ
-│   │   ├── dbfaq_mcp/            # MCP サーバ
-│   │   │   ├── __main__.py       # python -m dbfaq_mcp(stdio で起動)
-│   │   │   ├── server.py         # FastMCP インスタンスとツール登録
-│   │   │   ├── db.py             # 接続プール、読み取り専用トランザクション
-│   │   │   ├── errors.py         # ツールエラー(コード付き)
-│   │   │   ├── identifiers.py    # 識別子の検証・クォート
-│   │   │   ├── dictionary.py     # データディクショナリの問い合わせ(Q-00〜Q-05。§3.5)※P011矛盾点#2にもとづき修正
-│   │   │   ├── snapshot.py       # 問い合わせ結果 → スナップショット JSON
-│   │   │   ├── type_format.py    # data_type_display の組み立て
-│   │   │   ├── rows.py           # テーブルデータのページ取得
-│   │   │   └── values.py         # セル値の表示用文字列化
-│   │   └── dbfaq_api/            # backend
+│   │   └── dbfaq_api/            # backend(※CR-003により dbfaq_common を統合して 1 パッケージ)
 │   │       ├── main.py           # create_app()、lifespan、例外ハンドラ
+│   │       ├── config.py         # config.yaml の読み込み(§2)※CR-003により dbfaq_common から移設
+│   │       ├── log.py            # JSON ログ、パスワードのマスク(§4.5)※CR-003により dbfaq_common/logging.py から移設・改名
 │   │       ├── errors.py         # ApiError とエラーコード
-│   │       ├── mcp_gateway.py    # MCP クライアント(stdio セッションの維持・再接続)
+│   │       ├── oracle/           # Oracle アクセス(§3)※CR-002により dbfaq_mcp から移設
+│   │       │   ├── client.py     # OracleClient(スキーマの読み取り・テーブルデータ・疎通確認の入口)
+│   │       │   ├── db.py         # 接続プール、読み取り専用トランザクション
+│   │       │   ├── errors.py     # OracleFailure(コード付き)
+│   │       │   ├── identifiers.py # 識別子の検証・クォート
+│   │       │   ├── dictionary.py # データディクショナリの問い合わせ(Q-00〜Q-05。§3.5)
+│   │       │   ├── snapshot.py   # 問い合わせ結果 → スナップショット
+│   │       │   ├── type_format.py # data_type_display の組み立て
+│   │       │   ├── rows.py       # テーブルデータのページ取得
+│   │       │   └── values.py     # セル値の表示用文字列化
 │   │       ├── db.py             # SQLAlchemy エンジン、PRAGMA
 │   │       ├── migrate.py        # マイグレーション実行(§5)
 │   │       ├── migrations/0001_init.sql
@@ -76,7 +70,9 @@ DbFAQ/
 └── docs/
 ```
 
-* P001 §3.3 は「uv ワークスペース」を想定していたが、backend と MCP サーバは同じコンテナ・同じ依存で動くため、1 つの uv プロジェクトに 3 つのパッケージを置く形にした(P001 も同様に更新済み)。ADR-007
+* 1 つの uv プロジェクトに 1 つのパッケージ(`dbfaq_api`)を置く。ADR-007(※CR-002により `dbfaq_mcp` を削除して 3 → 2 パッケージ。※CR-003により `dbfaq_common` を `dbfaq_api` に統合して 2 → 1 パッケージ)
+  * ログのモジュール名は `log.py` とする。パッケージ内で標準ライブラリの `logging` と同じ名前にしないため(CR-003)。
+  * ※CR-003により撤回: CR-002 で「`dbfaq_common` を分けたまま残す」とした ★ACCEPTED★(2026-09-27 人間承認)は、依頼者が統合を指示したため撤回した(統合前の記述は `docs/P001-requirement-old/` と Git の履歴を参照)。
 * SQLite へのアクセスは SQLAlchemy **Core**(`Table` 定義と SQL 式)を使う。ORM のオブジェクト対応は使わない。スナップショットは一括削除・一括挿入が中心で、ORM の変更追跡が要らないため。ADR-008
 
 ## 2. 設定ファイル
@@ -100,10 +96,11 @@ oracle:
 app:
   sqlite_path: ./data/dbfaq.sqlite3
   log_level: INFO
-  mcp_call_timeout_sec: 90   # backend が MCP ツールの応答を待つ上限(query_timeout_sec より長くする)
 ```
 
-### 2.2 読み込み規則(`dbfaq_common/config.py`)
+* ※CR-002により `app.mcp_call_timeout_sec`(backend が MCP ツールの応答を待つ上限)を廃止した。既存の `config.yaml` に残っていても無視する(pydantic の既定で未知の項目は無視される)。
+
+### 2.2 読み込み規則(`dbfaq_api/config.py`。※CR-003により `dbfaq_common/config.py` から移設)
 
 | 項目 | 規則 |
 | --- | --- |
@@ -112,19 +109,19 @@ app:
 | 型チェック | pydantic モデル `AppConfig`。必須: host, port, service_name, user, password。port は 1〜65535、各タイムアウトは 1〜600、pool_min ≥ 1、pool_max ≥ pool_min |
 | 不正時 | 起動時に例外(どの項目が不正かを表示。パスワードの値は表示しない)で終了する |
 | パスワード | `SecretStr` で持ち、`repr`・ログに出さない |
-| 受け渡し | backend は MCP の子プロセスを起動するとき、同じ `DBFAQ_CONFIG` と上書き用の環境変数を引き継ぐ(子プロセスが同じ設定を読む) |
 
-## 3. MCP サーバ(`dbfaq_mcp`)
+## 3. Oracle アクセス(`dbfaq_api/oracle`)
+
+※CR-002により「MCP サーバ(`dbfaq_mcp`)」から変更。発行する SQL・読み取り専用トランザクション・識別子の扱い・値の表示形式は変えず、MCP のツールだったものを backend のプロセス内の関数として呼ぶ。
 
 ### 3.1 共通
 
-* FastMCP(4.x)で実装し、`python -m dbfaq_mcp` で stdio トランスポートで起動する。
-* ログは標準エラー出力へ JSON で出す(標準出力は MCP の通信路のため、決して print しない)。
 * python-oracledb は Thin モード。`oracledb.defaults.fetch_decimals = True`(NUMBER を Decimal で受け取り、精度を落とさない)、`oracledb.defaults.fetch_lobs = False`(CLOB は str、BLOB は bytes で受け取る)。
   * ★ACCEPTED★ `fetch_lobs=False` は LOB 全体をメモリに読み込む。DBMS_LOB.SUBSTR で SQL 側で切り詰める方法も検討したが、`SELECT *` の列ごとに型を見て SQL を組み立て直す必要があり複雑になる。1 ページ最大 500 行 × LOB 列の大きさがメモリ量の上限になる。巨大な LOB を持つテーブルでは、limit を小さくして使うことで回避する。
-* 接続プールは最初のツール呼び出しで作る(`oracledb.create_pool_async`、`min=pool_min`、`max=pool_max`、`tcp_connect_timeout=connect_timeout_sec`、`getmode=POOL_GETMODE_TIMEDWAIT`、`wait_timeout=connect_timeout_sec×1000`)。Oracle が落ちていても MCP サーバ自体は起動できる。
-  * `getmode` の既定(WAIT)では、Oracle に接続できない間 `acquire` が戻らず、backend の待ち時間(`mcp_call_timeout_sec`)まで待たされる(2026-09-23 に最小再現で確認)。TIMEDWAIT にして `DPY-4005` で早く失敗させる。※P202 F006 にもとづき明確化
-* 各ツールは接続を借りたら `call_timeout = query_timeout_sec * 1000` を設定し、**読み取り専用トランザクション**の中で実行する(`../OracleSearchMCP` の `withReadOnlyTransaction` を踏襲):
+* 接続プールは最初の Oracle アクセスで作る(`oracledb.create_pool_async`、`min=pool_min`、`max=pool_max`、`tcp_connect_timeout=connect_timeout_sec`、`getmode=POOL_GETMODE_TIMEDWAIT`、`wait_timeout=connect_timeout_sec×1000`)。Oracle が落ちていても backend は起動できる。プールは lifespan の終了時に閉じる。
+  * ★ACCEPTED★(2026-09-27 人間承認) Oracle のリスナーに届かない間は、python-oracledb 26.0.0 のプールの `close(force=True)` が約 2 分戻らない(2026-09-27 に最小再現で確認。`docs/ArchitectureHandbook.md` §9)。close の待ち時間を `connect_timeout_sec` で打ち切り、時間切れならプールを捨てる。検討: 打ち切らない/不採用理由: api の停止・再起動が止まる(docker の停止猶予を超えて強制終了になる)/残存リスク: 打ち切ったときに閉じ切らない接続が残りうるが、プロセスの終了時なので OS が片付ける。§3.8 で避けた「処理の取り消し」と違い、ここは以後プールを使わないため接続の状態が壊れても影響しない。※P202 F008 にもとづき追加
+  * `getmode` の既定(WAIT)では、Oracle に接続できない間 `acquire` が戻らず、リクエストが返らなくなる(2026-09-23 に最小再現で確認)。TIMEDWAIT にして `DPY-4005` で早く失敗させる。※P202 F006 にもとづき明確化(※CR-002により「backend の待ち時間(`mcp_call_timeout_sec`)まで待たされる」を変更)
+* 各処理は接続を借りたら `call_timeout = query_timeout_sec * 1000`(疎通確認は §3.8 の 5 秒)を設定し、**読み取り専用トランザクション**の中で実行する(`../OracleSearchMCP` の `withReadOnlyTransaction` を踏襲):
 
 ```python
 async with pool.acquire() as conn:
@@ -141,11 +138,7 @@ async with pool.acquire() as conn:
 
 ### 3.2 エラー
 
-ツールは失敗時に `fastmcp.exceptions.ToolError` を送出する。メッセージは次の JSON 文字列とする(backend がこれを解析する)。
-
-```json
-{"code": "ORACLE_ERROR", "message": "ORA-00942: table or view does not exist", "ora_code": "ORA-00942"}
-```
+Oracle アクセスの処理は、失敗時に例外 `OracleFailure(code, message, ora_code)` を送出する。API 層(§4.1)がこれを API エラーに変換する。※CR-002により「`fastmcp.exceptions.ToolError` に JSON 文字列を入れて送出し、backend が解析する」から変更
 
 | code | 条件 |
 | --- | --- |
@@ -153,13 +146,15 @@ async with pool.acquire() as conn:
 | `NOT_FOUND` | 指定のスキーマ(ALL_USERS に無い)・テーブル(ALL_TABLES に無い)が見つからない |
 | `ORACLE_TIMEOUT` | `DPY-4024`、`ORA-01013`、`ORA-03156`、またはメッセージに `timed out` を含む `DPY-4011` |
 | `ORACLE_ERROR` | 上記以外の `oracledb.Error`。`ora_code` は `err.full_code`(例 `ORA-00942`、`DPY-6005`) |
-| `INTERNAL_ERROR` | その他の例外。メッセージは固定文言、詳細は標準エラー出力のログのみ |
+
+* python-oracledb は、ホスト名を解決できないときなどに `oracledb.Error` ではなく `OSError`(`socket.gaierror` など)をそのまま送出する(2026-09-27 実機確認)。`run_readonly` はこれも変換する: `TimeoutError` → `ORACLE_TIMEOUT`、その他の `OSError` → `ORACLE_ERROR`(ora_code なし、message「Oracle に接続できません: …」)。※P202 F007 にもとづき追加
+* `OracleFailure` 以外の想定外の例外はそのまま送出し、API の例外ハンドラ(§4.4)が 500 `INTERNAL_ERROR` にする(詳細はログのみ)。※CR-002により `INTERNAL_ERROR` のコードを Oracle アクセス側から削除
 
 メッセージにパスワードを含めない(python-oracledb のエラーは接続文字列のパスワードを含まないが、念のため設定のパスワード文字列が含まれていたら `***` に置き換える)。
 
 ### 3.3 識別子の検証(`identifiers.py`)
 
-* 引数の `owner`・`table` は、辞書に格納された値そのまま(大文字小文字を区別)で受け取る。
+* 引数(API のパスから渡される値)の `owner`・`table` は、辞書に格納された値そのまま(大文字小文字を区別)で受け取る。
 * 検証: 1〜128 文字、NUL 文字と `"` を含まない。違反は `INVALID_ARGUMENT`。
 * SQL に埋め込むときは必ず `"` で囲む(`quote("EMPLOYEES") → "\"EMPLOYEES\""`)。埋め込む前に ALL_TABLES で実在確認する(二重の防御)。
 
@@ -176,7 +171,7 @@ ALL_TAB_COLUMNS の値から `data_type_display` を作る。
 | RAW | `RAW(n)`(n は DATA_LENGTH) |
 | それ以外(DATE、TIMESTAMP(6)、CLOB、BLOB など) | DATA_TYPE そのまま |
 
-### 3.5 ツール `get_schema_snapshot`
+### 3.5 スキーマの読み取り `OracleClient.get_schema_snapshot`(※CR-002により「ツール」から変更)
 
 * 引数: `owner: str | None = None`(省略時は `oracle.schema`、それも無ければ接続ユーザー)
 * 処理(1 つの読み取り専用トランザクション内):
@@ -191,7 +186,7 @@ ALL_TAB_COLUMNS の値から `data_type_display` を作る。
 | Q-05 | `ALL_IND_EXPRESSIONS` — `TABLE_OWNER=:owner` | 関数索引の式。該当する列位置の列名(`SYS_NC...`)を式の文字列に置き換える |
 | Q-06 | `SELECT BANNER_FULL FROM V$VERSION` は権限が要るため使わず、`conn.version` を使う | Oracle のバージョン |
 
-* 戻り値(JSON):
+* 戻り値(dict。SQLite への保存にそのまま使う):
 
 ```json
 {
@@ -214,7 +209,7 @@ ALL_TAB_COLUMNS の値から `data_type_display` を作る。
 * `data_default` は LONG 型。文字列として受け取り、前後の空白・改行を取り除く。空なら null。
 * 大きなスキーマでも問い合わせ回数は Q-00〜Q-05 の 6 回で固定(テーブルごとに問い合わせない)。
 
-### 3.6 ツール `get_table_rows`
+### 3.6 テーブルデータの取得 `OracleClient.get_table_rows`(※CR-002により「ツール」から変更)
 
 * 引数: `owner: str`, `table: str`, `offset: int = 0`(0〜100,000), `limit: int = 50`(1〜500)
 * 処理(1 つの読み取り専用トランザクション内):
@@ -244,46 +239,51 @@ P002 §3.6 の表のとおり。実装上の規則:
 | `bytes` | 先頭 32 バイトを `0x` + 大文字 16 進。32 バイトを超えたら `…`、truncated に記録 |
 | その他 | `str(v)` を 1,000 文字で切る |
 
-### 3.8 ツール `ping`
+### 3.8 疎通確認 `OracleClient.ping`(※CR-002により「ツール」から変更)
 
 * 引数: なし
-* 処理: 読み取り専用トランザクションで `SELECT USER, SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL`
+* 処理: 読み取り専用トランザクションで `SELECT USER, SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL`。`call_timeout` は 5 秒(`HEALTH_TIMEOUT_SEC`)とする(`/api/health` が長く待たないように。以前は backend が MCP の呼び出しを 5 秒で打ち切っていた)
 * 戻り値: `{"version": "23.26.3.0.0", "user": "HR", "current_schema": "HR"}`
+* ★ACCEPTED★(2026-09-27 人間承認) Oracle に接続できないときの待ち時間は、接続の確立(`tcp_connect_timeout`・プールの `wait_timeout` = `connect_timeout_sec`、既定 10 秒)で決まり、5 秒を超えうる。検討: `asyncio.wait_for` で全体を 5 秒で打ち切る/不採用理由: python-oracledb の非同期処理を途中で取り消すと、通信の途中の接続がプールに戻りうる(接続の状態が壊れる)ため、ドライバ自身のタイムアウトに任せる/残存リスク: Oracle のホストに届かない(応答が無い)とき、health の応答に最大で `connect_timeout_sec` 程度かかる(接続拒否のときはすぐ返る)
+
+### 3.9 `OracleClient`(`client.py`)※CR-002により追加
+
+* §3.5・§3.6・§3.8 の 3 つの処理の入口をまとめたクラス。`Database`(§3.1 の接続プール)を 1 つ持ち、`get_schema_snapshot(owner)`、`get_table_rows(owner, table, offset, limit)`、`ping()`、`close()` を持つ。
+* backend は lifespan の開始時に 1 つ作って `SchemaService` に渡し、終了時に `close()`(プールを閉じる)する。
+* 単体テストでは、同じメソッドを持つ偽物(`OracleAccess` プロトコル)を `create_app(oracle=...)` で渡す。
 
 ## 4. backend(`dbfaq_api`)
 
-### 4.1 MCP ゲートウェイ(`mcp_gateway.py`)
+### 4.1 Oracle アクセスの呼び出しとエラー変換(※CR-002により「MCP ゲートウェイ(`mcp_gateway.py`)」から変更)
 
 | 項目 | 内容 |
 | --- | --- |
-| 接続 | `fastmcp.Client(StdioTransport(command=sys.executable, args=["-m", "dbfaq_mcp"], env=親の環境変数 + DBFAQ_CONFIG))`。lifespan の開始時に接続を試みる(失敗しても backend は起動を続ける) |
-| 呼び出し | `async call(tool, args) -> dict`。`client.call_tool(tool, args, timeout=mcp_call_timeout_sec, raise_on_error=False)` を呼び、`is_error` なら §3.2 の JSON を解析して `McpToolError(code, message, ora_code)` を送出する。解析できなければ `INTERNAL_ERROR` |
-| 同時実行 | 1 つのセッション上で複数の呼び出しを並行させてよい(MCP の JSON-RPC は要求 ID で対応付けるため)。MCP サーバ側のツールは async で、Oracle 接続はプールで並行する |
-| 再接続 | 子プロセスの終了・通信エラー(`McpError`、`ClosedResourceError`、`BrokenPipeError`、接続タイムアウト等)を検出したら、そのセッションを閉じて `MCP_UNAVAILABLE` を返し、**次の呼び出しで起動し直す**。起動し直しは `asyncio.Lock` で 1 つにまとめる。起動に 10 秒以上かかったら `MCP_UNAVAILABLE` |
-| 終了 | lifespan の終了時にセッションを閉じる(子プロセスも終わる) |
-| テスト用の差し替え | `create_app(gateway=...)` で任意のゲートウェイ(偽物)を渡せるようにする。単体テストは偽物を使う |
+| 呼び出し | `SchemaService` が `OracleClient`(§3.9)のメソッドを直接 `await` する。子プロセス・セッションは無い |
+| 同時実行 | 各処理は async で、Oracle 接続はプール(`pool_max`、既定 4)で並行する。プールが埋まっているときは `wait_timeout` まで待ち、超えたら `ORACLE_ERROR`(`DPY-4005`) |
+| Oracle が戻ったとき | プールは接続を借りるときに壊れた接続を捨てて作り直すため、Oracle が再起動しても backend の再起動は要らない。接続できない間の失敗は `ORACLE_ERROR`/`ORACLE_TIMEOUT` になる |
+| 終了 | lifespan の終了時に `OracleClient.close()` でプールを閉じる |
+| テスト用の差し替え | `create_app(oracle=...)` で偽物を渡せるようにする。単体テストは偽物を使う |
 
-MCP のツールエラーから API エラーへの対応:
+`OracleFailure` の code から API エラーへの対応:
 
-| MCP の code | API の code / HTTP |
+| `OracleFailure` の code | API の code / HTTP |
 | --- | --- |
 | `ORACLE_ERROR` | `ORACLE_ERROR` / 502(`ora_code` を引き継ぐ) |
 | `ORACLE_TIMEOUT` | `ORACLE_TIMEOUT` / 504 |
 | `NOT_FOUND`(rows のとき) | `ORACLE_ERROR` / 502、`ora_code`: `ORA-00942`、message: 「テーブルが Oracle 上に見つかりません(削除された可能性があります)」 |
 | `NOT_FOUND`(refresh のとき) | `ORACLE_ERROR` / 502、message: 「スキーマ {owner} が見つかりません」 |
 | `INVALID_ARGUMENT` | `VALIDATION_ERROR` / 422 |
-| `INTERNAL_ERROR`、解析不能 | `INTERNAL_ERROR` / 500 |
-| (通信不能・起動失敗) | `MCP_UNAVAILABLE` / 503 |
-| (backend 側の待ち時間超過) | `ORACLE_TIMEOUT` / 504 |
+| (`OracleFailure` 以外の例外) | `INTERNAL_ERROR` / 500(§4.4 の例外ハンドラ) |
+
+※CR-002により「(通信不能・起動失敗)→ `MCP_UNAVAILABLE` / 503」「(backend 側の待ち時間超過)→ `ORACLE_TIMEOUT` / 504」「解析不能 → `INTERNAL_ERROR`」の行を削除(MCP の通信が無くなったため)。
 
 ### 4.2 状態の保持
 
 | 状態 | スコープ | 実現方法 |
 | --- | --- | --- |
 | スキーマのスナップショット | システム(永続) | SQLite(§5) |
-| MCP セッション | アプリケーション(プロセス) | `app.state.gateway`(メモリ) |
-| 再読み込みの実行中フラグ | アプリケーション(プロセス) | `asyncio.Lock`。`locked()` なら 409 を返す。uvicorn は 1 ワーカーで動かす前提(複数ワーカーにすると MCP 子プロセスもワーカーごとに増え、ロックも効かない)★ACCEPTED★(2026-09-24 人間承認)検討: 複数ワーカー/承認理由: 利用規模に 1 ワーカーで足りる(ADR-001)/残存リスク: 特になし |
-| Oracle の接続プール | MCP サーバのプロセス | python-oracledb の非同期プール |
+| 再読み込みの実行中フラグ | アプリケーション(プロセス) | `asyncio.Lock`。`locked()` なら 409 を返す。uvicorn は 1 ワーカーで動かす前提(複数ワーカーにするとロックが効かず、Oracle の接続プールもワーカーごとに増える)★ACCEPTED★(2026-09-24 人間承認)検討: 複数ワーカー/承認理由: 利用規模に 1 ワーカーで足りる(ADR-014)/残存リスク: 特になし(※CR-002により「MCP 子プロセスもワーカーごとに増え」を変更) |
+| Oracle の接続プール | アプリケーション(backend のプロセス) | python-oracledb の非同期プール。`OracleClient` が持つ(※CR-002により「MCP サーバのプロセス」から変更) |
 
 ### 4.3 各 API の内部処理
 
@@ -297,8 +297,8 @@ MCP のツールエラーから API エラーへの対応:
 **`POST /api/schema/refresh`**
 
 1. `refresh_lock.locked()` なら 409 `REFRESH_IN_PROGRESS`。
-2. ロックを取り、`gateway.call("get_schema_snapshot", {"owner": 設定の schema})`。
-3. 結果を pydantic モデルで検証(想定外の形なら 500)。
+2. ロックを取り、`oracle.get_schema_snapshot(設定の schema)`。
+3. ※CR-002により「結果を pydantic モデルで検証(想定外の形なら 500)」を削除。プロセス間の境界が無くなり、スナップショットは同じプロセスの §3.5 が組み立てるため。
 4. `snapshot_repo.replace(snapshot)` — 1 トランザクション(`BEGIN IMMEDIATE`)で `DELETE FROM snapshots WHERE owner=?`(CASCADE で子も消える)→ 全行を `executemany` で挿入 → COMMIT。途中で失敗したら ROLLBACK(前回のスナップショットが残る)。ADR-003
 5. 200 で `snapshot` を返す。ログに件数と所要時間を INFO で出す。
 
@@ -312,14 +312,14 @@ MCP のツールエラーから API エラーへの対応:
 
 1. `offset`(0〜100,000、既定 0)・`limit`(1〜500、既定 50)を検証。違反は 422。
 2. スナップショットで実在確認(無ければ 404)。
-3. `gateway.call("get_table_rows", {...})`。結果に `owner`・`table` を加えて返す。
+3. `oracle.get_table_rows(owner, table, offset, limit)`。結果に `owner`・`table` を加えて返す。
 
 **`GET /api/health`**
 
-1. `gateway.call("ping", {}, timeout=5 秒)`。成功なら mcp=ok、oracle=ok。
-2. `MCP_UNAVAILABLE` なら mcp=error、oracle=error(「MCP サーバに接続できないため確認できません」)。
-3. `ORACLE_ERROR`/`ORACLE_TIMEOUT` なら mcp=ok、oracle=error(message にエラー)。
-4. `config` は設定から(パスワードを除く)。常に 200。
+1. `oracle.ping()`(§3.8。問い合わせの上限 5 秒)。成功なら oracle=ok。
+2. `OracleFailure`(`ORACLE_ERROR`/`ORACLE_TIMEOUT`)なら oracle=error(message にエラー)。想定外の例外でも、ログに出して oracle=error(message「内部エラーが発生しました」)とする(※P202 F007 にもとづき追加)。
+3. `config` は設定から(パスワードを除く)。常に 200。
+4. ※CR-002により mcp の状態(MCP_UNAVAILABLE のときの mcp=error)を削除。
 
 ### 4.4 例外ハンドラ
 
@@ -329,8 +329,9 @@ MCP のツールエラーから API エラーへの対応:
 
 ### 4.5 ログ
 
-* 形式: 1 行 1 JSON(`ts`, `level`, `logger`, `msg`, 任意の追加項目)。backend は標準出力、MCP サーバは標準エラー出力。MCP 子プロセスの標準エラー出力は backend のコンテナログにそのまま流れる(StdioTransport は子プロセスの stderr を親に引き継ぐ)。
-* 出すもの: リクエスト(メソッド、パス、ステータス、所要時間)、refresh の開始・終了(件数、所要時間)、MCP の再接続、Oracle のエラー(ora_code)。
+* 形式: 1 行 1 JSON(`ts`, `level`, `logger`, `msg`, 任意の追加項目)。標準出力へ出す。
+* 出すもの: リクエスト(メソッド、パス、ステータス、所要時間)、refresh の開始・終了(件数、所要時間)、Oracle のエラー(ora_code)。
+* ※CR-002により MCP サーバのログ(標準エラー出力)と「MCP の再接続」を削除。
 * 出さないもの: パスワード、テーブルデータの中身。
 
 ## 5. SQLite とマイグレーション
@@ -369,15 +370,15 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | --- | --- | --- |
 | 性能: ER 図表示 | `GET /api/schema` は 4 回の SELECT で組み立て(§4.3)。レイアウトはブラウザ側(elkjs) | — |
 | 性能: 再読み込み | 辞書の問い合わせは 6 回で固定(§3.5) | — |
-| 性能: タイムアウト | `query_timeout_sec`(call_timeout)と `mcp_call_timeout_sec` | — |
-| 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成、MCP の接続失敗でも backend は起動)。MCP 子プロセスは次の呼び出しで起動し直す | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
+| 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除 | — |
+| 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
 | 可用性: バックアップ | SQLite は再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる | ボリュームの扱いは P302 の手順書 |
-| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、任意 SQL のツールを持たない、識別子の検証とクォート | 読み取り専用ユーザーの作成手順は P302 の手順書 |
+| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、任意 SQL を実行する機能を持たない、識別子の検証とクォート | 読み取り専用ユーザーの作成手順は P302 の手順書 |
 | セキュリティ: 公開範囲 | backend は nginx からのみ呼ばれる前提で CORS を設定しない | ホストに公開するのは web コンテナのポートだけにする構成は **P005・P302** |
 | セキュリティ: TLS | アプリは HTTP のみ。TLS 終端は運用環境のリバースプロキシで行う前提 | **P302**(手順書に前提として記載) |
 | セキュリティ: パスワード | `SecretStr`、ログ・API に出さない、`config.yaml` を Git 管理外 | イメージに含めない(マウント)構成は **P005・P302** |
 | スケーラビリティ | uvicorn 1 ワーカー、SQLite WAL、refresh の排他 | — |
-| ログ・監視 | JSON ログを標準出力・標準エラー出力へ。`/api/health` | `docker compose logs` での確認手順と外部監視からの `/api/health` 利用は **P302** |
+| ログ・監視 | JSON ログを標準出力へ。`/api/health` | `docker compose logs` での確認手順と外部監視からの `/api/health` 利用は **P302** |
 
 ## 7. 開発時・テスト時のオリジン(CORS)方針 ADR-004
 
@@ -390,11 +391,11 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 
 | ADR | 決定 | 本書の箇所 |
 | --- | --- | --- |
-| ADR-001 | MCP サーバを backend の子プロセスとして stdio で 1 つ起動し、セッションを維持する | §1.1、§4.1 |
 | ADR-002 | SQLite のマイグレーションは管理テーブル付きの差分適用 | §5.2 |
 | ADR-003 | スナップショットはスキーマごとに最新 1 件、1 トランザクションで置き換える | §4.3 |
 | ADR-004 | 同一オリジン(Vite proxy / nginx)で CORS を使わない | §7 |
-| ADR-005 | セル値は MCP サーバで表示用文字列にして返す(`fetch_decimals`、`fetch_lobs=False`) | §3.1、§3.7 |
+| ADR-005 | セル値は backend で表示用文字列にして返す(`fetch_decimals`、`fetch_lobs=False`) | §3.1、§3.7 |
 | ADR-006 | データタブは主キー順(無ければ ROWID 順)の OFFSET 方式、件数は数えない | §3.6 |
-| ADR-007 | Python は 1 つの uv プロジェクトに 3 パッケージ | §1.2 |
+| ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージ(CR-002 で 3 → 2、CR-003 で 2 → 1。※P011(CR-003)矛盾点#1にもとづき修正) | §1.2 |
 | ADR-008 | SQLite へは SQLAlchemy Core でアクセスする | §1.2 |
+| ADR-014 | backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない)。※CR-002により追加。旧 ADR-001(MCP サーバを子プロセスとして常駐)は廃止 | §1.1、§3、§4.1 |

@@ -1,6 +1,44 @@
 # P201 実装横断レビュー
 
-## 最新の判定(2 回目。P205 の再実施による)
+## 最新の判定(CR-003 の 1 回目)
+
+* 実行回数: CR-003 の 1 回目
+* P008: 単体 + T01〜T04・T06〜T09 を 2 回続けて 144 passed、T10〜T12 PASS(`docs/test-records/20260927-2358-test-record.md`)
+* P009: A01〜A08 PASS(スイートを 2 回続けて実行し結果が同一。`docs/test-records/20260928-0001-test-record.md`)
+
+**判定: 全件 PASS。Closing(P301〜)へ進む(P202〜P205 は不要)。**
+
+---
+
+## CR-002 の 2 回目の判定(P205 の再実施による)
+
+* 実行回数: CR-002 の 2 回目(1 回目の差し戻し → P202〜P205(F007・F008)の後)
+* P008: T01〜T04・T06〜T12 PASS(T05 は廃止)。単体 + 結合の pytest は 2 回続けて 144 passed
+* P009: A01〜A08 PASS(スイートを 2 回続けて実行し結果が同一)
+* 記録: `docs/test-records/20260927-0244-test-record.md`
+
+**判定: 全件 PASS。Closing(P301〜)へ進む。**
+
+---
+
+## CR-002 の 1 回目の判定
+
+* 実行回数: CR-002 の 1 回目(Refactor 経由のため CR ごとに数える)
+* P008: T01〜T04・T06〜T12 PASS(T05 は CR-002 で廃止)。pytest の結合テストは 2 回続けて同じ結果(`docs/test-records/20260927-0233-test-record.md`)
+* P009: A01・A02・A04〜A06・A08 PASS、**A03 FAIL**、A07 未実施(`docs/test-records/20260927-0238-test-record.md`)
+
+| # | 種別 | 内容 | 対応 |
+|---|---|---|---|
+| 1 | FAIL(A03 手順 1) | ホスト名を解決できないとき `/api/health` が 500。python-oracledb が `socket.gaierror`(`OSError`)をそのまま送出し、`run_readonly` が `OracleFailure` に変換しない。refresh・rows も同じ原因で 502 でなく 500 になる。health は P002 §3.7 の「常に 200」を満たさない | P202 へ(F007) |
+| 2 | 所見(T08) | Oracle のリスナーに届かない間、接続プールの `close` が約 2 分戻らず、api の停止・再起動が止まる(python-oracledb の挙動。`docs/ArchitectureHandbook.md` §9) | P202 へ(F008) |
+
+**判定: 失敗あり。P202(修正計画)へ差し戻す。**
+
+---
+
+# CR-002 より前の判定(履歴)
+
+## 2 回目の判定(P205 の再実施による)
 
 * 実行回数: 2 回目(1 回目の差し戻し → P202〜P205 の後)
 * P008: T01〜T12 すべて PASS(T01〜T09 は 2 回続けて 17 passed)

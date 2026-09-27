@@ -4,7 +4,7 @@
 
 ## 【目的】
 
-* compose で起動した web(nginx)→ api(FastAPI)→ MCP 子プロセス → Oracle(ホスト上)の連携と、公開範囲の構成を確認する。
+* compose で起動した web(nginx)→ api(FastAPI)→ Oracle(ホスト上)(※CR-002により MCP 子プロセスを削除)の連携と、公開範囲の構成を確認する。
 
 ## 【参照テスト計画】
 

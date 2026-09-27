@@ -126,7 +126,6 @@ export interface RowsPage {
 export interface Health {
   status: 'ok' | 'degraded'
   backend: { status: string; version: string }
-  mcp: { status: 'ok' | 'error'; message: string | null }
   oracle: { status: 'ok' | 'error'; version: string | null; user: string | null; message: string | null }
   config: {
     host: string

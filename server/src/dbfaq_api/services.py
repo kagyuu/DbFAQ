@@ -8,15 +8,12 @@ import logging
 import time
 from typing import Any
 
-from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
-from dbfaq_common.config import AppConfig
-
 from . import __version__
+from .config import AppConfig
 from .errors import (
     INTERNAL_ERROR,
-    MCP_UNAVAILABLE,
     ORACLE_ERROR,
     ORACLE_TIMEOUT,
     REFRESH_IN_PROGRESS,
@@ -24,41 +21,34 @@ from .errors import (
     TABLE_NOT_FOUND,
     VALIDATION_ERROR,
     ApiError,
-    McpToolError,
-    McpUnavailable,
 )
-from .mcp_gateway import Gateway
-from .schemas import McpSnapshot
+from .oracle import errors as oracle_errors
+from .oracle.client import OracleAccess
+from .oracle.errors import OracleFailure
 from .snapshot_repo import SnapshotRepository
 
 logger = logging.getLogger(__name__)
 
-HEALTH_TIMEOUT_SEC = 5
 
-
-def _mcp_to_api(e: McpToolError, context: str, owner: str = "", table: str = "") -> ApiError:
-    """MCP のツールエラーを API エラーに変換する(P003 §4.1 の表)。"""
-    if e.code == "ORACLE_ERROR":
+def _to_api_error(e: OracleFailure, context: str, owner: str = "") -> ApiError:
+    """Oracle アクセスのエラーを API エラーに変換する(P003 §4.1 の表)。"""
+    if e.code == oracle_errors.ORACLE_ERROR:
         return ApiError(ORACLE_ERROR, e.message, e.ora_code)
-    if e.code == "ORACLE_TIMEOUT":
+    if e.code == oracle_errors.ORACLE_TIMEOUT:
         return ApiError(ORACLE_TIMEOUT, e.message or "Oracle の応答がタイムアウトしました")
-    if e.code == "NOT_FOUND":
+    if e.code == oracle_errors.NOT_FOUND:
         if context == "rows":
             return ApiError(ORACLE_ERROR, "テーブルが Oracle 上に見つかりません(削除された可能性があります)", "ORA-00942")
         return ApiError(ORACLE_ERROR, f"スキーマ {owner} が見つかりません")
-    if e.code == "INVALID_ARGUMENT":
+    if e.code == oracle_errors.INVALID_ARGUMENT:
         return ApiError(VALIDATION_ERROR, e.message)
     return ApiError(INTERNAL_ERROR, "内部エラーが発生しました")
 
 
-def _unavailable(e: McpUnavailable) -> ApiError:
-    return ApiError(MCP_UNAVAILABLE, str(e) or "MCP サーバに接続できません")
-
-
 class SchemaService:
-    def __init__(self, repo: SnapshotRepository, gateway: Gateway, config: AppConfig, refresh_lock: asyncio.Lock):
+    def __init__(self, repo: SnapshotRepository, oracle: OracleAccess, config: AppConfig, refresh_lock: asyncio.Lock):
         self.repo = repo
-        self.gateway = gateway
+        self.oracle = oracle
         self.config = config
         self.refresh_lock = refresh_lock
 
@@ -75,16 +65,9 @@ class SchemaService:
         async with self.refresh_lock:
             started = time.perf_counter()
             try:
-                raw = await self.gateway.call("get_schema_snapshot", {"owner": self.owner})
-            except McpToolError as e:
-                raise _mcp_to_api(e, "refresh", owner=self.owner) from e
-            except McpUnavailable as e:
-                raise _unavailable(e) from e
-            try:
-                McpSnapshot.model_validate(raw)
-            except ValidationError as e:
-                logger.error("unexpected snapshot shape from MCP", extra={"error": str(e)})
-                raise ApiError(INTERNAL_ERROR, "内部エラーが発生しました") from e
+                raw = await self.oracle.get_schema_snapshot(self.owner)
+            except OracleFailure as e:
+                raise _to_api_error(e, "refresh", owner=self.owner) from e
             summary = await run_in_threadpool(self.repo.replace, raw)
             logger.info(
                 "schema refreshed",
@@ -114,31 +97,25 @@ class SchemaService:
     async def rows(self, owner: str, table: str, offset: int, limit: int) -> dict[str, Any]:
         await self._check_table(owner, table)
         try:
-            result = await self.gateway.call(
-                "get_table_rows", {"owner": owner, "table": table, "offset": offset, "limit": limit}
-            )
-        except McpToolError as e:
-            raise _mcp_to_api(e, "rows", owner=owner, table=table) from e
-        except McpUnavailable as e:
-            raise _unavailable(e) from e
+            result = await self.oracle.get_table_rows(owner, table, offset, limit)
+        except OracleFailure as e:
+            raise _to_api_error(e, "rows", owner=owner) from e
         return {"owner": owner, "table": table, **result}
 
     async def health(self, now: dt.datetime) -> dict[str, Any]:
         o = self.config.oracle
-        mcp: dict[str, Any] = {"status": "ok", "message": None}
         oracle: dict[str, Any] = {"status": "ok", "version": None, "user": None, "message": None}
         try:
-            pong = await self.gateway.call("ping", {}, timeout=HEALTH_TIMEOUT_SEC)
+            pong = await self.oracle.ping()
             oracle.update(version=pong.get("version"), user=pong.get("user"))
-        except McpUnavailable as e:
-            mcp = {"status": "error", "message": str(e)}
-            oracle.update(status="error", message="MCP サーバに接続できないため確認できません")
-        except McpToolError as e:
+        except OracleFailure as e:
             oracle.update(status="error", message=e.message)
+        except Exception:  # health は常に 200 で返す(P003 §4.3)
+            logger.exception("unexpected error in health check")
+            oracle.update(status="error", message="内部エラーが発生しました")
         return {
-            "status": "ok" if mcp["status"] == "ok" and oracle["status"] == "ok" else "degraded",
+            "status": "ok" if oracle["status"] == "ok" else "degraded",
             "backend": {"status": "ok", "version": __version__},
-            "mcp": mcp,
             "oracle": oracle,
             "config": {
                 "host": o.host,

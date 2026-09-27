@@ -1,87 +1,27 @@
 # ADR.md
 
 本プロジェクトで現在有効な設計判断を管理する。
-過去に廃止された設計判断は `ADR_master.md` に移動する(現時点で廃止された ADR は無い)。
+過去に廃止された設計判断は `ADR_master.md` に移動する(CR-002 で ADR-001 を廃止して移動した)。
 
 ## ADR 一覧
 
 | ADR | タイトル | 状態 |
 | --- | --- | --- |
-| ADR-001 | MCP サーバを backend の子プロセス(stdio)として常駐させる | 採用 |
 | ADR-002 | SQLite のマイグレーションは管理テーブル付きの差分適用とする | 採用 |
 | ADR-003 | スナップショットはスキーマごとに最新 1 件を 1 トランザクションで置き換える | 採用 |
 | ADR-004 | ブラウザからは同一オリジンで API を呼び、CORS を使わない | 採用 |
-| ADR-005 | テーブルデータのセル値は MCP サーバで表示用文字列にして返す | 採用 |
+| ADR-005 | テーブルデータのセル値は backend で表示用文字列にして返す | 採用 |
 | ADR-006 | データタブは主キー順(無ければ ROWID 順)の OFFSET 方式で取得し、件数を数えない | 採用 |
-| ADR-007 | Python は 1 つの uv プロジェクトに 3 パッケージを置く | 採用 |
+| ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージを置く | 採用 |
 | ADR-008 | SQLite へのアクセスには SQLAlchemy Core を使う | 採用 |
 | ADR-009 | フロントエンドは React 19 + TypeScript + Vite + Mantine + TanStack Query + React Router | 採用 |
 | ADR-010 | ER 図は React Flow(@xyflow/react)と elkjs で描く | 採用 |
 | ADR-011 | Oracle へは python-oracledb(Thin)で読み取り専用トランザクション内でのみアクセスする | 採用 |
 | ADR-012 | Docker Compose で web(nginx)と api の 2 サービス構成にし、api は公開しない | 採用 |
 | ADR-013 | 設定は YAML ファイル + 一部の環境変数上書きとし、パスワードは SecretStr で扱う | 採用 |
+| ADR-014 | backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない) | 採用 |
 
 状態は `採用` / `検討中` / `廃止` のいずれか。
-
-## ADR-001
-
-### タイトル
-
-MCP サーバを backend の子プロセス(stdio)として常駐させる
-
-### 状態
-
-採用
-
-### 日付
-
-2026-09-23
-
-### 関連要求
-
-* REQ-ARCH-001
-* REQ-ARCH-002
-
-### 背景
-
-Oracle へのアクセスはすべて MCP(FastMCP)経由にするよう人間から指示があり、トランスポートは当面 stdio でよいとされた。
-
-### 決定内容
-
-backend(FastAPI)が起動時に `python -m dbfaq_mcp` を子プロセスとして 1 つ起動し、fastmcp の Client で stdio セッションを維持する。通信不能を検出したらセッションを捨て、次の呼び出しで起動し直す。backend は Oracle に直接接続しない。
-
-### 理由
-
-* リクエストごとの子プロセス起動は Python の起動と Oracle 接続で 1〜2 秒かかる
-* 1 セッション上で JSON-RPC の要求 ID により並行呼び出しができる
-* MCP サーバを単体でも stdio 対応クライアントから使える
-
-### 検討した代替案
-
-#### リクエストごとに子プロセスを起動
-
-却下。理由: 応答が遅く、接続プールが効かない。
-
-#### MCP の HTTP トランスポート
-
-却下。理由: 人間の指示で第 1 リリースは stdio。将来 CR で追加。
-
-### 残存リスク
-
-uvicorn を複数ワーカーにすると子プロセスもワーカー数だけ増え、refresh の排他も効かない。1 ワーカー前提(ADR-012)。
-
-### 影響範囲
-
-* Backend
-* MCP サーバ
-
-### 関連成果物
-
-* `docs/P003-backend-spec.md` §1.1、§4.1
-
-### 備考
-
-なし
 
 ## ADR-002
 
@@ -165,7 +105,7 @@ SQLite のマイグレーションは管理テーブル付きの差分適用と�
 
 ### 決定内容
 
-refresh は MCP から全体を受け取ってから、1 トランザクションで同じ owner の旧スナップショットを削除(CASCADE)し新しいものを挿入する。履歴は持たない。
+refresh は Oracle から全体を読み取ってから(※CR-002により「MCP から全体を受け取ってから」を変更)、1 トランザクションで同じ owner の旧スナップショットを削除(CASCADE)し新しいものを挿入する。履歴は持たない。
 
 ### 理由
 
@@ -258,7 +198,7 @@ refresh は MCP から全体を受け取ってから、1 トランザクショ�
 
 ### タイトル
 
-テーブルデータのセル値は MCP サーバで表示用文字列にして返す
+テーブルデータのセル値は backend で表示用文字列にして返す
 
 ### 状態
 
@@ -271,7 +211,7 @@ refresh は MCP から全体を受け取ってから、1 トランザクショ�
 ### 関連要求
 
 * REQ-SCREEN-013
-* REQ-MCP-002
+* REQ-ORA-002
 
 ### 背景
 
@@ -279,7 +219,7 @@ NUMBER の精度、日付の形式、LOB・RAW を JSON で安全に運ぶ必要
 
 ### 決定内容
 
-python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、MCP サーバが P003 §3.7 の規則で文字列化(1,000 文字・32 バイトで切り詰め、truncated を記録)して返す。
+python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、backend(`dbfaq_api/oracle/values.py`)が P003 §3.7 の規則で文字列化(1,000 文字・32 バイトで切り詰め、truncated を記録)して返す。
 
 ### 理由
 
@@ -298,7 +238,7 @@ python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、MCP �
 
 ### 影響範囲
 
-* MCP サーバ
+* Backend
 
 ### 関連成果物
 
@@ -306,7 +246,7 @@ python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、MCP �
 
 ### 備考
 
-なし
+* 2026-09-27 CR-002 により、文字列化する場所を MCP サーバから backend に変更(規則は変えていない)。
 
 ## ADR-006
 
@@ -356,7 +296,7 @@ python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、MCP �
 
 ### 影響範囲
 
-* MCP サーバ
+* Backend(CR-002 で MCP サーバから変更)
 * Frontend
 
 ### 関連成果物
@@ -371,7 +311,7 @@ python-oracledb を `fetch_decimals=True`、`fetch_lobs=False` で使い、MCP �
 
 ### タイトル
 
-Python は 1 つの uv プロジェクトに 3 パッケージを置く
+Python は 1 つの uv プロジェクトに 1 パッケージを置く
 
 ### 状態
 
@@ -387,11 +327,11 @@ Python は 1 つの uv プロジェクトに 3 パッケージを置く
 
 ### 背景
 
-backend と MCP サーバは同じコンテナ・同じ依存で動き、設定読み込みとログを共有する。パッケージ管理は uv(人間の指示)。
+backend(API、Oracle アクセス、設定読み込み、ログ)を 1 つのコンテナ・同じ依存で動かす。パッケージ管理は uv(人間の指示)。
 
 ### 決定内容
 
-`server/` を 1 つの uv プロジェクト(hatchling、src レイアウト)とし、`dbfaq_common`・`dbfaq_mcp`・`dbfaq_api` を置く。Python 3.12。
+`server/` を 1 つの uv プロジェクト(hatchling、src レイアウト)とし、パッケージは `dbfaq_api` の 1 つだけにする(設定は `dbfaq_api/config.py`、ログは `dbfaq_api/log.py`)。Python 3.12。
 
 ### 理由
 
@@ -406,12 +346,11 @@ backend と MCP サーバは同じコンテナ・同じ依存で動き、設定�
 
 ### 残存リスク
 
-なし
+なし(CR-003 で `dbfaq_common` を統合し、CR-002 で残した「`dbfaq_common` の利用者が 1 つだけ」という残存リスクは解消した)
 
 ### 影響範囲
 
 * Backend
-* MCP サーバ
 * Build
 
 ### 関連成果物
@@ -420,7 +359,9 @@ backend と MCP サーバは同じコンテナ・同じ依存で動き、設定�
 
 ### 備考
 
-なし
+* 2026-09-27 CR-002 により `dbfaq_mcp` を削除し、3 パッケージから 2 パッケージに変更。
+* 2026-09-27 人間承認: 依頼者が、MCP の廃止に伴う本 ADR の変更(1 つの uv プロジェクトに `dbfaq_common`・`dbfaq_api` の 2 パッケージ)を承認し、確定の仕様とした。
+* 2026-09-27 CR-003 により `dbfaq_common` を `dbfaq_api` に統合し、2 パッケージから 1 パッケージに変更(依頼者の指示)。中心の決定「`server/` を 1 つの uv プロジェクトにする」は変わらないため、廃止せずに本 ADR を更新した。
 
 ## ADR-008
 
@@ -606,7 +547,7 @@ Oracle へは python-oracledb(Thin)で読み取り専用トランザクション
 
 ### 関連要求
 
-* REQ-MCP-004
+* REQ-ORA-004
 * REQ-NFR-004
 
 ### 背景
@@ -615,7 +556,7 @@ Oracle へは python-oracledb(Thin)で読み取り専用トランザクション
 
 ### 決定内容
 
-Thin モードの非同期プール。各ツールは接続ごとに `call_timeout` を設定し、`SET TRANSACTION READ ONLY` の後に実行して必ず ROLLBACK する。任意 SQL を受け付けるツールは作らず、識別子は検証・実在確認・クォートしてから埋め込む。
+Thin モードの非同期プール。各処理は接続ごとに `call_timeout` を設定し、`SET TRANSACTION READ ONLY` の後に実行して必ず ROLLBACK する。任意 SQL を受け付ける機能は作らず、識別子は検証・実在確認・クォートしてから埋め込む。
 
 ### 理由
 
@@ -628,7 +569,7 @@ Thin モードの非同期プール。各ツールは接続ごとに `call_timeo
 
 却下。理由: Instant Client が必要。
 
-#### 任意 SQL ツール
+#### 任意 SQL の実行
 
 却下。理由: 第 1 リリースの要求に無い(将来 CR)。
 
@@ -638,7 +579,7 @@ Thin モードの非同期プール。各ツールは接続ごとに `call_timeo
 
 ### 影響範囲
 
-* MCP サーバ
+* Backend
 
 ### 関連成果物
 
@@ -646,7 +587,7 @@ Thin モードの非同期プール。各ツールは接続ごとに `call_timeo
 
 ### 備考
 
-なし
+* 2026-09-27 CR-002 により、実行する場所を MCP サーバから backend に変更(「ツール」を「処理」「機能」に言い換え。方式は変えていない)。
 
 ## ADR-012
 
@@ -674,7 +615,7 @@ Docker Compose で web(nginx)と api の 2 サービス構成にし、api は公
 
 ### 決定内容
 
-web(nginx、ホストの 8088→80)と api(uvicorn 1 ワーカー + MCP 子プロセス、ポート非公開)。api は `config.yaml` を読み取り専用でマウントし、SQLite は名前付きボリューム `/data`。Oracle は compose に含めず、コンテナからは `host.docker.internal`(host-gateway)で接続する。両サービス `restart: unless-stopped`。
+web(nginx、ホストの 8088→80)と api(uvicorn 1 ワーカー、ポート非公開)。api は `config.yaml` を読み取り専用でマウントし、SQLite は名前付きボリューム `/data`。Oracle は compose に含めず、コンテナからは `host.docker.internal`(host-gateway)で接続する。両サービス `restart: unless-stopped`。
 
 ### 理由
 
@@ -701,7 +642,7 @@ web(nginx、ホストの 8088→80)と api(uvicorn 1 ワーカー + MCP 子プ�
 
 ### 備考
 
-なし
+* 2026-09-27 CR-002 により、api の構成から「MCP 子プロセス」を削除。
 
 ## ADR-013
 
@@ -747,7 +688,6 @@ Oracle の接続パラメータを設定ファイルに保持する(人間の指
 ### 影響範囲
 
 * Backend
-* MCP サーバ
 * Infra
 
 ### 関連成果物
@@ -756,4 +696,74 @@ Oracle の接続パラメータを設定ファイルに保持する(人間の指
 
 ### 備考
 
-なし
+* 2026-09-27 CR-002 により、影響範囲から MCP サーバを削除。設定項目 `app.mcp_call_timeout_sec` を廃止(残っていても無視する)。
+
+## ADR-014
+
+### タイトル
+
+backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない)
+
+### 状態
+
+採用
+
+### 日付
+
+2026-09-27
+
+### 関連要求
+
+* REQ-ARCH-001
+* REQ-ORA-001
+* REQ-ORA-002
+* REQ-ORA-003
+* REQ-NFR-003
+
+### 背景
+
+第 1 リリースでは人間の指示により Oracle へのアクセスをすべて MCP サーバ(FastMCP、stdio、backend の子プロセス)経由にしていた(旧 ADR-001)。CR-002 で依頼者が MCP は不要と判断し、backend への統合を指示した。
+
+### 決定内容
+
+backend(`dbfaq_api`)が `dbfaq_api/oracle` パッケージの `OracleClient` を 1 つ持ち、その中の python-oracledb の非同期接続プール(最初のアクセスで作る。lifespan の終了時に閉じる)で Oracle に直接問い合わせる。SQL・読み取り専用トランザクション・値の文字列化は旧 MCP サーバの実装をそのまま移す(ADR-005・ADR-006・ADR-011)。Oracle のエラーは例外 `OracleFailure` で API 層に渡し、API のエラーに変換する。python-oracledb が `oracledb.Error` に包まずに送出する接続の失敗(`OSError`)も `OracleFailure` に変換する(P202 F007)。プールの close は `connect_timeout_sec` で打ち切る(P202 F008)。uvicorn は 1 ワーカーで動かす。
+
+### 理由
+
+* 子プロセスの管理(起動・再起動・stdio の標準出力の扱い)、MCP のエラーの JSON 化と解析、MCP 用の設定・テストが不要になる
+* 1 回の呼び出しごとのプロセス間通信が無くなる
+* 接続プールの切れた接続は python-oracledb が借りるときに捨てて作り直すため、Oracle が戻れば backend を再起動せずに回復する(T09 で確認)
+
+### 検討した代替案
+
+#### MCP サーバを残し、backend だけ直接接続にする(MCP を単体の外部向けとして残す)
+
+却下。理由: 依頼者の指示は「MCP の部分は廃止」であり、単体利用を残す指示は無い。残すと同じ処理を 2 通りの入口で保守することになる。
+
+#### Oracle アクセスを同期ドライバ(スレッドプール)で行う
+
+却下。理由: 旧 MCP サーバの非同期実装をそのまま移せる。FastAPI の async と合う。
+
+### 残存リスク
+
+* uvicorn を複数ワーカーにすると refresh の排他(`asyncio.Lock`)が効かず、接続プールもワーカー数だけ増える。1 ワーカー前提(旧 ADR-001 から引き継ぎ。同時 10 名は A08 で確認)。
+* ★ACCEPTED★(2026-09-27 人間承認) health の疎通確認は、Oracle のホストに届かない(応答が無い)とき接続の確立の待ち時間(`connect_timeout_sec`)まで返らない(P003 §3.8)。検討・不採用理由・残存リスクは P003 §3.8 に記載。
+* ★ACCEPTED★(2026-09-27 人間承認) Oracle のリスナーに届かない間は python-oracledb のプールの close が約 2 分戻らないため、終了時は打ち切ってプールを捨てる。閉じ切らない接続はプロセスの終了で OS が片付ける(P003 §3.1)。
+* 子プロセスという境界が無くなったため、ドライバが送出する例外の種類とプールの終了処理の挙動がそのまま API と lifespan に現れる(CR-002 の P201 で F007・F008 として顕在化し、対処済み)。python-oracledb の版を上げるときは、T08・T09・A03 で同じ挙動を確かめる。
+
+### 影響範囲
+
+* Backend
+* Infra
+* Test
+
+### 関連成果物
+
+* `docs/P003-backend-spec.md` §1.1、§3、§4.1、§4.2
+* `docs/P007-impl-direction/U007-oracle-in-backend.md`
+
+### 備考
+
+* 旧 ADR-001 を置き換える(`docs/ADR_master.md`)。
+* 2026-09-27 P905 で、P202 F007・F008 の決定を決定内容と残存リスクに追記した。
+* 2026-09-27 人間承認: 依頼者が本 ADR の採用を承認し、確定の仕様とした(残存リスクの ★ACCEPTED★ 2 件を含む)。

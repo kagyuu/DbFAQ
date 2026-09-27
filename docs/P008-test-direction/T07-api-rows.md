@@ -4,7 +4,7 @@
 
 ## 【目的】
 
-* `GET /api/schema/tables/{owner}/{table}/rows` が実 MCP・実 Oracle を通してページ取得でき、エラーを API の形式に変換することを確認する。
+* `GET /api/schema/tables/{owner}/{table}/rows` が実 Oracle を通してページ取得でき(※P011(CR-002 2回目)矛盾点#1にもとづき「実 MCP・」を削除)、エラーを API の形式に変換することを確認する。
 
 ## 【参照テスト計画】
 
@@ -12,7 +12,7 @@
 
 ## 【対象モジュール】
 
-* `dbfaq_api` + `dbfaq_mcp` + Oracle(U003)
+* `dbfaq_api` + Oracle(U003。※P011(CR-002)矛盾点#2にもとづき `dbfaq_mcp` を削除)
 
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
@@ -32,7 +32,7 @@
 
 1. `GET /api/schema/tables/HR/EMPLOYEES/rows?offset=100&limit=50` → 200、rows 7、has_next=false、owner=HR、table=EMPLOYEES、elapsed_ms が 0 以上の整数。
 2. `?limit=501` → 422 `VALIDATION_ERROR`。
-3. `GET /api/schema/tables/HR/NO_SUCH/rows` → 404 `TABLE_NOT_FOUND`(MCP を呼ばない)。
+3. `GET /api/schema/tables/HR/NO_SUCH/rows` → 404 `TABLE_NOT_FOUND`(Oracle にアクセスしない。※P011(CR-002 2回目)矛盾点#1にもとづき「MCP を呼ばない」から変更)。
 4. スナップショットの db_tables に存在しない表名 `GHOST` を SQLite に直接 1 行挿入し(Oracle には無い表 = 削除済みの再現)、`GET /api/schema/tables/HR/GHOST/rows` → 502 `ORACLE_ERROR`、ora_code=`ORA-00942`。
 
 ## 【実行コマンド】

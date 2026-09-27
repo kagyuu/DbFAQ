@@ -2,7 +2,7 @@ import io
 import json
 import logging
 
-from dbfaq_common.logging import mask_secret, setup_logging
+from dbfaq_api.log import mask_secret, setup_logging
 
 
 def _lines(buf: io.StringIO) -> list[dict]:

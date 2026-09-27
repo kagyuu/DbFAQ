@@ -1,4 +1,4 @@
 def test_packages_importable():
-    import dbfaq_api  # noqa: F401
-    import dbfaq_common  # noqa: F401
-    import dbfaq_mcp  # noqa: F401
+    import dbfaq_api.config
+    import dbfaq_api.log
+    import dbfaq_api.oracle  # noqa: F401

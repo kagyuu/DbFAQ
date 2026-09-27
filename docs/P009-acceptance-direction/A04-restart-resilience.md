@@ -4,7 +4,7 @@
 
 ## 【目的】
 
-* 永続化された SQLite に対して api を停止・再起動しても正常に起動し(マイグレーションが冪等)、スナップショットが保持されることを確認する(REQ-ARCH-003、P003 §5.2、運用観点)。
+* 永続化された SQLite に対して api を停止・再起動しても正常に起動し(マイグレーションが冪等)、スナップショットが保持されることを確認する(REQ-ARCH-003、P003 §5.2、運用観点)。あわせて、api コンテナで MCP の子プロセスが動いていないことを確認する(CR-002)。
 
 ## 【参照テスト計画】
 
@@ -36,7 +36,7 @@
 4. `docker compose down`(**`-v` を付けない**)→ `docker compose up -d` → 待つ。起動に成功し、`fetched_at` が F0 と同じ。
 5. `docker compose exec api python -c "import sqlite3; print(sqlite3.connect('/data/dbfaq.sqlite3').execute('select count(*) from schema_migrations').fetchone()[0])"` → `1`(0001_init が 1 回だけ記録されている)。
 6. `docker compose logs api` に起動時の例外(`Traceback`、`MigrationError`)が無い。
-7. MCP 子プロセスの強制終了からの回復: api イメージには `pkill`・`ps` が無いため、Python で `/proc` を走査して終了させる: `docker compose exec api python -c "import os,signal; [os.kill(int(p),signal.SIGKILL) for p in os.listdir('/proc') if p.isdigit() and int(p)!=os.getpid() and b'-m\\x00dbfaq_mcp' in open(f'/proc/{p}/cmdline','rb').read()]"` →(※P011(2回目)矛盾点#2にもとづき修正) `/api/health` を最大 3 回(1 秒間隔)呼んで status=ok に戻る。
+7. api コンテナに MCP の子プロセスが無い: api イメージには `ps` が無いため、Python で `/proc` を走査して数える: `docker compose exec -T api python -c "import os; print(sum(1 for p in os.listdir('/proc') if p.isdigit() and int(p)!=os.getpid() and b'dbfaq_mcp' in open(f'/proc/{p}/cmdline','rb').read()))"` → `0`。続けて `/api/health` の status が `ok`。※CR-002により「MCP 子プロセスの強制終了からの回復」(※P011(2回目)矛盾点#2)から置き換え。子プロセスが無くなったため
 
 ## 【実行コマンド】
 

@@ -1,4 +1,4 @@
-"""API のレスポンス型(docs/P002-frontend-spec.md §3)と MCP 戻り値の検証用の型。"""
+"""API のレスポンス型(docs/P002-frontend-spec.md §3)。"""
 
 from __future__ import annotations
 
@@ -145,11 +145,6 @@ class RowsResponse(BaseModel):
     elapsed_ms: int
 
 
-class HealthPart(BaseModel):
-    status: str
-    message: str | None = None
-
-
 class BackendHealth(BaseModel):
     status: str
     version: str
@@ -165,7 +160,6 @@ class OracleHealth(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     backend: BackendHealth
-    mcp: HealthPart
     oracle: OracleHealth
     config: dict[str, object]
     checked_at: str
@@ -179,41 +173,3 @@ class ErrorBody(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorBody
-
-
-# ---- MCP の戻り値の検証(docs/P003-backend-spec.md §3.5)。未知の項目は許す ----
-
-
-class McpColumn(BaseModel):
-    column_id: int
-    name: str
-    data_type: str
-    data_type_display: str
-    nullable: bool
-
-
-class McpConstraint(BaseModel):
-    name: str
-    type: str
-    columns: list[str]
-
-
-class McpIndex(BaseModel):
-    name: str
-    unique: bool
-    index_type: str
-    columns: list[IndexColumn]
-
-
-class McpTable(BaseModel):
-    name: str
-    columns: list[McpColumn]
-    constraints: list[McpConstraint]
-    indexes: list[McpIndex]
-
-
-class McpSnapshot(BaseModel):
-    owner: str
-    oracle_version: str
-    fetched_at: str
-    tables: list[McpTable]

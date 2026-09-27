@@ -4,7 +4,7 @@ import sys
 
 import oracledb
 
-from dbfaq_common.config import load_config
+from dbfaq_api.config import load_config
 
 
 def main() -> int:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from dbfaq_common.config import ConfigError, load_config
+from dbfaq_api.config import ConfigError, load_config
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -27,9 +27,14 @@ def test_minimal_defaults(tmp_path):
     assert cfg.oracle.query_timeout_sec == 30
     assert cfg.oracle.pool_min == 1 and cfg.oracle.pool_max == 4
     assert cfg.app.sqlite_path == "./data/dbfaq.sqlite3"
-    assert cfg.app.mcp_call_timeout_sec == 90
     assert cfg.oracle.target_schema == "HR"
     assert cfg.oracle.dsn == "dbhost:1521/FREEPDB1"
+
+
+def test_legacy_mcp_setting_is_ignored(tmp_path):
+    # CR-002 で廃止した app.mcp_call_timeout_sec が残っている古い config.yaml も読める
+    cfg = load_config(write(tmp_path, MINIMAL.format(pw="x") + "app:\n  mcp_call_timeout_sec: 90\n"), env={})
+    assert not hasattr(cfg.app, "mcp_call_timeout_sec")
 
 
 def test_explicit_schema(tmp_path):

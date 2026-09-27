@@ -4,7 +4,7 @@
 
 ## 【目的】
 
-* backend → MCP(実子プロセス)→ Oracle → SQLite の連携で、スキーマの再読み込みと ER 図用・詳細用の読み出しが動くことを確認する。
+* backend → Oracle → SQLite の連携で(※CR-002により MCP(実子プロセス)を削除)、スキーマの再読み込みと ER 図用・詳細用の読み出しが動くことを確認する。
 
 ## 【参照テスト計画】
 
@@ -12,7 +12,7 @@
 
 ## 【対象モジュール】
 
-* `dbfaq_api`(services、snapshot_repo、mcp_gateway、routers)+ `dbfaq_mcp` + Oracle + SQLite(U003)
+* `dbfaq_api`(services、snapshot_repo、oracle、routers)+ Oracle + SQLite(U003、CR-002 で U007 により変更)
 
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
@@ -25,7 +25,7 @@
 
 ## 【事前準備】
 
-* `server/tests/integration/conftest.py` にフィクスチャ `api_client` を追加: `load_config(<config.yaml>)` の `app.sqlite_path` を `tmp_path/"t.sqlite3"` に差し替えた設定で `create_app(config)`(gateway は省略=実際の `StdioMcpGateway`)を作り、lifespan を動かして `httpx.AsyncClient(transport=ASGITransport(app), base_url="http://t")` を渡す。
+* `server/tests/integration/conftest.py` にフィクスチャ `api_client` を追加: `load_config(<config.yaml>)` の `app.sqlite_path` を `tmp_path/"t.sqlite3"` に差し替えた設定で `create_app(config)`(oracle は省略=実際の `OracleClient`。※CR-002により「gateway は省略=実際の `StdioMcpGateway`」から変更)を作り、lifespan を動かして `httpx.AsyncClient(transport=ASGITransport(app), base_url="http://t")` を渡す。
 * `server/tests/integration/test_t06_api_refresh.py` を作る。
 
 ## 【実行手順】

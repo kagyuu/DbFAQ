@@ -1,19 +1,17 @@
-"""結合テスト(docs/P008-test-direction/)の共通フィクスチャ。実 Oracle(HR)と実 MCP 子プロセスを使う。"""
+"""結合テスト(docs/P008-test-direction/)の共通フィクスチャ。実 Oracle(HR)を使う。"""
 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import httpx
 import pytest
 import yaml
-from fastmcp import Client
-from fastmcp.client.transports import StdioTransport
 
+from dbfaq_api.config import load_config
 from dbfaq_api.main import create_app
-from dbfaq_common.config import load_config
+from dbfaq_api.oracle.client import OracleClient
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CONFIG_PATH = Path(os.environ.get("DBFAQ_CONFIG", REPO_ROOT / "config.yaml")).resolve()
@@ -34,27 +32,23 @@ def write_config(tmp_path: Path, **oracle_overrides) -> Path:
     return path
 
 
-def mcp_transport(config_path: Path) -> StdioTransport:
-    return StdioTransport(
-        command=sys.executable, args=["-m", "dbfaq_mcp"], env={**os.environ, "DBFAQ_CONFIG": str(config_path)}
-    )
-
-
-@pytest.fixture
-async def mcp_client():
-    async with Client(mcp_transport(CONFIG_PATH)) as client:
-        yield client
-
-
 @pytest.fixture
 def base_config():
     return load_config(str(CONFIG_PATH), env={})
 
 
-def make_app(config, sqlite_path: Path, config_path: Path = CONFIG_PATH):
-    """実際の StdioMcpGateway を使う app。MCP 子プロセスには config_path を渡す。"""
+@pytest.fixture
+async def oracle_client(base_config):
+    client = OracleClient(base_config.oracle)
+    try:
+        yield client
+    finally:
+        await client.close()
+
+
+def make_app(config, sqlite_path: Path):
+    """実際の OracleClient を使う app。"""
     config = config.model_copy(update={"app": config.app.model_copy(update={"sqlite_path": str(sqlite_path)})})
-    os.environ["DBFAQ_CONFIG"] = str(config_path)  # create_app が config_file_path() で子プロセスに渡す
     return create_app(config)
 
 

@@ -13,4 +13,3 @@ oracle:
 app:
   sqlite_path: ./data/dbfaq.sqlite3
   log_level: INFO
-  mcp_call_timeout_sec: 90   # backend が MCP ツールの応答を待つ上限(query_timeout_sec より長くする)

@@ -12,7 +12,7 @@
 
 ## 【対象モジュール】
 
-* web、api、MCP、Oracle
+* web、api、Oracle(CR-002 で MCP を削除)
 
 ## 【前提条件】全モジュールビルドが成功していること
 

@@ -1,9 +1,10 @@
-"""T03: 読み取り専用トランザクションの実効性(docs/P008-test-direction/T03-mcp-readonly.md)。"""
+"""T03: 読み取り専用トランザクションの実効性(docs/P008-test-direction/T03-oracle-readonly.md)。"""
 
 import pytest
 
-from dbfaq_mcp.db import Database
-from dbfaq_mcp.errors import ToolFailure
+from dbfaq_api.oracle.client import OracleClient
+from dbfaq_api.oracle.db import Database
+from dbfaq_api.oracle.errors import OracleFailure
 
 CHECKSUM = "SELECT COUNT(*), SUM(ORA_HASH(EMPLOYEE_ID || '|' || SALARY || '|' || EMAIL)) FROM HR.EMPLOYEES"
 
@@ -17,7 +18,7 @@ async def checksum(db: Database):
     return await db.run_readonly(work)
 
 
-async def test_dml_rejected_and_data_unchanged(base_config, mcp_client):
+async def test_dml_rejected_and_data_unchanged(base_config, oracle_client: OracleClient):
     db = Database(base_config.oracle)
     try:
         before = await checksum(db)
@@ -28,14 +29,14 @@ async def test_dml_rejected_and_data_unchanged(base_config, mcp_client):
             finally:
                 await conn.rollback()  # 万一成功してしまった場合にも元に戻す
 
-        with pytest.raises(ToolFailure) as ei:
+        with pytest.raises(OracleFailure) as ei:
             await db.run_readonly(update)
         assert ei.value.ora_code == "ORA-01456"
 
-        await mcp_client.call_tool("get_schema_snapshot", {})
+        await oracle_client.get_schema_snapshot(None)
         for offset in (0, 50, 100):
-            await mcp_client.call_tool("get_table_rows", {"owner": "HR", "table": "EMPLOYEES", "offset": offset})
-        await mcp_client.call_tool("ping", {})
+            await oracle_client.get_table_rows("HR", "EMPLOYEES", offset, 50)
+        await oracle_client.ping()
 
         assert await checksum(db) == before
     finally:

@@ -1,4 +1,4 @@
-"""テスト用のスナップショット(MCP の get_schema_snapshot の戻り値の形。P003 §3.5)。"""
+"""テスト用のスナップショット(OracleClient.get_schema_snapshot の戻り値の形。P003 §3.5)。"""
 
 from __future__ import annotations
 

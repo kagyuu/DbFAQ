@@ -1,3 +1,5 @@
+> **※CR-002 により廃止。** MCP サーバ(stdio)を廃止したため、確かめる対象が無くなった。テストコード `server/tests/integration/test_t05_stdio.py` も削除した。backend のログが 1 行 1 JSON で標準出力に出ることは単体テスト(`tests/unit/test_logging.py`)で確かめている。本書は第 1 リリース時点の記録として残す。
+
 あなたはExecutor(実装担当)です。以下は1テストタスク分の作業範囲と完了条件を定義したものです。実施後は、結果(PASS/FAIL/BLOCKED/NOT RUNいずれであっても)を記録したうえで、Executor Stepの「停止条件」(`SKILL.md` 参照)に該当しない限り、`docs/P008-test-direction.md` のWBSに従って自動的に次のテストタスクへ進んでください。人間の指示を待って停止しないでください。
 
 # 【テストID】T05

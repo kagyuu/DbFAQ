@@ -1,4 +1,4 @@
-# DbFAQ — web(nginx)と api(FastAPI + MCP 子プロセス)。Oracle は含めない(既存のものに接続する)。ADR-012
+# DbFAQ — web(nginx)と api(FastAPI)。Oracle は含めない(既存のものに接続する)。ADR-012
 name: dbfaq
 
 services:

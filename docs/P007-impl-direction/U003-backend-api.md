@@ -1,3 +1,5 @@
+> **※CR-002 により一部廃止。** 本スプリントの MCP ゲートウェイ(`mcp_gateway.py`)と `McpToolError`・`McpUnavailable`・`MCP_UNAVAILABLE`、health の `mcp` は U007 で廃止し、backend は `OracleClient` を直接呼ぶ。SQLite・API の部分は現在も有効。現在の構成は `docs/P003-backend-spec.md` と `U007-oracle-in-backend.md` を正とする。
+
 あなたはExecutor(実装担当)です。以下は1スプリント分の作業範囲と完了条件を定義したものです。スプリントは複数のタスクから成り、各タスクに個別の完了条件とチェックボックスを持ちます。実施後は、そのタスクの完了条件を満たしたことを確認したうえで、Executor Stepの「停止条件」(`SKILL.md` 参照)に該当しない限り、自動的に次のタスクへ進んでください。人間の指示を待って停止しないでください。
 
 # 【スプリントID】U003 — backend-api

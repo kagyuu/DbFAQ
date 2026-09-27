@@ -13,7 +13,7 @@
 
 ## 【対象モジュール】
 
-* web(nginx + client)、api(dbfaq_api + dbfaq_mcp)、Oracle(U002〜U006 をまたぐ)
+* web(nginx + client)、api(dbfaq_api。CR-002 で dbfaq_mcp を削除)、Oracle(U002〜U006 をまたぐ)
 
 ## 【前提条件】全モジュールビルドが成功していること
 
