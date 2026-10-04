@@ -18,29 +18,29 @@
 ## 【前提条件】全モジュールビルドが成功していること
 
 * ビルド対象: 全モジュール。ビルドコマンド: `cd server && uv sync && uv run pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。成功条件: すべて終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 * テスト実行環境の構成は P003 §7(ADR-004)に従い、compose の web(`http://localhost:8088`)の同一オリジンに対して実行する。
 
 ## 【使用するテストデータ】
 
-* HR(7 表、外部キー 10)。SQLite はベースライン(スナップショット無し)から開始。
+* HR(8 表、外部キー 11)(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)。SQLite はベースライン(スナップショット無し)から開始。
 
 ## 【事前準備】
 
-* スイートのベースライン復元(`docs/P006-test-plan.md` §3.2): **A01 の開始前に 1 回だけ**、アプリを起動する前に `e2e/scripts/reset-and-up.sh` を実行する(中身: `docker compose down -v` → `docker compose up -d --build` → `/api/health` が 200 になるまで最大 60 秒待つ → `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py > ../e2e/.baseline-checksum.json` で HR の全 7 表のチェックサム(各表の `COUNT(*)` と全列を `||` で連結した `ORA_HASH` の合計。読み取り専用トランザクションで実行)を保存する)。このスクリプトと `server/scripts/hr_checksum.py` が無ければ本タスクで新規作成する。※P011(2回目)矛盾点#1にもとづきチェックサム取得を追加A02 以降は A01 が作ったスナップショットを使う(テスト間のデータ依存を許容する方針)。
+* スイートのベースライン復元(`docs/P006-test-plan.md` §3.2): **A01 の開始前に 1 回だけ**、アプリを起動する前に `e2e/scripts/reset-and-up.sh` を実行する(中身: `docker compose down -v` → `docker compose up -d --build` → `/api/health` が 200 になるまで最大 60 秒待つ → `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py > ../e2e/.baseline-checksum.json` で HR の全表のチェックサム(各表の `COUNT(*)` と全列を `||` で連結した `ORA_HASH` の合計。LOB 列の表は全行の SHA-256(P202 F009)。読み取り専用トランザクションで実行)を保存する)。このスクリプトと `server/scripts/hr_checksum.py` が無ければ本タスクで新規作成する。※P011(2回目)矛盾点#1にもとづきチェックサム取得を追加A02 以降は A01 が作ったスナップショットを使う(テスト間のデータ依存を許容する方針)。
 * `e2e/tests/a01-er-diagram.spec.ts` を作る。
 
 ## 【実行手順】
 
 1. `/` を開く → 「スキーマ情報がありません」と [Oracle から読み込む] が表示される。ヘッダの `[data-testid=oracle-status]` の `data-status` が `ok`。
-2. [Oracle から読み込む] を押す → 通知「スキーマ情報を更新しました(テーブル 7 / 関連 10)」→ `[data-testid^=er-node-]` が 7 個。ツールバーに「テーブル 7 / 関連 10」。ヘッダに「スキーマ: HR」と取得日時。
-3. ミニマップ(`.react-flow__minimap`)とコントロール(`.react-flow__controls`)が見える。エッジ(`.react-flow__edge`)が 10 本。
-4. ビューポート(`.react-flow__viewport` の `transform` の scale)を記録 → コントロールの拡大ボタンを 2 回 → scale が大きくなる → 縮小ボタンを 4 回 → 小さくなる → 全体表示ボタン → 7 ノードすべてが画面内(`boundingBox` がキャンバス内)。
+2. [Oracle から読み込む] を押す → 通知「スキーマ情報を更新しました(テーブル 8 / 関連 11)」→ `[data-testid^=er-node-]` が 8 個。ツールバーに「テーブル 8 / 関連 11」(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)。ヘッダに「スキーマ: HR」と取得日時。
+3. ミニマップ(`.react-flow__minimap`)とコントロール(`.react-flow__controls`)が見える。エッジ(`.react-flow__edge`)が 11 本(※P202 F010(CR-004)により 10 から変更)。
+4. ビューポート(`.react-flow__viewport` の `transform` の scale)を記録 → コントロールの拡大ボタンを 2 回 → scale が大きくなる → 縮小ボタンを 4 回 → 小さくなる → 全体表示ボタン → 8 ノードすべてが画面内(`boundingBox` がキャンバス内)。
 5. 検索欄に `job_h` を入力 → 候補に JOB_HISTORY → 選ぶ → `er-node-JOB_HISTORY` が画面中央付近(キャンバス中心から 100px 以内)に来る。
 6. `er-node-EMPLOYEES` をクリック → URL が `/tables/HR/EMPLOYEES`、見出し `HR.EMPLOYEES`。
-7. ブラウザの戻る → ER 図に戻り、7 ノードが表示される。
+7. ブラウザの戻る → ER 図に戻り、8 ノードが表示される。
 8. (別のテストケースとして実行。1〜7 が作ったスナップショットを使う)`/` を開き、`er-node-DEPARTMENTS` と `er-node-LOCATIONS` の位置、および DEPARTMENTS の LOCATIONS からの相対位置を scale で割った値を記録する → DEPARTMENTS の見出し付近をマウスで押し、右へ 120px・下へ 80px(10 段階)動かして離す → URL が `/` のまま(SC-02 へ遷移しない)、DEPARTMENTS が右へ 90〜125px・下へ 55〜85px 動いている(ドラッグ判定のしきい値 5px を超えるまでの最初の移動分は動かないため範囲で見る)、LOCATIONS は動いていない(1px 未満)。※CR-001により追加
-9. ページを再読み込みする → 7 ノードが表示され、DEPARTMENTS の LOCATIONS からの相対位置(scale で割った値)が手順 8 の記録と 2px 未満の差で一致する(位置を保存せず、自動レイアウトに戻る)。※CR-001により追加
+9. ページを再読み込みする → 8 ノードが表示され、DEPARTMENTS の LOCATIONS からの相対位置(scale で割った値)が手順 8 の記録と 2px 未満の差で一致する(位置を保存せず、自動レイアウトに戻る)。※CR-001により追加
 
 ## 【実行コマンド】
 

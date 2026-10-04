@@ -20,9 +20,10 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 | ADR-008 | SQLite は SQLAlchemy Core |
 | ADR-009 | React 19 + TS + Vite + Mantine + TanStack Query + React Router |
 | ADR-010 | ER 図は @xyflow/react + elkjs |
-| ADR-011 | python-oracledb Thin、読み取り専用トランザクション + 必ず ROLLBACK |
+| ADR-011 | python-oracledb Thin、読み取り専用トランザクション + 必ず ROLLBACK(CR-004 で、利用者の SQL は ADR-015 の検査を通したものだけ実行する) |
 | ADR-012 | compose は web(8088 公開)と api(非公開)、Oracle は外部(host.docker.internal) |
 | ADR-013 | 設定は `config.yaml` + 環境変数上書き、パスワードは SecretStr |
+| ADR-015 | 利用者の SQL(Query タブ)は `oracle/sql_guard.py` の字句検査 + 読み取り専用トランザクション。SQL を包まずに `fetchmany(501)`。CSV は一時ファイルに書き終えてから返す(CR-004) |
 | ADR-014 | backend が `dbfaq_api/oracle` の `OracleClient`(python-oracledb の非同期プール)で Oracle に直接接続する。MCP は使わない。uvicorn 1 ワーカー(ADR-001 は CR-002 で廃止し `docs/ADR_master.md` へ) |
 
 ## 3. これから着手するスプリント
@@ -30,6 +31,7 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 * **CR-002(2026-09-27)**: U007 oracle-in-backend(`docs/P007-impl-direction/U007-oracle-in-backend.md`)は P102 完了、P103 実行済み(`docs/test-records/20260927-0233-test-record.md`)。U001〜U006 は完了済み。U007 はコードの移設が中心で、SQL・トランザクション・値の文字列化の規則は変えない。
 * **CR-003(2026-09-27)**: U008 merge-common(`docs/P007-impl-direction/U008-merge-common.md`)に着手する。`dbfaq_common` の 2 モジュールを `dbfaq_api/config.py`・`dbfaq_api/log.py` に移して import を直すだけで、処理の中身は変えない。
 * U007 の完了後、P103 で P008 の再オープンした項目(T01〜T04・T06・T08・T09・T12。変更の無い T07・T10・T11 も回帰として一括実行する)を実行する。
+* **CR-004(2026-10-04)**: U009 query-tab(`docs/P007-impl-direction/U009-query-tab.md`)に着手する。backend(T1 SQL の検査 → T2 実行・エラー位置・CSV → T3 API)→ frontend(T4 ひな形 → T5 Query タブ)→ T6 nginx・受入テスト の順。参考実装は `../OracleSearchMCP/app/src/guard/`。`err.offset` は UTF-8 のバイト位置(`docs/ArchitectureHandbook.md` §9)。完了後、P103 で T13 と T03(Query の経路)を実行し、T01〜T12 を回帰として再実行する。
 * 各スプリントの P102 が終わるたびに本書の「着手するスプリント」を更新する。全スプリント完了後に P103(P008 の T01〜T12 を一括実行)。
 
 ## 4. 詳細仕様の場所
@@ -43,7 +45,8 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 | backend の内部処理・`OracleFailure` → API エラーの変換表 | `docs/P003-backend-spec.md` §4 |
 | マイグレーション | `docs/P003-backend-spec.md` §5 |
 | テストデータ方針・HR の期待値 | `docs/P006-test-plan.md` §3、`docs/ArchitectureHandbook.md` §7 |
-| 参考実装(TypeScript) | `../OracleSearchMCP/app/src/`(`db/readonly-tx.ts`、`repositories/schema-metadata.ts`、`repositories/foreign-keys.ts`) |
+| 参考実装(TypeScript) | `../OracleSearchMCP/app/src/`(`db/readonly-tx.ts`、`repositories/schema-metadata.ts`、`repositories/foreign-keys.ts`、`guard/sql-lexer.ts`・`guard/sql-guard.ts`(CR-004)) |
+| Query タブ(CR-004) | `docs/P002-frontend-spec.md` §2.2.6・§2.2.7・§3.8・§3.9、`docs/P003-backend-spec.md` §3.10・§3.11 |
 
 ## 5. 確定したコマンド
 
@@ -55,7 +58,7 @@ P102 で実際に実行して確認したもの(2026-09-23):
 | Python 1 件だけ | `cd server && uv run pytest tests/unit/oracle/test_type_format.py -q` | 14 件合格(CR-002 で `tests/unit/mcp/` から移動。2026-09-27 確認) |
 | クライアント単体テスト | `cd client && npm test` | 54 件合格 |
 | クライアントのビルド | `cd client && npm run build` | 成功 |
-| 開発用 Oracle の疎通 | `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` | `7` |
+| 開発用 Oracle の疎通 | `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` | `8`(※P202 F010(CR-004)。HR に EMPLOYEE_FIGURE が加わった) |
 | backend(開発) | `cd server && DBFAQ_CONFIG=../config.yaml uv run uvicorn --factory dbfaq_api.main:create_app --port 8000` | `/api/health` が ok |
 | frontend(開発) | `cd client && npx vite --port 5173 --strictPort` | `/api` は 8000 へ中継 |
 | compose | `docker compose up -d --build` → `curl localhost:8088/api/health` | api healthy、Oracle ok(host.docker.internal 経由) |

@@ -11,11 +11,14 @@
 - src/format.ts — 日時のローカル表示
 - src/api/ — backend API
   - types.ts — レスポンスの型
-  - client.ts — `fetch` のラッパと `ApiError`
+  - client.ts — `fetch` のラッパと `ApiError`(エラー位置 `position` を含む)、Query の `runQuery`・`fetchQueryCsv`
   - hooks.ts — TanStack Query のフック
 - src/components/ — 共通部品
   - AppShell.tsx — 共通ヘッダ(スキーマ名、取得日時、ER 図リンク、Oracle 状態)
   - OracleStatus.tsx — Oracle 状態の丸(`/api/health` を 60 秒ごとに取得)
+  - ResultTable.tsx — データタブと Query タブの結果の表(`(null)`、切り詰めのツールチップ)。CR-004 で DataTab から切り出し
+- src/query/ — Query タブ(CR-004)
+  - template.ts — SELECT 文のひな形(外部キーの JOIN、識別子のクォート)
 - src/er/ — ER 図
   - buildGraph.ts — API の結果 → ノード・エッジ(30 列超の省略、別スキーマの線を除外)
   - layout.ts — elkjs による自動レイアウト
@@ -24,9 +27,10 @@
   - TableSearch.tsx — テーブル名検索
 - src/pages/ — 画面
   - ErDiagramPage.tsx — SC-01 ER 図(拡大縮小・ミニマップ・クリックで遷移・再読み込み)
-  - TableDetailPage.tsx — SC-02 テーブル詳細(タブ、URL の `tab`・`page`)
+  - TableDetailPage.tsx — SC-02 テーブル詳細(タブ、URL の `tab`・`page`、Query タブの状態の保持)
   - SchemaTab.tsx — スキーマ情報タブ
   - DataTab.tsx — データタブ(50 行ずつのページ送り)
+  - QueryTab.tsx — Query タブ(JOIN の選択、SELECT 文の入力・実行、500 行の結果、CSV の保存、エラー位置)。CR-004 で追加
   - urlState.ts — URL クエリの解釈
   - NotFoundPage.tsx — ページが見つからない
 - src/test/ — テスト用の部品(`render.tsx`、`fetchMock.ts`、HR 相当のデータ `hr.ts`・`detail.ts`、`setup.ts`)

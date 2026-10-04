@@ -17,7 +17,7 @@
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
 * ビルド対象: `server/`(Python)。ビルドコマンド: `cd server && uv sync`。成功条件: 終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7` を出す。出なければ BLOCKED として記録する。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更) を出す。出なければ BLOCKED として記録する。
 
 ## 【使用するテストデータ】
 
@@ -31,9 +31,9 @@
 ## 【実行手順】
 
 1. `GET /api/schema` → `loaded=false`。
-2. `POST /api/schema/refresh` → 200、`table_count=7`、`relation_count=10`、`owner=HR`。
-3. `GET /api/schema` → tables 7(名前の昇順)、relations 10、EMPLOYEES の EMPLOYEE_ID が `is_pk=true`、DEPARTMENT_ID が `is_fk=true`。
-4. `GET /api/schema/tables/HR/EMPLOYEES` → primary_key `EMP_EMP_ID_PK`、unique_keys に `EMP_EMAIL_UK`、foreign_keys 3 本(EMP_DEPT_FK、EMP_JOB_FK、EMP_MANAGER_FK)、referenced_by に DEPT_MGR_FK・JHIST_EMP_FK・EMP_MANAGER_FK、indexes 6、num_rows=107。
+2. `POST /api/schema/refresh` → 200、`table_count=8`、`relation_count=11`(※P202 F010(CR-004)により 7・10 から変更)、`owner=HR`。
+3. `GET /api/schema` → tables 8(名前の昇順)、relations 11、EMPLOYEES の EMPLOYEE_ID が `is_pk=true`、DEPARTMENT_ID が `is_fk=true`。
+4. `GET /api/schema/tables/HR/EMPLOYEES` → primary_key `EMP_EMP_ID_PK`、unique_keys に `EMP_EMAIL_UK`、foreign_keys 3 本(EMP_DEPT_FK、EMP_JOB_FK、EMP_MANAGER_FK)、referenced_by に DEPT_MGR_FK・JHIST_EMP_FK・EMP_MANAGER_FK・FK_EMPLOYEE_FIGURE_EMP(※P202 F010(CR-004)により追加)、indexes 6、num_rows=107。
 5. もう一度 `POST /api/schema/refresh` → 200。SQLite の `snapshots` が 1 行のまま(直接 SELECT して確認)。
 
 ## 【実行コマンド】

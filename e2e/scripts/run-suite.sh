@@ -1,5 +1,5 @@
 #!/bin/bash
-# A07: 受入テストのスイート全体(A01〜A06、A08)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
+# A07: 受入テストのスイート全体(A01〜A06、A08、A09)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -10,6 +10,8 @@ wait_ok() { for i in $(seq 1 90); do curl -s "http://localhost:${DBFAQ_PORT:-808
 bash e2e/scripts/reset-and-up.sh > "$LOG/reset.log" 2>&1; res RESET $?
 (cd e2e && npx playwright test tests/a01-er-diagram.spec.ts > "$LOG/a01.log" 2>&1); res A01 $?
 (cd e2e && npx playwright test tests/a02-table-detail.spec.ts > "$LOG/a02.log" 2>&1); res A02 $?
+# ※CR-004により追加
+(cd e2e && npx playwright test tests/a09-query-tab.spec.ts > "$LOG/a09.log" 2>&1); res A09 $?
 
 DBFAQ_ORACLE_HOST=oracle-unreachable.invalid docker compose up -d --no-deps --force-recreate api > "$LOG/a03-up.log" 2>&1
 for i in $(seq 1 60); do curl -sf "http://localhost:${DBFAQ_PORT:-8088}/api/health" > /dev/null && break; sleep 1; done

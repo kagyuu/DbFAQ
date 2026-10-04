@@ -9,9 +9,24 @@ fail=0
 ok() { echo "OK   $1"; }
 ng() { echo "FAIL $1"; fail=1; }
 
+# 6(※CR-004により追加)。チェックサム(手順 1)より先に送り、送った後に HR が変わっていないことを手順 1 で確かめる
+for sql in "UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1" "DELETE FROM HR.EMPLOYEES" "DROP TABLE HR.EMPLOYEES" \
+           "BEGIN NULL; END;" "SELECT * FROM HR.EMPLOYEES FOR UPDATE" "SELECT 1 FROM DUAL; DELETE FROM HR.EMPLOYEES"; do
+  for path in /api/query /api/query/csv; do
+    body=$(python3 -c 'import json,sys; print(json.dumps({"sql": sys.argv[1]}))' "$sql")
+    res=$(curl -s -w '\n%{http_code}' -H 'Content-Type: application/json' -d "$body" "$BASE$path")
+    code=$(echo "$res" | tail -1); err=$(echo "$res" | head -n -1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["error"]["code"])' 2>/dev/null)
+    [ "$code" = "422" ] && [ "$err" = "SQL_REJECTED" ] && ok "$path が拒否: $sql" || ng "$path が拒否しない($code $err): $sql"
+  done
+done
+
 # 1
-NOW=$(cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py)
-if [ "$NOW" = "$(cat e2e/.baseline-checksum.json)" ]; then ok "HR のチェックサムがベースラインと一致"; else ng "HR のチェックサムが違う"; diff <(echo "$NOW") e2e/.baseline-checksum.json; fi
+# 取得に失敗した・ベースラインが無いときは FAIL にする(空同士を一致と判定しない。P202 F009)
+if ! NOW=$(cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py) || [ -z "$NOW" ]; then
+  ng "HR のチェックサムを取得できない"
+elif [ ! -s e2e/.baseline-checksum.json ]; then
+  ng "ベースラインのチェックサム(e2e/.baseline-checksum.json)が無い"
+elif [ "$NOW" = "$(cat e2e/.baseline-checksum.json)" ]; then ok "HR のチェックサムがベースラインと一致"; else ng "HR のチェックサムが違う"; diff <(echo "$NOW") e2e/.baseline-checksum.json; fi
 
 # 2(パスワード自体は出力しない)
 for what in health schema; do

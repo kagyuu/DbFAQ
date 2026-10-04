@@ -12,16 +12,16 @@ test.describe.serial('A01 ER 図', () => {
 
     // 2
     await page.getByRole('button', { name: 'Oracle から読み込む' }).click()
-    await expect(page.getByText('スキーマ情報を更新しました(テーブル 7 / 関連 10)')).toBeVisible({ timeout: 60_000 })
-    await waitForNodes(page, 7)
-    await expect(page.getByText('テーブル 7 / 関連 10', { exact: true })).toBeVisible()
+    await expect(page.getByText('スキーマ情報を更新しました(テーブル 8 / 関連 11)')).toBeVisible({ timeout: 60_000 })
+    await waitForNodes(page, 8)
+    await expect(page.getByText('テーブル 8 / 関連 11', { exact: true })).toBeVisible()
     await expect(page.getByTestId('header-schema')).toHaveText('スキーマ: HR')
     await expect(page.getByTestId('header-fetched-at')).toContainText('取得日時: ')
 
     // 3
     await expect(page.locator('.react-flow__minimap')).toBeVisible()
     await expect(page.locator('.react-flow__controls')).toBeVisible()
-    await expect(page.locator('.react-flow__edge')).toHaveCount(10)
+    await expect(page.locator('.react-flow__edge')).toHaveCount(11)
 
     // 4
     const s0 = await viewportScale(page)
@@ -62,7 +62,7 @@ test.describe.serial('A01 ER 図', () => {
 
     // 7
     await page.goBack()
-    await waitForNodes(page, 7)
+    await waitForNodes(page, 8)
   })
 
   // ※CR-001 により追加(REQ-SCREEN-009 ノードのドラッグ)。前のテストが作ったスナップショットを使う
@@ -76,7 +76,7 @@ test.describe.serial('A01 ER 図', () => {
 
     // 8
     await page.goto('/')
-    await waitForNodes(page, 7)
+    await waitForNodes(page, 8)
     await page.waitForTimeout(500)
     const before = await box('DEPARTMENTS')
     const loc = await box('LOCATIONS')
@@ -99,7 +99,7 @@ test.describe.serial('A01 ER 図', () => {
 
     // 9
     await page.reload()
-    await waitForNodes(page, 7)
+    await waitForNodes(page, 8)
     await page.waitForTimeout(500)
     const rel1 = await relative()
     expect(Math.abs(rel1.x - rel0.x)).toBeLessThan(2)

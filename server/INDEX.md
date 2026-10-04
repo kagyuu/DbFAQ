@@ -1,6 +1,6 @@
 # server/ INDEX
 
-Python の uv プロジェクト(Python 3.12)。backend の 1 パッケージ `dbfaq_api`(ADR-007。CR-003 で共通部品 `dbfaq_common` を統合)。Oracle へは backend が直接接続する(ADR-014。CR-002 で MCP サーバを廃止)。
+Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m pytest`(`.venv` のスクリプトのシバン行の問題。`docs/ArchitectureHandbook.md` §9)。backend の 1 パッケージ `dbfaq_api`(ADR-007。CR-003 で共通部品 `dbfaq_common` を統合)。Oracle へは backend が直接接続する(ADR-014。CR-002 で MCP サーバを廃止)。
 
 - pyproject.toml — 依存と pytest の設定(マーカー `oracle`)
 - uv.lock / .python-version — ロックファイルと Python のバージョン
@@ -10,17 +10,20 @@ Python の uv プロジェクト(Python 3.12)。backend の 1 パッケージ `d
   - log.py — 1 行 1 JSON のログ、`mask_secret`。CR-003 で `dbfaq_common/logging.py` から移設
   - routers/schema.py — `/api/schema`、`/api/schema/refresh`、`/api/schema/tables/{owner}/{table}`、`.../rows`
   - routers/health.py — `/api/health`
-  - services.py — API の内部処理、`OracleFailure` → API エラーの変換
+  - routers/query.py — `/api/query`(先頭 500 行)、`/api/query/csv`(全行の CSV)。CR-004 で追加
+  - services.py — API の内部処理(`SchemaService`、Query の `QueryService`)、`OracleFailure` → API エラーの変換
   - oracle/ — Oracle アクセス(CR-002 で `dbfaq_mcp` から移設)
-    - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認の入口)と `OracleAccess` プロトコル
+    - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認・SELECT の実行・CSV の入口)と `OracleAccess` プロトコル
     - db.py — 非同期接続プールと読み取り専用トランザクション(`run_readonly`)
     - dictionary.py — データディクショナリの問い合わせ Q-00〜Q-05
     - snapshot.py — スナップショットの組み立て(`build_snapshot`)
     - rows.py — テーブルデータのページ取得(主キー順/ROWID 順、OFFSET)
-    - values.py — セル値の表示用文字列化
+    - sql_guard.py — 利用者の SQL の検査(SELECT・WITH の 1 文だけを通す。ADR-015)。CR-004 で追加
+    - query.py — 利用者の SELECT の実行(先頭 500 行)と CSV(一時ファイル)。CR-004 で追加
+    - values.py — セル値の表示用文字列化(CSV 用の切り詰めない形を含む)
     - type_format.py — データ型の表記(`NUMBER(8,2)` など)
     - identifiers.py — 識別子の検証とクォート
-    - errors.py — `OracleFailure` とエラーコード、Oracle エラーの変換
+    - errors.py — `OracleFailure` とエラーコード、Oracle エラーの変換、エラー位置(UTF-8 のバイト位置 → 行・文字)
   - snapshot_repo.py — SQLite へのスナップショットの保存・読み出し(SQLAlchemy Core)
   - db.py — SQLite エンジン(foreign_keys、WAL、busy_timeout)
   - migrate.py — 管理テーブル付きの差分マイグレーション
@@ -28,9 +31,13 @@ Python の uv プロジェクト(Python 3.12)。backend の 1 パッケージ `d
   - schemas.py — API のレスポンス型(pydantic)
   - errors.py — API エラーとエラーコード
 - scripts/check_oracle.py — 開発用 Oracle への疎通確認
-- scripts/hr_checksum.py — HR のチェックサム(受入テスト A06 のベースライン)
+- scripts/hr_checksum.py — HR のチェックサム(受入テスト A06 のベースライン。LOB の表は SHA-256)
+- scripts/sql/ — テスト用 DB の前提(docs/P006-test-plan.md §3.1)
+  - hr_employee_figure.sql — HR サンプルに追加する LOB 列の表 `EMPLOYEE_FIGURE` の DDL(hr で実行)
+  - hr_photo_dir.sql — 画像を読む DIRECTORY `PHOTO_DIR` と hr への READ 権限(管理ユーザーで実行)
+  - hr_employee_figure_data.sql — `ai_model_512_01.png` を全社員に 1 行ずつ入れる PL/SQL(hr で実行)
 - scripts/a08_concurrent_load.py — 受入テスト A08(同時利用者 10 名の負荷)。CR-001 で追加
 - tests/ — テスト
   - fakes.py — backend 用の偽の Oracle アクセス(`FakeOracle`)
   - unit/ — 単体テスト(Oracle 不要)。`oracle/`(Oracle アクセス。偽のプールを使う)、`api/`(backend)、`test_config.py`・`test_logging.py`・`test_compose.py`
-  - integration/ — 結合テスト T01〜T04・T06〜T09(実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ
+  - integration/ — 結合テスト T01〜T04・T06〜T09・T13(T13 は CR-004 の Query。実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ

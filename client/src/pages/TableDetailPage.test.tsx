@@ -73,3 +73,25 @@ test('SCHEMA_NOT_LOADED', async () => {
   renderAt('/tables/HR/EMPLOYEES')
   expect(await screen.findByText('スキーマ情報がありません')).toBeInTheDocument()
 })
+
+test('?tab=query で Query タブ、タブのクリックで tab=query(※CR-004)', async () => {
+  mockFetch(routes)
+  renderAt('/tables/HR/EMPLOYEES?tab=query')
+  expect(await screen.findByRole('tab', { name: 'Query' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByTestId('query-tab')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('tab', { name: 'スキーマ情報' }))
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/tables/HR/EMPLOYEES?tab=schema'))
+  fireEvent.click(screen.getByRole('tab', { name: 'Query' }))
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/tables/HR/EMPLOYEES?tab=query'))
+})
+
+test('Query タブの入力はタブを切り替えても残る(※CR-004)', async () => {
+  mockFetch(routes)
+  renderAt('/tables/HR/EMPLOYEES?tab=query')
+  const editor = (await screen.findByRole('textbox', { name: 'SELECT 文' })) as HTMLTextAreaElement
+  fireEvent.change(editor, { target: { value: 'SELECT 1 FROM DUAL' } })
+  fireEvent.click(screen.getByRole('tab', { name: 'データ' }))
+  await screen.findByTestId('data-tab')
+  fireEvent.click(screen.getByRole('tab', { name: 'Query' }))
+  expect(((await screen.findByRole('textbox', { name: 'SELECT 文' })) as HTMLTextAreaElement).value).toBe('SELECT 1 FROM DUAL')
+})

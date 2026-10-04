@@ -44,3 +44,11 @@ Object.defineProperties(HTMLElement.prototype, {
   ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect
 
 window.scrollTo = () => {}
+
+// Mantine の Textarea(autosize)が使う document.fonts は jsdom に無い(CR-004 の Query タブ)
+if (!('fonts' in document)) {
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: { addEventListener: () => {}, removeEventListener: () => {} },
+  })
+}

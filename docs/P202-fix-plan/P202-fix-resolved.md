@@ -124,3 +124,6 @@
 * テスト結果: 合格、T08 は 9.22 秒
 * 残課題: なし
 * 修正経緯: 初回で解決
+
+* F009(CR-004、2026-10-04): `hr_checksum.py` を LOB 列の表に対応させ、`reset-and-up.sh`・`a06-security.sh` がチェックサムの取得失敗を FAIL にするようにした。記録: `fixed/F009-hr-checksum-lob.md`
+* F010(CR-004、2026-10-04): 依頼者の判断(案 B)で、HR のベースラインを 8 表(`EMPLOYEE_FIGURE` を含む)に改め、テストの期待値と P006 §3.2 などを更新した。記録: `fixed/F010-hr-extra-table.md`

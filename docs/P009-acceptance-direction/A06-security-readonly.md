@@ -17,16 +17,16 @@
 ## 【前提条件】全モジュールビルドが成功していること
 
 * ビルド対象: 全モジュール。ビルドコマンド: `cd server && uv sync && uv run pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。成功条件: すべて終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 * テスト実行環境の構成は P003 §7(ADR-004)に従い、compose の web(`http://localhost:8088`)の同一オリジンに対して実行する。
 
 ## 【使用するテストデータ】
 
-* HR の全 7 表のチェックサム。基準値は A01 の事前準備(`reset-and-up.sh`)がスイート開始前に `server/scripts/hr_checksum.py` で取得した `e2e/.baseline-checksum.json` を使う。※P011(2回目)矛盾点#1にもとづき修正
+* HR の全表(8 表。※P202 F010(CR-004))のチェックサム。取得に失敗したとき・ベースラインが無いときは FAIL(P202 F009)。基準値は A01 の事前準備(`reset-and-up.sh`)がスイート開始前に `server/scripts/hr_checksum.py` で取得した `e2e/.baseline-checksum.json` を使う。※P011(2回目)矛盾点#1にもとづき修正
 
 ## 【事前準備】
 
-* `e2e/scripts/a06-security.sh` を作る(新規)。`server/scripts/hr_checksum.py` は A01 で作成済みのものを使う。
+* `e2e/scripts/a06-security.sh` を作る(新規)。※CR-004により手順 6 を追加する。`server/scripts/hr_checksum.py` は A01 で作成済みのものを使う。
 
 ## 【実行手順】
 
@@ -35,6 +35,7 @@
 3. `docker compose ps --format json` で公開ポート(Publishers の PublishedPort が 0 でないもの)を持つのは web だけで、ポートは 8088。
 4. `curl -s -i -H 'Origin: http://evil.example' localhost:8088/api/schema` のヘッダに `access-control-allow-origin` が無い。
 5. `git ls-files | grep -x config.yaml` が何も出さない(リポジトリに入っていない)。
+6. ※CR-004により追加: `POST /api/query` と `POST /api/query/csv` に次の SQL を送ると、どれも 422 で `error.code` が `SQL_REJECTED` になる: `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1`、`DELETE FROM HR.EMPLOYEES`、`DROP TABLE HR.EMPLOYEES`、`BEGIN NULL; END;`、`SELECT * FROM HR.EMPLOYEES FOR UPDATE`、`SELECT 1 FROM DUAL; DELETE FROM HR.EMPLOYEES`。手順 1 のチェックサムはこれらを送った後に取る(スクリプト内で手順 6 を手順 1 より先に実行する)。
 
 ## 【実行コマンド】
 
@@ -42,7 +43,7 @@
 
 ## 【期待結果】
 
-* 1〜5 がすべて成り立つ。
+* 1〜6 がすべて成り立つ。
 
 ## 【合否判定基準】
 

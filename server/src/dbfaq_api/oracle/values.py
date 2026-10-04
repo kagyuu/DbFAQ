@@ -26,7 +26,8 @@ def _truncate(text: str) -> tuple[str, bool]:
     return text, False
 
 
-def format_cell(value: object, db_type_name: str) -> tuple[str | None, bool]:
+def format_cell(value: object, db_type_name: str, full: bool = False) -> tuple[str | None, bool]:
+    """表示用の文字列と、切り詰めたかどうか。full=True なら切り詰めない(CSV。P003 §3.11)。"""
     if value is None:
         return None, False
     if isinstance(value, bool):
@@ -47,13 +48,15 @@ def format_cell(value: object, db_type_name: str) -> tuple[str | None, bool]:
     if isinstance(value, dt.timedelta):
         return str(value), False
     if isinstance(value, str):
-        return _truncate(value)
+        return (value, False) if full else _truncate(value)
     if isinstance(value, (bytes, bytearray)):
+        if full:
+            return "0x" + bytes(value).hex().upper(), False
         head = "0x" + bytes(value[:MAX_BYTES]).hex().upper()
         if len(value) > MAX_BYTES:
             return head + ELLIPSIS, True
         return head, False
-    return _truncate(str(value))
+    return (str(value), False) if full else _truncate(str(value))
 
 
 def format_row(row: Sequence[object], type_names: Sequence[str]) -> tuple[list[str | None], list[int]]:

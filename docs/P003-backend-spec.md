@@ -53,14 +53,16 @@ DbFAQ/
 │   │       │   ├── snapshot.py   # 問い合わせ結果 → スナップショット
 │   │       │   ├── type_format.py # data_type_display の組み立て
 │   │       │   ├── rows.py       # テーブルデータのページ取得
+│   │       │   ├── sql_guard.py  # 利用者の SQL の検査(§3.10)※CR-004により追加
+│   │       │   ├── query.py      # 利用者の SELECT の実行・CSV(§3.11)※CR-004により追加
 │   │       │   └── values.py     # セル値の表示用文字列化
 │   │       ├── db.py             # SQLAlchemy エンジン、PRAGMA
 │   │       ├── migrate.py        # マイグレーション実行(§5)
 │   │       ├── migrations/0001_init.sql
 │   │       ├── snapshot_repo.py  # スナップショットの保存・読み出し
 │   │       ├── schemas.py        # API のレスポンス型(pydantic)
-│   │       ├── services.py       # refresh / 詳細 / rows / health の処理
-│   │       └── routers/{schema.py, health.py}
+│   │       ├── services.py       # refresh / 詳細 / rows / health / query の処理
+│   │       └── routers/{schema.py, health.py, query.py}  # query.py は ※CR-004により追加
 │   └── tests/{unit, integration}/
 ├── client/                       # Vite + React(P002 §6)
 ├── e2e/                          # Playwright(受入テスト)
@@ -143,9 +145,10 @@ Oracle アクセスの処理は、失敗時に例外 `OracleFailure(code, messag
 | code | 条件 |
 | --- | --- |
 | `INVALID_ARGUMENT` | 引数の検証に失敗(識別子が不正、offset/limit が範囲外) |
+| `SQL_REJECTED` | 利用者の SQL が検査(§3.10)で拒否された。※CR-004により追加 |
 | `NOT_FOUND` | 指定のスキーマ(ALL_USERS に無い)・テーブル(ALL_TABLES に無い)が見つからない |
 | `ORACLE_TIMEOUT` | `DPY-4024`、`ORA-01013`、`ORA-03156`、またはメッセージに `timed out` を含む `DPY-4011` |
-| `ORACLE_ERROR` | 上記以外の `oracledb.Error`。`ora_code` は `err.full_code`(例 `ORA-00942`、`DPY-6005`) |
+| `ORACLE_ERROR` | 上記以外の `oracledb.Error`。`ora_code` は `err.full_code`(例 `ORA-00942`、`DPY-6005`)。利用者の SQL の実行・取得で起きたエラーで、`err.offset` が 0 より大きいときは `position`(§3.11)を付ける(※CR-004により追加) |
 
 * python-oracledb は、ホスト名を解決できないときなどに `oracledb.Error` ではなく `OSError`(`socket.gaierror` など)をそのまま送出する(2026-09-27 実機確認)。`run_readonly` はこれも変換する: `TimeoutError` → `ORACLE_TIMEOUT`、その他の `OSError` → `ORACLE_ERROR`(ora_code なし、message「Oracle に接続できません: …」)。※P202 F007 にもとづき追加
 * `OracleFailure` 以外の想定外の例外はそのまま送出し、API の例外ハンドラ(§4.4)が 500 `INTERNAL_ERROR` にする(詳細はログのみ)。※CR-002により `INTERNAL_ERROR` のコードを Oracle アクセス側から削除
@@ -249,8 +252,68 @@ P002 §3.6 の表のとおり。実装上の規則:
 ### 3.9 `OracleClient`(`client.py`)※CR-002により追加
 
 * §3.5・§3.6・§3.8 の 3 つの処理の入口をまとめたクラス。`Database`(§3.1 の接続プール)を 1 つ持ち、`get_schema_snapshot(owner)`、`get_table_rows(owner, table, offset, limit)`、`ping()`、`close()` を持つ。
+* ※CR-004により `run_query(sql, max_rows)`(§3.11)と `export_csv(sql)`(§3.11)を追加。
 * backend は lifespan の開始時に 1 つ作って `SchemaService` に渡し、終了時に `close()`(プールを閉じる)する。
 * 単体テストでは、同じメソッドを持つ偽物(`OracleAccess` プロトコル)を `create_app(oracle=...)` で渡す。
+
+### 3.10 利用者の SQL の検査(`sql_guard.py`)※CR-004により追加
+
+P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。2 層目は §3.1 の読み取り専用トランザクション)。`../OracleSearchMCP/app/src/guard/`(`sql-lexer.ts`・`sql-guard.ts`)を Python に移す。ADR-015(※P011(CR-004)矛盾点#1にもとづき暫定番号とし、P021 で確定)
+
+**正規化**(判定用の文字列を作る。実行には元の SQL を使う)。1 パスの状態機械で先頭から走査する:
+
+| No | 対象 | 扱い |
+| --- | --- | --- |
+| N1 | 行コメント `-- ...`(改行まで) | 空白 1 個に置き換える |
+| N2 | ブロックコメント `/* ... */` | 空白 1 個に置き換える。ただし `/*+ ... */`(ヒント句)はそのまま残す |
+| N3 | 文字列リテラル `'...'`(`''` はエスケープ) | `''` に置き換える |
+| N4 | 代替引用符 `q'X...X'`(`[`↔`]`、`{`↔`}`、`(`↔`)`、`<`↔`>`、それ以外は同じ文字) | `''` に置き換える |
+| N5 | 引用符付き識別子 `"..."` | そのまま残し、範囲を記録する(キーワードの判定から除外する) |
+| N6 | 空白 | 連続する空白(全角空白を含む)を 1 個にし、前後を除き、大文字にする |
+
+**拒否規則**(順に判定し、最初に当たったもので `SQL_REJECTED`。メッセージは日本語で理由を示す):
+
+| No | 規則 | メッセージの例 |
+| --- | --- | --- |
+| G1 | 先頭の語が `BEGIN`・`DECLARE`、または `EXECUTE IMMEDIATE`・`DBMS_SQL` を含む | 「PL/SQL ブロックと動的 SQL は実行できません」 |
+| G2 | 先頭の語が `SELECT`・`WITH` 以外 | 「SELECT または WITH で始まる問い合わせだけを実行できます(先頭: UPDATE)」 |
+| G3 | 引用符付き識別子の外の `;` が 2 個以上、または 1 個でその後に文字がある | 「複数の文は実行できません」 |
+| G4 | `FOR UPDATE` を含む | 「FOR UPDATE(行ロック)は使えません」 |
+| G5 | `INSERT`・`UPDATE`・`DELETE`・`MERGE`・`DROP`・`TRUNCATE`・`ALTER`・`CREATE`・`GRANT`・`REVOKE`・`COMMIT`・`ROLLBACK`・`SAVEPOINT`・`LOCK TABLE` のいずれかを独立した語として含む | 「更新・定義・トランザクション制御のキーワード(DELETE)を含む SQL は実行できません」 |
+
+* 語の判定は、前後が識別子の文字(英数字・`_`・`$`・`#`)でないこと、引用符付き識別子の範囲の外であることを条件にする。
+* 検査を通ったら、実行用の SQL は元の SQL から末尾の空白とセミコロン 1 個を取り除いたものにする(先頭は変えない。エラー位置が元の SQL の位置と一致するように)。
+* ★FIXME★ 誤検知: 列名・別名に `UPDATE` などの語を引用符なしで使った正当な SELECT も拒否する(OracleSearchMCP と同じ割り切り)。見逃し: 副作用のある既存のストアドファンクション(自律型トランザクション)を SELECT から呼ぶことは字句では防げない。読み取り専用トランザクションも自律型トランザクションには及ばないため、運用では読み取り専用ユーザーを使う(P302 の手順書)
+
+### 3.11 利用者の SELECT の実行(`query.py`)※CR-004により追加
+
+**`run_query(db, sql, max_rows=500)`**(`POST /api/query`)
+
+1. §3.10 で検査し、実行用の SQL を得る。
+2. 1 つの読み取り専用トランザクション内(§3.1。`call_timeout` は `query_timeout_sec`)で、カーソルの `arraysize` と `prefetchrows` を `max_rows + 1` にして実行し、`fetchmany(max_rows + 1)` で取得する。SQL をサブクエリで包まない(エラー位置が利用者の SQL の位置と一致するように、また ORDER BY などをそのまま生かすため)。
+3. `max_rows + 1` 行目があれば `has_more = true` とし、その行は返さない。
+4. 各セルを §3.7 で文字列化する(1,000 文字・32 バイトでの切り詰めを含む)。`columns` は §3.6 と同じく `cursor.description` から。
+5. 実行時間は実行開始から取得完了まで(`time.perf_counter`、ミリ秒の整数)。
+6. 戻り値: P002 §3.8 の 200 の本文。
+
+**`export_csv(db, sql)`**(`POST /api/query/csv`)
+
+1. §3.10 で検査する。
+2. 1 つの読み取り専用トランザクション内で実行し、`fetchmany(1000)` を繰り返して全行を取得する(`arraysize=1000`)。
+3. 各セルを §3.7 の規則で、ただし**切り詰めずに**文字列化する(`values.format_cell(..., full=True)`。NULL は空文字)。
+4. `tempfile.SpooledTemporaryFile(max_size=8 MiB)` に `csv.writer`(`lineterminator="\r\n"`、`QUOTE_MINIMAL`)で、UTF-8(BOM 付き。`encoding="utf-8-sig"`)で見出し行と全行を書く。8 MiB を超えた分は一時ディレクトリのファイルになる。
+5. 全行を書き終えたら、ファイルを先頭に戻して(ファイル, 行数)を返す。途中で失敗したらファイルを閉じて例外を送出する(応答を始める前なので JSON のエラーで返せる)。
+6. API 層はファイルを 64 KiB ずつ読む `StreamingResponse` で返し、送り終えたら(利用者が途中で切断しても)ファイルを閉じる。
+
+* ★FIXME★ 全行を一時ファイルに書いてから返すため、結果の大きさだけ api コンテナのディスクを使い、取得中は接続プールの接続を 1 つ占有する(既定 `pool_max=4`)。行数・時間の上限は設けない(人間の指示「全てのデータ」)。直接ストリーミングする方式も検討したが、途中のエラーを利用者に伝えられず(壊れた CSV が保存される)、ダウンロードの遅い利用者が Oracle の接続とトランザクションを長く占有するため採らなかった
+* ★FIXME★ CSV の値は数式として解釈されうる文字(`=`・`+`・`-`・`@`)で始まってもそのまま出す(データを変えないため)。表計算ソフトで開くときの数式の実行(CSV インジェクション)は利用者の注意に任せる
+
+**エラー位置**(`run_query`・`export_csv` 共通)
+
+* 実行・取得で `oracledb.Error` が起きたら `from_oracle_error` で変換し、`err.offset` が 0 より大きければ `position` を付ける。
+* `err.offset` は**実行した SQL の UTF-8 のバイト位置(0 始まり)**である(2026-10-04 に HR で確認: `-- 日本語コメント\nSELECT ほげ FROM EMPLOYEES` の ORA-00904 は 32 = 「ほげ」の先頭のバイト位置)。実行用の SQL を UTF-8 に変換し、先頭からそのバイト位置までを復号した文字数を `offset`(コードポイント単位)とする。バイト位置が文字の途中や SQL の長さを超える場合は `position` を付けない。
+* `line` = `offset` までの `\n` の数 + 1、`column` = `offset` − 直前の `\n` の次の位置 + 1。
+* 実行用の SQL は元の SQL の先頭部分そのもの(§3.10)なので、位置は利用者が入力した SQL の位置と一致する。
 
 ## 4. backend(`dbfaq_api`)
 
@@ -273,6 +336,8 @@ P002 §3.6 の表のとおり。実装上の規則:
 | `NOT_FOUND`(rows のとき) | `ORACLE_ERROR` / 502、`ora_code`: `ORA-00942`、message: 「テーブルが Oracle 上に見つかりません(削除された可能性があります)」 |
 | `NOT_FOUND`(refresh のとき) | `ORACLE_ERROR` / 502、message: 「スキーマ {owner} が見つかりません」 |
 | `INVALID_ARGUMENT` | `VALIDATION_ERROR` / 422 |
+| `SQL_REJECTED` | `SQL_REJECTED` / 422(※CR-004により追加) |
+| `ORACLE_ERROR`(query のとき) | `ORACLE_ERROR` / 502。`ora_code` と `position` を引き継ぐ(※CR-004により追加) |
 | (`OracleFailure` 以外の例外) | `INTERNAL_ERROR` / 500(§4.4 の例外ハンドラ) |
 
 ※CR-002により「(通信不能・起動失敗)→ `MCP_UNAVAILABLE` / 503」「(backend 側の待ち時間超過)→ `ORACLE_TIMEOUT` / 504」「解析不能 → `INTERNAL_ERROR`」の行を削除(MCP の通信が無くなったため)。
@@ -314,6 +379,18 @@ P002 §3.6 の表のとおり。実装上の規則:
 2. スナップショットで実在確認(無ければ 404)。
 3. `oracle.get_table_rows(owner, table, offset, limit)`。結果に `owner`・`table` を加えて返す。
 
+**`POST /api/query`**(※CR-004により追加)
+
+1. 本文を pydantic で検証(`sql` は 1〜100,000 文字、空白だけは不可)。違反は 422 `VALIDATION_ERROR`。
+2. `oracle.run_query(sql, 500)`(§3.11)。スナップショットの有無は問わない(SQL は SC-02 のテーブルに限らない)。
+3. ログに `sql_chars`(文字数)、`row_count`、`has_more`、`elapsed_ms`、エラー時は `ora_code` を INFO で出す。SQL の本文は出さない ★FIXME★ SQL の本文をログに出さないのは Agent の想定(リテラルに業務データを含みうるため。監査の目的で残したい場合は CR で変更する)
+
+**`POST /api/query/csv`**(※CR-004により追加)
+
+1. 検証は `POST /api/query` と同じ。
+2. `oracle.export_csv(sql)`(§3.11)。失敗したら JSON のエラー。
+3. `StreamingResponse`(`text/csv; charset=utf-8`、`Content-Disposition: attachment; filename="query.csv"`、`X-Row-Count`)で返す。ログは `POST /api/query` と同じ項目(`row_count` は全行数)。
+
 **`GET /api/health`**
 
 1. `oracle.ping()`(§3.8。問い合わせの上限 5 秒)。成功なら oracle=ok。
@@ -323,7 +400,7 @@ P002 §3.6 の表のとおり。実装上の規則:
 
 ### 4.4 例外ハンドラ
 
-* `ApiError(code, message, http_status, ora_code=None)` → P002 §3.1 の形式。
+* `ApiError(code, message, http_status, ora_code=None, position=None)` → P002 §3.1 の形式(`position` は ※CR-004により追加)。
 * FastAPI の `RequestValidationError` → 422 `VALIDATION_ERROR`(message: 「offset: 0 以上 100000 以下で指定してください」のように 項目名: 理由)。
 * 想定外の例外 → 500 `INTERNAL_ERROR`、スタックトレースはログのみ。
 
@@ -332,7 +409,7 @@ P002 §3.6 の表のとおり。実装上の規則:
 * 形式: 1 行 1 JSON(`ts`, `level`, `logger`, `msg`, 任意の追加項目)。標準出力へ出す。
 * 出すもの: リクエスト(メソッド、パス、ステータス、所要時間)、refresh の開始・終了(件数、所要時間)、Oracle のエラー(ora_code)。
 * ※CR-002により MCP サーバのログ(標準エラー出力)と「MCP の再接続」を削除。
-* 出さないもの: パスワード、テーブルデータの中身。
+* 出さないもの: パスワード、テーブルデータの中身、Query の SQL の本文と結果(※CR-004により追加)。
 
 ## 5. SQLite とマイグレーション
 
@@ -370,10 +447,11 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | --- | --- | --- |
 | 性能: ER 図表示 | `GET /api/schema` は 4 回の SELECT で組み立て(§4.3)。レイアウトはブラウザ側(elkjs) | — |
 | 性能: 再読み込み | 辞書の問い合わせは 6 回で固定(§3.5) | — |
-| 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除 | — |
+| 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除。Query の CSV は全行の取得に往復を繰り返すため、全体の時間は `query_timeout_sec` を超えうる(※CR-004により追加) | nginx の中継の待ち時間(既定 120 秒)を、`/api/query/csv` だけ 600 秒にし、応答をバッファしない(`proxy_buffering off`)構成は **P005 の U009** で整備する ★FIXME★ 600 秒は Agent の想定 |
+| 性能: Query の実行 | 501 行だけを取得し(§3.11)、SQL を包まない | — |
 | 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
 | 可用性: バックアップ | SQLite は再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる | ボリュームの扱いは P302 の手順書 |
-| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、任意 SQL を実行する機能を持たない、識別子の検証とクォート | 読み取り専用ユーザーの作成手順は P302 の手順書 |
+| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する) |
 | セキュリティ: 公開範囲 | backend は nginx からのみ呼ばれる前提で CORS を設定しない | ホストに公開するのは web コンテナのポートだけにする構成は **P005・P302** |
 | セキュリティ: TLS | アプリは HTTP のみ。TLS 終端は運用環境のリバースプロキシで行う前提 | **P302**(手順書に前提として記載) |
 | セキュリティ: パスワード | `SecretStr`、ログ・API に出さない、`config.yaml` を Git 管理外 | イメージに含めない(マウント)構成は **P005・P302** |
@@ -398,4 +476,6 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | ADR-006 | データタブは主キー順(無ければ ROWID 順)の OFFSET 方式、件数は数えない | §3.6 |
 | ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージ(CR-002 で 3 → 2、CR-003 で 2 → 1。※P011(CR-003)矛盾点#1にもとづき修正) | §1.2 |
 | ADR-008 | SQLite へは SQLAlchemy Core でアクセスする | §1.2 |
+| ADR-011 | Oracle へは python-oracledb(Thin)で読み取り専用トランザクション内でのみアクセスする(※CR-004により「任意 SQL を受け付ける機能は作らない」を変更) | §3.1 |
+| ADR-015(※P011(CR-004)矛盾点#1にもとづき暫定番号とし、P021 で確定) | 利用者の SELECT は字句の検査と読み取り専用トランザクションの二重で守り、SQL を包まずに実行する。CSV は一時ファイルに書いてから返す(※CR-004により追加) | §3.10、§3.11 |
 | ADR-014 | backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない)。※CR-002により追加。旧 ADR-001(MCP サーバを子プロセスとして常駐)は廃止 | §1.1、§3、§4.1 |

@@ -13,14 +13,14 @@ test('unreachable: 保存済みで閲覧でき、エラーが表示される', a
 
   // 2
   await page.goto('/')
-  await waitForNodes(page, 7)
+  await waitForNodes(page, 8)
   await expect(page.getByTestId('oracle-status')).toHaveAttribute('data-status', 'error', { timeout: 60_000 })
   const fetched = await page.getByTestId('header-fetched-at').textContent()
 
   // 3
   await page.getByRole('button', { name: 'Oracle から再読み込み' }).click()
   await expect(page.getByText('再読み込みに失敗しました')).toBeVisible({ timeout: 150_000 })
-  await waitForNodes(page, 7)
+  await waitForNodes(page, 8)
   await expect(page.getByTestId('header-fetched-at')).toHaveText(fetched!)
 
   // 4

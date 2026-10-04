@@ -17,7 +17,7 @@
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
 * ビルド対象: `server/`(Python)。ビルドコマンド: `cd server && uv sync`。成功条件: 終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7` を出す。出なければ BLOCKED として記録する。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更) を出す。出なければ BLOCKED として記録する。
 
 ## 【使用するテストデータ】
 
@@ -31,9 +31,9 @@
 ## 【実行手順】
 
 1. 届かない設定の app が lifespan を完了する(起動に成功する)。
-2. `GET /api/schema` → `loaded=true`、tables 7(前回のスナップショット)。
+2. `GET /api/schema` → `loaded=true`、tables 8(前回のスナップショット)(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)。
 3. `POST /api/schema/refresh` → 502 `ORACLE_ERROR` または 504 `ORACLE_TIMEOUT`。
-4. `GET /api/schema` → 変わらず tables 7、fetched_at が 1 回目と同じ。
+4. `GET /api/schema` → 変わらず tables 8、fetched_at が 1 回目と同じ。
 5. `GET /api/health` → 200、status=degraded、oracle.status=error、message が空でない、`mcp` が無い(※CR-002により「mcp.status=ok」を変更)。
 
 ## 【実行コマンド】

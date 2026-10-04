@@ -2,10 +2,11 @@
 
 ## 1. 概要
 
-* アプリケーション: DbFAQ v0.2.1(第 1 リリース + CR-001〜CR-003)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データのタブ)を表示する。
-* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
+* アプリケーション: DbFAQ v0.3.0(第 1 リリース + CR-001〜CR-004)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を表示する。Query タブ(CR-004)では、スキーマ情報からひな形(外部キーで JOIN)を作って任意の SELECT 文を実行し、先頭 500 行を表で、全行を CSV で得る。
+* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003、2026-10-04 に CR-004 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
 * 結果: 単体テスト 182 件(Python 128、クライアント 54)、結合テスト T01〜T04・T06〜T12(T05 は CR-002 で廃止)、受け入れ結合テスト A01〜A08 がすべて合格(CR-002 の P205: docs/test-records/20260927-0244-test-record.md。CR-003 後も再実行して合格: docs/test-records/20260927-2358-test-record.md、20260928-0001-test-record.md)。
-* リリース判定: **OK**(11 章。出荷影響「要対応」0 件、未解消の ★FIXME★ 0 件)。
+* CR-004 後の結果: 単体テスト 292 件(Python 203、クライアント 89)、結合テスト T01〜T04・T06〜T13、受け入れ結合テスト A01〜A09 がすべて合格(P205: docs/test-records/20261004-2110-test-record.md。HR のベースラインは 8 表。P202 F010)。
+* リリース判定: **保留**(11 章。出荷影響「要対応」0 件。CR-004 で付いた未解消の ★FIXME★ 12 件の人間の確認待ち)。
 
 ## 2. 参照した成果物
 
@@ -57,10 +58,17 @@
 | REQ-SCREEN-013-LOB | REQ-SCREEN-013 | LOB・長い文字列の 1,000 文字切り詰めと表示 | P006 §2.1 | U002-T1、U005-T3 | `server/tests/unit/oracle/test_values.py::test_text_truncation`・`::test_bytes`、DataTab.test「null と文字列 "(null)" を区別し、切り詰めたセルに title」 | PASS | 単体テスト | NO_TEST_CASE | 代替検証: HR に LOB 列が無いため結合・受入では確認できない。上記の単体テストで文字列化と画面表示をそれぞれ確認 |
 | REQ-SCREEN-014 | REQ-SCREEN-014 | 異常時の表示(テーブル無し、Oracle エラー時もスキーマ情報は使える、0 行) | P006 §2.1 | A02 手順 8、A03、U005 | a02、a03、DataTab.test | PASS | 同上 | OK | - |
 | REQ-SCREEN-015 | REQ-SCREEN-015 | 共通ヘッダ | P006 §2.1 | A01、U004-T4 | a01、AppShell.test | PASS | 同上 | OK | - |
+| REQ-SCREEN-016 | REQ-SCREEN-016 | Query タブ: SELECT 文の入力・実行、結果の表(先頭 500 行、打ち切りの表示、行数・取得時間、0 行)(CR-004) | P006 §2.1「SC-02 Query タブ」「SELECT の実行」 | A09 手順 1・4・5、T13、U009-T2・T5 | `e2e/tests/a09-query-tab.spec.ts`、`server/tests/integration/test_t13_query.py`、`client/src/pages/QueryTab.test.tsx`、`server/tests/unit/oracle/test_query.py` | PASS | docs/test-records/20261004-2110-test-record.md | OK | - |
+| REQ-SCREEN-017 | REQ-SCREEN-017 | Query タブ: ひな形、外部キーのチェックボックスで JOIN(CR-004) | P006 §2.1「frontend のひな形」 | A09 手順 1・3・4、U009-T4・T5 | a09、`client/src/query/template.test.ts`、QueryTab.test | PASS | 同上 | OK | - |
+| REQ-SCREEN-018 | REQ-SCREEN-018 | Query タブ: ORA エラーとエラー位置(行・文字)(CR-004) | P006 §2.1「エラー位置の変換」 | A09 手順 7・8、T13 手順 4〜6、U009-T2・T5 | a09、test_t13、test_query.py::test_error_position、QueryTab.test | PASS | 同上 | OK | - |
+| REQ-SCREEN-019 | REQ-SCREEN-019 | Query タブ: 全行の CSV ダウンロード(CR-004) | P006 §2.1「CSV」 | A09 手順 6、T13 手順 7・8、U009-T2・T3・T5 | a09、test_t13、test_query.py、`server/tests/unit/api/test_query_api.py`、QueryTab.test | PASS | 同上 | OK | - |
 | REQ-API-001 | REQ-API-001 | GET /api/schema | P006 §2.1 | T06、T10、U003-T4 | test_t06、test_api.py | PASS | 同上 | OK | - |
 | REQ-API-002 | REQ-API-002 | POST /api/schema/refresh | P006 §2.1 | T06、T08、T10、A01、A03 | test_t06、test_t08、a01、a03 | PASS | 同上 | OK | - |
 | REQ-API-003 | REQ-API-003 | GET /api/schema/tables/{owner}/{table} | P006 §2.1 | T06、T11、A02 | test_t06、a02 | PASS | 同上 | OK | - |
 | REQ-API-004 | REQ-API-004 | GET /api/schema/tables/{owner}/{table}/rows(limit 最大 500) | P006 §2.1 | T07、T11、A02 | test_t07、a02 | PASS | 同上 | OK | - |
+| REQ-API-006 | REQ-API-006 | POST /api/query(CR-004) | P006 §2.1 | T13、T10・T11(Vite の中継)、U009-T3 | test_t13、test_query_api.py | PASS | 同上 | OK | - |
+| REQ-API-007 | REQ-API-007 | POST /api/query/csv(CR-004。nginx の待ち時間 600 秒) | P006 §2.1 | T13、T12(nginx 経由)、A09 手順 6、U009-T3・T6 | test_t13、test_query_api.py、a09 | PASS | 同上 | OK | - |
+| REQ-ORA-005 | REQ-ORA-005 | SELECT 文の実行と SQL の検査(SELECT・WITH の 1 文のみ)(CR-004) | P006 §2.1「SQL の検査」・§2.2「読み取りのみ」 | T03(Query の経路)、A06 手順 6、U009-T1 | test_t03、a06-security.sh、`server/tests/unit/oracle/test_sql_guard.py` | PASS | 同上 | OK | - |
 | REQ-API-005 | REQ-API-005 | GET /api/health(CR-002 で `mcp` を削除。常に 200) | P006 §2.1 | T08、T09、T10、T12、A03、U007-T3 | test_t08、test_t09、test_api.py::test_health_ok・::test_health_unexpected_error_is_still_200 | PASS | 同上 | OK | - |
 | REQ-ORA-001 | REQ-ORA-001 | スキーマの読み取り(旧 REQ-MCP-001) | P006 §2.1 | T01、U007-T2 | test_t01、test_snapshot.py、test_client.py | PASS | 同上 | OK | - |
 | REQ-ORA-002 | REQ-ORA-002 | テーブルデータの取得(実在確認・クォート・バインド変数)(旧 REQ-MCP-002) | P006 §2.1 | T02、U007-T2 | test_t02、test_rows.py、test_client.py | PASS | 同上 | OK | - |
@@ -73,7 +81,7 @@
 | REQ-ARCH-006 | REQ-ARCH-006 | React / FastAPI / python-oracledb(CR-002 で FastMCP を削除。api イメージに `fastmcp` が無いことを確認) | - | - | ビルドとテスト全体 | PASS | 同上 | OK | - |
 | REQ-ARCH-007 | REQ-ARCH-007 | Docker Compose で起動、コンテナから Oracle へは host.docker.internal | P006 §2.2 | T12、A01〜A06 | T12 の手順、run-suite.sh | PASS | 同上 | OK | - |
 | REQ-ARCH-008 | REQ-ARCH-008 | Oracle アクセスの設計は ../OracleSearchMCP を参考にする | - | - | - | - | - | NO_TEST_PLAN | 自明: 設計上の要求であり動作要件ではない。踏襲した箇所(読み取り専用トランザクション、辞書の結合)はコード・P003 に出典を明記 |
-| REQ-NFR-001 | REQ-NFR-001 | 性能(HR の ER 図 1 秒・refresh 10 秒・rows + 1 秒、300 表の ER 図 3 秒) | P006 §2.2 | A05 | a05-perf-api.sh、a05-performance.spec.ts | PASS | 同上(HR 表示 240・267 ms、300 表 1,787・1,812 ms、refresh 0.10 s 等) | OK | - |
+| REQ-NFR-001 | REQ-NFR-001 | 性能(HR の ER 図 1 秒・refresh 10 秒・rows + 1 秒、300 表の ER 図 3 秒、Query + 1 秒(CR-004。A05 手順 3b のオーバーヘッド 0.012 秒)) | P006 §2.2 | A05 | a05-perf-api.sh、a05-performance.spec.ts | PASS | 同上(HR 表示 240・267 ms、300 表 1,787・1,812 ms、refresh 0.10 s 等) | OK | - |
 | REQ-NFR-002 | REQ-NFR-002 | タイムアウト(既定 30 秒、設定で変更可) | P006 §2.2 | T04 | test_t04::test_timeout_then_recover(1 秒に設定) | PASS | 同上 | OK | - |
 | REQ-NFR-003 | REQ-NFR-003 | 可用性(restart、Oracle 無しでも起動、Oracle が戻れば再起動なしで回復)(CR-002 で変更) | P006 §2.3 | A03、A04、T08、T09 | a03、a04、test_t08、test_t09(TCP 中継で通信断と回復) | PASS | 同上 | OK | - |
 | REQ-NFR-004 | REQ-NFR-004 | セキュリティのうち認証なしの前提での公開範囲・読み取りのみ・パスワード非露出(TLS は副 ID へ分離) | P006 §2.2 | A06、T12、T04 | a06-security.sh、T12 の手順、test_t04 | PASS | 同上 | OK | - |
@@ -90,11 +98,11 @@
 
 | 対象 | バージョンの定義 | 実行時の確認方法 |
 |---|---|---|
-| backend | `server/pyproject.toml` の `project.version = "0.2.1"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
-| フロントエンド | `client/package.json` の `version = "0.2.1"` | 画面には表示しない(10 章) |
+| backend | `server/pyproject.toml` の `project.version = "0.3.0"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
+| フロントエンド | `client/package.json` の `version = "0.3.0"` | 画面には表示しない(10 章) |
 | E2E | `e2e/package.json` の `version = "0.1.0"` | - |
 
-* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B009)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
+* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B011)。CR-004 は API を追加した(`POST /api/query`・`POST /api/query/csv`、エラーの任意項目 `position`、エラーコード `SQL_REJECTED`。既存の API は変えていない。`docs/P903-cr-records/CR-004.md` で「API契約変更」に分類)後方互換の機能追加のため MINOR を上げて **0.3.0** にした(backend・frontend)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
 
 ## 6. 配布資産一覧
 
@@ -102,7 +110,7 @@
 |---|---|---|
 | `compose.yaml` | web(8088 公開)・api(非公開、host-gateway、config.yaml を読み取り専用マウント、ボリューム `dbfaq-data:/data`、healthcheck)、両方 `restart: unless-stopped` | 整備済み・起動確認済み |
 | `deploy/api.Dockerfile` | python:3.12-slim + uv、非 root(uid 10001)、uvicorn 1 ワーカー。CR-002 後はイメージに `dbfaq_mcp`・`fastmcp` が無い | 整備済み・ビルド確認済み |
-| `deploy/web.Dockerfile`、`deploy/nginx.conf` | node:22 でビルド → nginx:1.27、`/api/` 中継(120 秒)、SPA フォールバック | 整備済み・ビルド確認済み |
+| `deploy/web.Dockerfile`、`deploy/nginx.conf` | node:22 でビルド → nginx:1.27、`/api/` 中継(120 秒。CR-004 で `/api/query/csv` だけ 600 秒・バッファなし)、SPA フォールバック | 整備済み・ビルド確認済み |
 | `config.example.yaml` | 設定ファイルのひな型(CR-002 で `app.mcp_call_timeout_sec` を削除。古い `config.yaml` に残っていても無視される) | 整備済み |
 | `.dockerignore` | config.yaml・data・node_modules 等を除外 | 整備済み(イメージにパスワードが入らないことを A06 で確認) |
 | `README.md` | 概要と最短の起動手順 | 整備済み |
@@ -124,20 +132,27 @@
 
 ### 実運用に向けた推奨
 
-* Oracle の接続ユーザーは読み取り専用ユーザーにする(例: `CREATE USER dbfaq_ro ...; GRANT CREATE SESSION TO dbfaq_ro; GRANT SELECT ON <schema>.<table> TO dbfaq_ro;` と、辞書を読むための `SELECT_CATALOG_ROLE` 等は環境に合わせて付与)。アプリは読み取り専用トランザクションで防いでいるが、二重の防御になる。対象スキーマは `oracle.schema` で指定する。
+* Oracle の接続ユーザーは読み取り専用ユーザーにする。**CR-004 で Query タブから利用者の SELECT を実行できるようになったため、特に重要**(副作用のある既存のストアドファンクションを SELECT から呼ぶことは、SQL の検査でも読み取り専用トランザクションでも防げない。ADR-015)(例: `CREATE USER dbfaq_ro ...; GRANT CREATE SESSION TO dbfaq_ro; GRANT SELECT ON <schema>.<table> TO dbfaq_ro;` と、辞書を読むための `SELECT_CATALOG_ROLE` 等は環境に合わせて付与)。アプリは読み取り専用トランザクションで防いでいるが、二重の防御になる。対象スキーマは `oracle.schema` で指定する。
 * 認証が無いため、ネットワーク(ファイアウォール・リバースプロキシ)でアクセス元を制限する。TLS が必要なら前段のリバースプロキシで終端する。
 
 ## 8. テスト実行手順
 
+* テスト用データベースの前提(`docs/P006-test-plan.md` §3.1)。次の順に準備する。
+  1. Oracle 配布の HR サンプルスキーマ(https://github.com/oracle/db-sample-schemas/releases/latest の human_resources)をインストールする。
+  2. hr ユーザーで `server/scripts/sql/hr_employee_figure.sql` を実行し、LOB 列の表 `EMPLOYEE_FIGURE` を追加する。
+  3. データを入れる場合: 画像ファイルを DB サーバに置き(`docker cp docs/P006-test-plan/ai_model_512_01.png oracle-db-free:/opt/oracle/oradata/ai_model_512_01.png`。詳細は P006 §3.1.1)、管理ユーザー(SYS・SYSTEM など)で PDB に接続して `server/scripts/sql/hr_photo_dir.sql`(`CREATE OR REPLACE DIRECTORY photo_dir AS '/opt/oracle/oradata'`、`GRANT READ ON DIRECTORY photo_dir TO hr`)を実行する。
+  4. hr ユーザーで `server/scripts/sql/hr_employee_figure_data.sql` を実行する(EMPLOYEE_ID 100〜206 に同じ画像を 1 行ずつ。1 回の実行で 107 行。実行した回数だけ増える)。
+  * `EMPLOYEE_FIGURE` の行のデータはテストの前提にしない(0 行でもよい)。前提の確認: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`。
+
 | 種類 | コマンド | 合格条件 |
 |---|---|---|
-| Python 単体 | `cd server && uv run pytest tests/unit -q` | 128 passed |
-| クライアント単体 | `cd client && npm ci && npm test` | 54 passed |
+| Python 単体 | `cd server && uv run python -m pytest tests/unit -q`(この開発環境では `.venv` のシバン行の問題で `uv run pytest` が起動しない。`docs/ArchitectureHandbook.md` §9) | 203 passed |
+| クライアント単体 | `cd client && npm ci && npm test` | 89 passed |
 | クライアントのビルド | `cd client && npm run build` | 成功 |
-| 結合 T01〜T04・T06〜T09(実 Oracle) | `cd server && DBFAQ_CONFIG=../config.yaml uv run pytest tests/integration -v` | 16 passed(`config.yaml` の Oracle に接続できること。T09 は 127.0.0.1 の空きポートで TCP 中継を立てる) |
+| 結合 T01〜T04・T06〜T09・T13(実 Oracle) | `cd server && DBFAQ_CONFIG=../config.yaml uv run python -m pytest tests/integration -v` | 22 passed(HR は 8 表のベースライン(P006 §3.2)。`config.yaml` の Oracle に接続できること。T09 は 127.0.0.1 の空きポートで TCP 中継を立てる) |
 | 結合 T10・T11 | backend(`cd server && DBFAQ_CONFIG=../config.yaml uv run uvicorn --factory dbfaq_api.main:create_app --port 8000`)と `cd client && npm run dev -- --port 5173 --strictPort` を起動し、`docs/P008-test-direction/T10-*.md`・`T11-*.md` の curl を実行 | 各手順が期待どおり |
 | 結合 T12 | `docs/P008-test-direction/T12-compose-stack.md` の手順 | 各手順が期待どおり |
-| 受け入れ結合 A01〜A08 | `cd e2e && npm ci && npx playwright install chromium` の後、`bash e2e/scripts/run-suite.sh`(A01〜A06・A08)を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
+| 受け入れ結合 A01〜A09 | `cd e2e && npm ci && npx playwright install chromium` の後、`bash e2e/scripts/run-suite.sh`(A01〜A06・A08・A09)を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
 
 * テスト結果の格納先: `docs/test-records/`、Playwright の失敗時の証跡は `e2e/test-results/`・`e2e/playwright-report/`。
 * 注意: `run-suite.sh` は `docker compose down -v` でボリュームを消してから始める(ベースライン復元)。運用中の環境では実行しない。
@@ -150,6 +165,7 @@
 * 2026-09-24 23:47〜23:52 に CR-001 として、A01(ドラッグの手順 8・9 を追加)〜A06・A08(同時 10 名、新規)を 2 回続けて実行し、すべて PASS・出力同一(A07 PASS)(docs/test-records/20260924-2352-test-record.md)。アプリケーションコードは変えていないため、単体・結合は B003 の結果を引き継ぐ(単体 Python 131 件は 2026-09-24 に再実行して合格)。
 * 2026-09-27 に CR-002(MCP の廃止と backend への統合)として: P103 で T01〜T04・T06〜T12 PASS(docs/test-records/20260927-0233-test-record.md)。P201 1 回目で A03 FAIL(ホスト名を解決できないとき health が 500)と T08 の所見(Oracle に届かない間プールの close が約 2 分戻らない)を見つけ、F007・F008 で修正(docs/test-records/20260927-0238-test-record.md)。P205 で単体 + 結合の pytest を 2 回続けて 144 passed、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260927-0244-test-record.md)。版数を 0.2.0 に上げた後にも `run-suite.sh` を 1 回実行し全 PASS、`/api/health` の `backend.version` が 0.2.0(B007)。
 * 2026-09-27〜28 に CR-003(`dbfaq_common` を `dbfaq_api` に統合)として: 単体 + 結合の pytest を 2 回続けて 144 passed、T10〜T12 PASS(docs/test-records/20260927-2358-test-record.md)、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260928-0001-test-record.md)。版数を 0.2.1 に上げた後にも単体 128 + 54 passed、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.2.1(B009)。
+* 2026-10-04 に CR-004(Query タブ)として: P103 で T02〜T04・T07・T09〜T11・T13 PASS、T01・T06・T08・T12 FAIL(docs/test-records/20261004-1430-test-record.md)。P201 1 回目で A01・A03・A05 FAIL、A06 は偽の PASS(docs/test-records/20261004-1440-test-record.md)。原因は開発用 Oracle の HR に 2026-09-29 に表 `EMPLOYEE_FIGURE` が追加されたことと、チェックサムのスクリプトが LOB の表に対応せず失敗を検出しなかったこと。F009(チェックサムの修正)・F010(依頼者の判断で 8 表を新しいベースラインに)の後、P205 で単体 + 結合の pytest を 2 回続けて 225 passed、A01〜A06・A08・A09 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261004-2110-test-record.md)。版数を 0.3.0 に上げた後にも単体 203 + 89 passed、クライアントのビルド成功、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.3.0(B011)。
 
 ## 10. 未整備事項・人間による確認事項
 
@@ -160,7 +176,7 @@
 ### 10.2 本番検証・代替検証・自明とした項目
 
 * 本番検証: REQ-NFR-004-TLS(TLS 終端は前段のリバースプロキシ。稼働前に運用側で確認する)。
-* 代替検証: REQ-SCREEN-013-LOB(HR に LOB が無い。単体テストで確認)。
+* 代替検証: REQ-SCREEN-013-LOB(第 1 リリース時点では HR に LOB が無く、単体テストで確認した。2026-09-29 以降の開発用 HR には BLOB 列の表 `EMPLOYEE_FIGURE` があるが、データタブの LOB 表示の受入テストは追加していない)。
 * 自明: REQ-SCREEN-003-倍率範囲、REQ-SCREEN-004-操作、REQ-SCREEN-007-処理中、REQ-ARCH-008(理由は 4 章)。REQ-ARCH-001 は CR-002 でテストで確認する項目になった。
 
 ### 10.3 既知の制約(判断済み)
@@ -173,15 +189,16 @@
 * ★ACCEPTED★(2026-09-27 人間承認) Oracle のホストが応答しないとき、`/api/health` は接続の確立の待ち時間(`connect_timeout_sec`、既定 10 秒)まで返らない(CR-002 前は MCP の呼び出しを 5 秒で打ち切っていた)。詳細は P003 §3.8・ADR-014。
 * ★ACCEPTED★(2026-09-27 人間承認) Oracle のリスナーに届かない間、python-oracledb のプールの close は約 2 分戻らないため、api の終了時は `connect_timeout_sec` で打ち切ってプールを捨てる(F008、P003 §3.1)。
 * 既存の `config.yaml` に `app.mcp_call_timeout_sec` が残っていても無視される(CR-002。削除してよい)。
+* Query タブ(CR-004、ADR-015): 列名・別名に `UPDATE` などの語を引用符なしで使った SELECT も「実行できない SQL」として拒否される(誤検知。引用符で囲めば通る)。`(SELECT ...)` のように括弧で始まる問い合わせも拒否される。CSV は全行を api コンテナの一時ファイルに書いてから返すため、行数に上限が無く、巨大な結果ではディスクと時間を消費する(★FIXME★ #63)。Query の SQL・結果・入力内容は保存しない(画面を再読み込みすると初期のひな形に戻る)。
 * 開発・テストで使った接続ユーザー hr は書き込み権限を持つ。本番は読み取り専用ユーザーを推奨(7 章)。
 * フロントエンドのバージョンは画面に表示していない(backend のバージョンは `/api/health` で確認できる)。
 * ヘッドレスのブラウザ環境によっては ER 図の 🔑・🔗 が絵文字フォントの不足で表示されない(Windows・macOS の通常のブラウザでは表示される)。
 
 ### 10.4 要求書に無い実装(P004 §2 の過剰実装)
 
-* ヘッダの Oracle 状態表示(60 秒ごとの health 取得)、データタブのページ番号の URL 保持、関数索引の式の表示。いずれも実装・テスト済み。要求書に追加するか、削るかを人間が判断する(CR の起票候補)。
+* ヘッダの Oracle 状態表示(60 秒ごとの health 取得)、データタブのページ番号の URL 保持、関数索引の式の表示。CR-004: Query タブの入力内容をタブの切り替えで保持、[エラー位置へ移動]、Ctrl+Enter での実行、CSV 応答の `X-Row-Count` ヘッダ。いずれも実装・テスト済み。要求書に追加するか、削るかを人間が判断する(CR の起票候補)。
 
-### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件とも解消済み。未解消 0 件)
+### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件は解消済み。**CR-004 の 12 件が未解消**)
 
 **未解消の★FIXME★: 0件。** 2026-09-24 に人間が下表の 58 件をすべて確認し、Agent の想定をそのまま受け入れた。各箇所の ★FIXME★ は ★ACCEPTED★ に書き換え、検討内容・承認理由・残存リスクを同じ行に記載した。同じ判断で `server/src/dbfaq_mcp/snapshot.py` の `iso_utc` の注記(#50 と同じ論点)も ★ACCEPTED★ にした。#57 は指示文中の手順の説明であり、印ではないため書き換えていない。
 
@@ -266,19 +283,45 @@
 | --- | --- | --- | --- |
 | 60 | `docs/P901-cr-direction/CR-003.md` 優先度の判断理由 | 依頼者から優先度の指定が無く、ルーブリック(影響度 低 × 緊急度 低)で「低」と仮置きした(`docs/CR.md` の優先度列も「低」) | -(2026-09-28 に依頼者が「低」でよいと確認。★ACCEPTED★ に書き換えた) |
 
+#### CR-004 で付いた ★FIXME★(12 件。未解消 12 件)
+
+**未解消の★FIXME★: 12件。** `docs/` 配下を `grep -rn "★FIXME★"` で検索し、同じ論点が複数の文書にあるものは 1 件にまとめた。CR-004 の作業中に付けた暫定の ADR 番号(「ADR-015 見込み ★FIXME★」)は P021 で ADR-015 に確定して外した。
+
+| # | 所在(ファイル・章節) | 想定で補った内容 | CR起票候補か |
+| --- | --- | --- | --- |
+| 61 | `docs/P001-requirement.md` §6 Query タブ、`docs/P002-frontend-spec.md` §2.2.6 | JOIN の候補を両方向(このテーブルが参照するテーブル → と、このテーブルを参照するテーブル ←)にした(原文は「FK で連携するテーブル」) | 参照先だけにする場合は CR |
+| 62 | `docs/P001-requirement.md` §8.3、`docs/P002-frontend-spec.md` §3.8、`docs/P003-backend-spec.md` §3.10、`docs/ArchitectureHandbook.md` §9 | SQL の検査方式(SELECT・WITH の 1 文だけ、禁止語の字句検査。OracleSearchMCP と同じ)と、その誤検知(`UPDATE` などの語を列名に引用符なしで使うと拒否)・見逃し(副作用のあるストアドファンクション) | 検査を緩める・強める場合は CR |
+| 63 | `docs/P002-frontend-spec.md` §3.9、`docs/P003-backend-spec.md` §3.11、`docs/ArchitectureHandbook.md` §9 | CSV の全行に上限(行数・時間・サイズ)を設けない(依頼者の「全てのデータ」による)。一時ファイルのディスクと接続の占有 | 上限を設ける場合は CR |
+| 64 | `docs/P001-requirement.md` §8.1 | Query の性能目標を「Oracle の処理時間 + 1 秒以内」とした(データタブと同じ) | - |
+| 65 | `docs/P002-frontend-spec.md` §2.2.1 | Query タブの入力・結果は、同じテーブルの画面にいる間だけ保持し、ブラウザには保存しない | 保存する場合は CR |
+| 66 | `docs/P002-frontend-spec.md` §2.2.6 | 利用者が SQL を編集していたら、チェックボックスの切り替えで自動で置き換えない(内容を失わないため) | - |
+| 67 | `docs/P002-frontend-spec.md` §2.2.7 | JOIN は両方向とも LEFT JOIN(このテーブルの行が消えないように。← の JOIN は行が増えうる) | INNER JOIN にする場合は CR |
+| 68 | `docs/P002-frontend-spec.md` §3.9 | CSV は UTF-8 の BOM 付き(Excel での文字化けを防ぐ) | BOM なし・Shift_JIS などにする場合は CR |
+| 69 | `docs/P003-backend-spec.md` §3.11 | CSV の値が `=`・`+`・`-`・`@` で始まってもそのまま出す(CSV インジェクションの対策をしない。データを変えないため) | 対策する場合は CR |
+| 70 | `docs/P003-backend-spec.md` §4.3 | ログに Query の SQL の本文を出さない(リテラルに業務データを含みうるため。監査が要るなら CR) | 監査ログが要る場合は CR |
+| 71 | `docs/P003-backend-spec.md` §6 | nginx の `/api/query/csv` の待ち時間を 600 秒にした | - |
+| 72 | `docs/P901-cr-direction/CR-004.md` 優先度の判断理由 | 依頼者から優先度の指定が無く、ルーブリック(影響度 高 × 緊急度 低)で「中」と仮置きした(`docs/CR.md` の優先度列も「中」) | - |
+
 * 補足: `docs/P001-requirement.md` §3.3 の「SQLAlchemy 2.x + SQLite / ORM で…」は、設計(P003 §1.2、ADR-008)で ORM を使わず SQLAlchemy Core にした。P001 の記述は更新していない(要件定義の確定後の変更のため)。
 
 ### 10.6 その他
 
-* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002 の変更(B005〜B007)と CR-003 の変更(B008・B009)は未コミット。コミットとリモートへのプッシュは人間の判断で行う。
+* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002・CR-003 の変更(B005〜B009)はコミット ac666af に含まれる。CR-004 の変更(B010・B011)は未コミット。コミットとリモートへのプッシュは人間の判断で行う。
 * CR-002 で廃止した MCP サーバを Claude Desktop などから単体で使っていた場合、その使い方はできなくなった(P001 §3.1 の旧 ★ACCEPTED★。依頼者の指示「MCP の部分は廃止」による)。
 * `e2e/scripts/run-suite.sh` はボリュームを消すため、運用環境では実行しない。
 
 ## 11. リリース判定
 
-**OK**
+**保留**(CR-004)
 
-根拠:
+根拠(CR-004 後):
+
+* テスト: 単体・結合・受け入れ結合がすべて合格(9 章、P205)。スイートの再実行性(A07)も確認した。未解決の障害なし(P202-fix-unresolved.md)。HR のテストのベースラインは依頼者の判断で 8 表に改めた(P202 F010)。
+* 出荷影響「要対応」: **0 件**(10.1)。CR-004 で追加した要求(REQ-SCREEN-016〜019、REQ-API-006・007、REQ-ORA-005)はすべて OK(4 章)。
+* **未解消の ★FIXME★: 12 件**(10.5 の #61〜#72)。Query タブの設計で Agent が想定で補ったもの。依頼者が確認し、そのままでよいものは ★ACCEPTED★ に書き換え、変えたいものは CR を起票すれば OK にできる。
+* 設計判断: ADR-011 を更新し(任意 SQL を作らない → ADR-015 の検査を通した SELECT を実行)、ADR-015 を追加した。依頼者の承認は未(★FIXME★ #62 と同じ論点)。
+
+以下は CR-003 時点の根拠(履歴):
 
 * テスト: 単体・結合・受け入れ結合がすべて合格(9 章)。CR-003 後も単体 + 結合を 2 回、A01〜A06・A08 を 2 回続けて合格した。CR-002 後に単体 + 結合を 2 回、A01〜A06・A08 を 2 回続けて合格し、スイートの再実行性(A07)も確認した。CR-002 で見つかった退行 2 件(F007・F008)は修正済みで、未解決の障害なし(P202-fix-unresolved.md)。配布資産は整備済みで、compose でのビルド・起動・停止を実際に確認した。
 * 出荷影響「要対応」: **0 件**(10.1)。以前の 2 件は CR-001 で解消した。

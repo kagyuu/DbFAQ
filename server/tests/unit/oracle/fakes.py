@@ -20,9 +20,19 @@ class FakeCursor:
         description, rows = result
         self.description = description
         self._rows = list(rows)
+        self._pos = 0
 
     async def fetchall(self):
         return self._rows
+
+    async def fetchmany(self, n):
+        self.conn.calls.append(("cursor.fetchmany", n))
+        error = getattr(self.conn, "fetch_error", None)
+        if error is not None and self._pos > 0:
+            raise error
+        batch = self._rows[self._pos : self._pos + n]
+        self._pos += len(batch)
+        return batch
 
     def close(self):
         pass

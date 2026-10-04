@@ -1,8 +1,10 @@
 import { Anchor, Center, Group, Loader, Stack, Tabs, Text, Title } from '@mantine/core'
+import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTableDetail } from '../api/hooks'
 import AppShell from '../components/AppShell'
 import DataTab from './DataTab'
+import QueryTab, { type QueryState } from './QueryTab'
 import SchemaTab from './SchemaTab'
 import { parsePage, parseTab } from './urlState'
 
@@ -11,10 +13,12 @@ function Detail({ owner, table }: { owner: string; table: string }) {
   const tab = parseTab(params.get('tab'))
   const page = parsePage(params.get('page'))
   const { data, error, isPending } = useTableDetail(owner, table)
+  // Query タブの入力・結果はタブを切り替えても保つ(別のテーブルでは key で作り直されて初期化される)
+  const [queryState, setQueryState] = useState<QueryState | null>(null)
 
   const setTab = (next: string | null) => {
-    const value = next === 'data' ? 'data' : 'schema'
-    setParams(value === 'data' ? { tab: 'data', page: String(page) } : { tab: 'schema' }, { replace: true })
+    const value = parseTab(next)
+    setParams(value === 'data' ? { tab: 'data', page: String(page) } : { tab: value }, { replace: true })
   }
   const setPage = (next: number) => setParams({ tab: 'data', page: String(next) }, { replace: true })
 
@@ -49,12 +53,16 @@ function Detail({ owner, table }: { owner: string; table: string }) {
         <Tabs.List px="md">
           <Tabs.Tab value="schema">スキーマ情報</Tabs.Tab>
           <Tabs.Tab value="data">データ</Tabs.Tab>
+          <Tabs.Tab value="query">Query</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="schema" style={{ overflow: 'auto' }}>
           <SchemaTab detail={data} />
         </Tabs.Panel>
         <Tabs.Panel value="data" style={{ flex: 1, minHeight: 0 }}>
           <DataTab owner={owner} table={table} page={page} onPageChange={setPage} />
+        </Tabs.Panel>
+        <Tabs.Panel value="query" style={{ overflow: 'auto' }}>
+          <QueryTab detail={data} state={queryState} setState={setQueryState} />
         </Tabs.Panel>
       </Tabs>
     </Stack>

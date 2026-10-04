@@ -23,7 +23,7 @@
 | 型表記 | P003 §3.4 の全分岐 | - | 単体 |
 | 値の文字列化 | P003 §3.7 の全分岐(Decimal、DATE、TIMESTAMP、TZ 付き、bytes、長文) | - | 単体 |
 | スナップショット組み立て | 複合 PK/FK、自己参照 FK、別スキーマ参照、関数索引、主キー無し表、ビューの列を捨てる | 空スキーマ | 単体(辞書の結果を偽データで与える) |
-| Oracle: スキーマの読み取り(※CR-002により「MCP get_schema_snapshot」から変更) | HR: 7 表、列 35、PK 7、UK 1、FK 10、インデックス 19 | 存在しないスキーマ → NOT_FOUND | 結合(実 Oracle) |
+| Oracle: スキーマの読み取り(※CR-002により「MCP get_schema_snapshot」から変更) | HR: 8 表、列 38、PK 8、UK 1、FK 11、インデックス 20(※P202 F010(CR-004)により変更。人間の指示 2026-10-04) | 存在しないスキーマ → NOT_FOUND | 結合(実 Oracle) |
 | Oracle: テーブルデータ(※CR-002により「MCP get_table_rows」から変更) | HR.EMPLOYEES の 1〜50 行目・51〜100 行目・101〜107 行目、複合 PK(JOB_HISTORY)の並び | 存在しない表 → NOT_FOUND、offset/limit 範囲外 → INVALID_ARGUMENT、`"` を含む名前 | 結合(実 Oracle) |
 | Oracle: 読み取り専用(※CR-002により「MCP」を変更) | 各処理の実行後に HR のデータが変わっていない | 読み取り専用トランザクション内で DML → ORA-01456 | 結合(実 Oracle) |
 | Oracle: 疎通確認(※CR-002により「MCP ping」から変更) | バージョン・ユーザー | 誤ったパスワード → ORACLE_ERROR(ORA-01017)、到達不能ホスト → ORACLE_ERROR/TIMEOUT | 結合 |
@@ -39,18 +39,26 @@
 | frontend layout | 全ノードに座標が付く、重ならない | - | 単体(Vitest、elkjs を実際に使う) |
 | SC-01 | 描画、検索候補、再読み込みの成功・失敗通知、未取得表示 | API エラー | 単体(Vitest、API を偽物に) |
 | SC-02 | タブ切替と URL、スキーマ情報の各表、データのページ送り、(null) 表示 | 404 表示、データタブのエラー表示と再試行 | 単体(Vitest) |
+| SQL の検査(※CR-004により追加) | SELECT・WITH、末尾のセミコロン 1 個、コメント・文字列・引用符付き識別子の中の禁止語(`'DELETE'`、`"UPDATE"`、`-- drop`)、ヒント句 | INSERT/UPDATE/DELETE/MERGE/DDL/GRANT/COMMIT 等、BEGIN/DECLARE、EXECUTE IMMEDIATE・DBMS_SQL、FOR UPDATE、LOCK TABLE、複数の文、WITH の中の DML、空 | 単体 |
+| エラー位置の変換(※CR-004により追加) | ASCII の 1 行・複数行、日本語(マルチバイト)を含む SQL、タブ | offset 0・文字の途中・長さ超過 → 位置なし | 単体 |
+| SELECT の実行(※CR-004により追加) | 結果の列・行・値の文字列化、500 行で打ち切り(has_more)、0 行、WITH、末尾のセミコロン | ORA-00904 で position(行・文字)、ORA-00942、タイムアウト、SQL_REJECTED は Oracle に送らない | 単体(偽のカーソル)、結合(実 Oracle) |
+| CSV(※CR-004により追加) | 見出し行、BOM、CRLF、カンマ・`"`・改行を含む値の囲み、NULL は空、切り詰めない(1,000 文字超・32 バイト超)、500 行を超える全行(`X-Row-Count`) | 取得途中のエラーは JSON、SQL_REJECTED | 単体、結合(実 Oracle) |
+| POST /api/query・/api/query/csv(※CR-004により追加) | 200 の形 | 422(空・100,000 文字超・SQL_REJECTED)、502(position 付き)、504 | 単体(偽の Oracle アクセス)、結合 |
+| frontend のひな形(※CR-004により追加) | 外部キーなし、→ の JOIN、← の JOIN、自己参照、複数選択、複合 FK、同じ列名の別名、引用符が要る識別子、主キーなしで ORDER BY なし | 相手の列情報が無い制約は選べない | 単体(Vitest) |
+| SC-02 Query タブ(※CR-004により追加) | `tab=query`、初期のひな形、チェックボックスでの置き換え(未編集なら自動・編集済みなら置き換えない)、実行結果の表、打ち切りの表示、0 行、CSV の保存 | エラー表示(ORA コード、エラー位置と ^、エラー位置へ移動)、SQL_REJECTED の表示 | 単体(Vitest) |
 | 画面遷移全体 | ER 図 → クリック → 詳細 → FK 先 → 戻る | - | 受入(Playwright) |
+| Query タブの操作全体(※CR-004により追加) | HR.EMPLOYEES でひな形 → FK を ON → 実行して表 → 500 行を超える SELECT で打ち切り表示 → CSV ダウンロードで全行 | 存在しない列でエラー位置の表示、DELETE が拒否される | 受入(Playwright、A09) |
 | ノードのドラッグ | ドラッグしたノードだけが動く、ドラッグ後に SC-02 へ遷移しない、再読み込みで自動レイアウトの位置に戻る | - | 受入(Playwright、A01 手順 8・9)※CR-001により追加 |
 
 ### 2.2 非機能観点
 
 | 観点 | 内容 | レベル |
 |---|---|---|
-| 性能 | HR で `GET /api/schema` < 1 秒、refresh < 10 秒、rows 1 ページ < Oracle 処理時間 + 1 秒 | システム(P009) |
+| 性能 | HR で `GET /api/schema` < 1 秒、refresh < 10 秒、rows 1 ページ < Oracle 処理時間 + 1 秒、`POST /api/query`(EMPLOYEES の全列・全行)< Oracle 処理時間(`elapsed_ms`)+ 1 秒(※CR-004により追加) | システム(P009) |
 | 性能(規模) | 300 表・5,000 列の偽スナップショットを SQLite に入れ、`GET /api/schema` < 3 秒、ブラウザでの ER 図表示 < 3 秒 | システム(P009) ★ACCEPTED★(2026-09-24 人間承認)大規模な実 Oracle スキーマは用意できないため偽データで代替。検討: 実スキーマでの測定/承認理由: 表示性能は SQLite 側のデータで決まる/残存リスク: 大規模スキーマの Oracle からの再読み込み時間は未測定 |
 | タイムアウト | `query_timeout_sec` を 1 秒にして、backend の読み取り専用トランザクション内で(※CR-002により「MCP の」を変更) `DBMS_SESSION.SLEEP(3)` を呼ぶと ORACLE_TIMEOUT になり、その後の呼び出しは正常に動く | 結合(P008) |
 | セキュリティ | API 応答・ログにパスワードが出ない、backend は CORS ヘッダを返さない、compose で api のポートが公開されていない、`config.yaml` がイメージに含まれない | システム(P009) |
-| 読み取りのみ | テストスイートの前後で HR の各表の行数とチェックサム(`ORA_HASH` の合計)が同じ | システム(P009) |
+| 読み取りのみ | テストスイートの前後で HR の各表の行数とチェックサム(`ORA_HASH` の合計)が同じ。※CR-004により追加: `POST /api/query`・`/api/query/csv` に DML・DDL・PL/SQL・FOR UPDATE を送ると 422 `SQL_REJECTED` になり、HR が変わらない | システム(P009)、結合(P008 T13) |
 | ログ | backend のログが JSON で出る(※CR-002により「MCP のログが stderr に出る(stdout を汚さない)」を削除) | 単体 |
 | 同時利用 | 10 名の仮想利用者が同時に ER 図の取得・テーブル詳細・データタブの 1・2 ページ目を各 10 回繰り返す。応答はすべて 200、ER 図の取得・テーブル詳細は各 1 秒以内、データ 1 ページは Oracle の処理時間(`elapsed_ms`)+ 1 秒以内(P001 §8.4)。API に対して測る(ER 図の描画はブラウザ内の処理で、同時利用者数の影響を受けないため) | システム(P009、A08)※CR-001により追加 |
 
@@ -68,20 +76,42 @@
 
 | 項目 | 内容 |
 |---|---|
-| Oracle | 人間が指定した既存の Oracle(`localhost:1521/FREEPDB1`、ユーザー hr、HR サンプルスキーマ)。接続情報は `config.yaml`(Git 管理外)から読む。テストは環境変数 `DBFAQ_CONFIG` で設定ファイルを指定できる |
+| Oracle | 人間が指定した既存の Oracle(`localhost:1521/FREEPDB1`、ユーザー hr)。スキーマの前提は次の 2 つ(人間の指示 2026-10-04): ① Oracle 配布の HR サンプルスキーマ(https://github.com/oracle/db-sample-schemas/releases/latest の human_resources)、② ①に LOB 列が無いため追加する表 `EMPLOYEE_FIGURE`(DDL は `server/scripts/sql/hr_employee_figure.sql`。IDENTITY の主キー `FIGURE_ID`、`EMPLOYEE_ID` → EMPLOYEES の外部キー、BLOB 列 `FIGURE`)。`EMPLOYEE_FIGURE` の行のデータは前提にしない(テストは構造だけを確かめ、チェックサムはスイートごとに取り直す)。データの投入方法(手順は §3.1.1): 画像ファイル `docs/P006-test-plan/ai_model_512_01.png` を DB サーバの `/opt/oracle/oradata` に置き、管理ユーザーで `server/scripts/sql/hr_photo_dir.sql`(DIRECTORY `PHOTO_DIR` と hr への READ 権限)、hr ユーザーで `server/scripts/sql/hr_employee_figure_data.sql`(EMPLOYEE_ID 100〜206 に同じ画像を 1 行ずつ。1 回の実行で 107 行)を実行する。2026-10-04 の開発用 Oracle は 2 回実行した 214 行。接続情報は `config.yaml`(Git 管理外)から読む。テストは環境変数 `DBFAQ_CONFIG` で設定ファイルを指定できる |
 | Oracle が使えない場合 | 実 Oracle を使うテスト(pytest マーカー `oracle`)は、`ping` に失敗したら **失敗として扱う**(スキップしない。黙って 0 件にならないようにする)。単体テストだけを回すときは `-m "not oracle"` を明示する |
 | Oracle アクセス | 結合テストは実際の `OracleClient`(実 Oracle)を使う。backend の単体テストは偽物(`FakeOracle`: 処理ごとに応答・例外を登録できる)を使う。※CR-002により「MCP(実際の子プロセス、偽ゲートウェイ)」から変更 |
 | frontend の API | Vitest では `fetch` を偽物(`vi.fn` で差し替える)にする。MSW は使わない ★ACCEPTED★(2026-09-24 人間承認)検討: MSW/承認理由: 依存を増やさない/残存リスク: 特になし |
 | ブラウザ | Playwright の Chromium |
 
+#### 3.1.1 テスト用データベースの準備(2026-10-05 追記。依頼者の指示)
+
+§3.1 の ①・② を次の順に準備する。スクリプトは `server/scripts/sql/`、画像は本書の付属ファイル `docs/P006-test-plan/ai_model_512_01.png`(420,605 バイト。SHA-256 `31c89ca2a00c5036f510f38bedb89bb93fb4f3b869412a492bb94681f578238c`。開発用 Oracle の `/opt/oracle/oradata/ai_model_512_01.png` からコピーしたもの)にある。
+
+1. Oracle 配布の HR サンプルスキーマ(https://github.com/oracle/db-sample-schemas/releases/latest の human_resources)をインストールする。
+2. hr ユーザーで `server/scripts/sql/hr_employee_figure.sql` を実行し、表 `EMPLOYEE_FIGURE` を作る。
+3. 画像を Oracle のコンテナにコピーする(リポジトリのルートで実行。コンテナ名は開発環境の `oracle-db-free`):
+
+   ```bash
+   docker cp docs/P006-test-plan/ai_model_512_01.png oracle-db-free:/opt/oracle/oradata/ai_model_512_01.png
+   docker exec oracle-db-free ls -l /opt/oracle/oradata/ai_model_512_01.png   # 420605 バイトであることを確認
+   ```
+
+   * `docker cp` でコピーしたファイルの所有者は、コピー元の uid のままになる。Oracle のプロセス(ユーザー oracle)が読めない場合は `docker exec -u root oracle-db-free chmod 644 /opt/oracle/oradata/ai_model_512_01.png` で読み取りを許可する。
+4. 管理ユーザー(SYS・SYSTEM など)で PDB(例: FREEPDB1)に接続し、`server/scripts/sql/hr_photo_dir.sql` を実行する(`CREATE OR REPLACE DIRECTORY photo_dir AS '/opt/oracle/oradata'`、`GRANT READ ON DIRECTORY photo_dir TO hr`)。
+5. hr ユーザーで `server/scripts/sql/hr_employee_figure_data.sql` を実行する(EMPLOYEE_ID 100〜206 に同じ画像を 1 行ずつ。1 回の実行で 107 行。実行した回数だけ増える)。
+6. 確認: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`。
+
+* 手順 3〜5(データの投入)は省略してよい。`EMPLOYEE_FIGURE` の行のデータはテストの前提にしない(0 行でもよい)。
+
 ### 3.2 テストデータとライフサイクル
 
 | 項目 | 方針 |
 |---|---|
-| Oracle(HR) | **読み取りのみ。テストは HR のデータを一切変更しない**。ベースラインは「HR サンプルスキーマのインストール直後の状態」であり、テスト側で復元はしない(変更しないので不要)。期待値は 2026-09-23 に実測した値(7 表、35 列、PK 7、UK 1、FK 10、インデックス 19、EMPLOYEES 107 行、JOB_HISTORY 10 行)を使う |
+| Oracle(HR) | **読み取りのみ。テストは HR のデータを一切変更しない**。ベースラインは「§3.1 の ①(HR サンプルスキーマのインストール直後)に ②(`server/scripts/sql/hr_employee_figure.sql`)を実行した状態」(`EMPLOYEE_FIGURE` の行数は問わない。2026-10-04 の開発用 Oracle では 214 行)であり、テスト側で復元はしない(変更しないので不要)。期待値は 2026-10-04 に実測した値(8 表、38 列、PK 8、UK 1、FK 11、インデックス 20、EMPLOYEES 107 行、JOB_HISTORY 10 行)を使う(※P202 F010(CR-004)により、2026-09-23 の実測値(7 表、35 列、PK 7、UK 1、FK 10、インデックス 19)から変更。開発用 Oracle の HR に 2026-09-29 に表が追加されたため、人間の指示で新しいベースラインにした。2026-10-04)。チェックサム(`hr_checksum.py`)は LOB 列の表を SHA-256 で計算する(P202 F009) |
 | 読み取り専用の確認で DML を試すテスト | 必ず `SET TRANSACTION READ ONLY` の中で行い、ORA-01456 で失敗することを確認する(成功してしまった場合に備え、テストは最後に必ず ROLLBACK する) |
 | SQLite(単体・結合) | **テスト 1 件ごとに新しい一時ファイル**(pytest の `tmp_path`)を使う。共有しないので累積しない |
 | SQLite(受入・compose) | ベースライン = 「マイグレーション適用直後、スナップショット無し」。**テストスイートの実行ごと**に、開始時に `docker compose down -v`(ボリューム削除)→ `up` で復元する。スイート内のテストは順に実行し、先行テストが作ったスナップショット(refresh の結果)を後続テストが使うことを許容する |
+| Query の行数の多い結果(※CR-004により追加) | HR には 500 行を超える表が無いため、HR を変えずに行を作る問い合わせを使う: `SELECT a.EMPLOYEE_ID, b.EMPLOYEE_ID FROM HR.EMPLOYEES a CROSS JOIN HR.EMPLOYEES b`(107 × 107 = 11,449 行)、または `SELECT LEVEL FROM DUAL CONNECT BY LEVEL <= 1200` |
+| CSV のダウンロード(受入)(※CR-004により追加) | Playwright のダウンロードは一時ディレクトリに保存し、テストの終わりに消す(累積しない) |
 | 再実行性 | テストスイート全体を 2 回続けて実行して同じ結果になることを、テストを作成・変更したフェーズ(P103・P201・P203・P205)が確認する |
 
 ### 3.3 実行コマンド(予定)

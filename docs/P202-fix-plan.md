@@ -16,3 +16,10 @@
 
 - [x] F007 [ネットワークの OSError の変換](./P202-fix-plan/fixed/F007-oserror-conversion.md) — A03: ホスト名を解決できないとき health が 500 になる。`OSError` を `OracleFailure` に変換し、health は常に 200
 - [x] F008 [接続プールの close の上限](./P202-fix-plan/fixed/F008-pool-close-timeout.md) — T08 所見: Oracle に届かない間 close が約 2 分戻らない。待ち時間に上限を設ける
+
+## CR-004(2026-10-04)
+
+入力: `docs/P201-review-report.md`(CR-004 の 1 回目)、`docs/test-records/20261004-1430-test-record.md`、`docs/test-records/20261004-1440-test-record.md`。
+
+- [x] F009 [HR のチェックサムと LOB](./P202-fix-plan/fixed/F009-hr-checksum-lob.md) — RESET・A06: LOB 列の表で ORA-22835、取得失敗を検出せず空同士を一致と判定する(テストの欠陥)
+- [x] F010 [HR の 8 表目](./P202-fix-plan/fixed/F010-hr-extra-table.md) — T01・T06・T08・T12・A01・A03・A05: HR に `EMPLOYEE_FIGURE` が追加され 7 表の期待値と合わない。依頼者の判断(案 B)で 8 表を新しいベースラインにした

@@ -15,6 +15,7 @@
 | U005 | frontend-detail | SC-02 テーブル詳細(スキーマ情報タブ、データタブ) | 中(ファイル 7) |
 | U006 | deploy | Dockerfile(api / web)、nginx、compose.yaml、受入テスト(Playwright)の実行環境 | 中(ファイル 7、インフラ) |
 | U007 | oracle-in-backend | ※CR-002により追加。MCP サーバ(U002 の成果物)と MCP ゲートウェイ(U003 の一部)を廃止し、Oracle アクセスを `dbfaq_api/oracle` に移す。health から mcp を除く(backend・frontend の型)。依存・設定・Dockerfile・compose・受入テストのスクリプトから MCP を除く | 中(移設が中心。ファイル 約 30(移動を含む)、ロジックの新規作成は `client.py` のみ) |
+| U009 | query-tab | ※CR-004により追加。backend: 利用者の SQL の検査(`oracle/sql_guard.py`)、SELECT の実行・CSV(`oracle/query.py`)、エラー位置、API 2 本(`routers/query.py`)。frontend: SC-02 の Query タブ(`QueryTab.tsx`)、ひな形の組み立て(`query/template.ts`)、CSV の保存。nginx の CSV の待ち時間。受入テスト A09 と A06 の追加分 | 大(ファイル 新規 約 10・変更 約 12、外部システム連携あり) |
 | U008 | merge-common | ※CR-003により追加。`dbfaq_common`(`config.py`・`logging.py`)を `dbfaq_api`(`config.py`・`log.py`)に移し、import を直す。振る舞いは変えない | 小(移設が中心。import の変更 約 20 ファイル) |
 
 * ※CR-002: U002(mcp-server)は U007 で廃止した(成果物のコードは `dbfaq_api/oracle` に移り、MCP のツール登録・stdio 起動は削除)。U003 の「MCP ゲートウェイ」も U007 で廃止した。U001〜U006 の記述は第 1 リリース時点の記録として残す。
@@ -69,6 +70,16 @@
 | その他 | `dbfaq_common/config.py` → `dbfaq_api/config.py`、`dbfaq_common/logging.py` → `dbfaq_api/log.py`(`git mv`)。`dbfaq_common` を削除。`server/src`・`server/tests`・`server/scripts` の import、`pyproject.toml` のパッケージ一覧 |
 | インフラ | なし(Dockerfile は `server/src` をまとめてコピーしており変更不要) |
 
+### U009 query-tab(※CR-004により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | SC-02 に Query タブを追加(P002 §2.2.6・§2.2.7)。URL の `tab=query` |
+| API | `POST /api/query`、`POST /api/query/csv`(P002 §3.8・§3.9)、エラーの `SQL_REJECTED` と `position`(P002 §3.1) |
+| データモデル | 変更なし |
+| その他 | backend: `dbfaq_api/oracle/sql_guard.py`・`query.py`(新規)、`oracle/errors.py`(`SQL_REJECTED`、エラー位置)、`oracle/values.py`(切り詰めない文字列化)、`oracle/client.py`(`run_query`・`export_csv`)、`errors.py`・`schemas.py`・`services.py`・`main.py`・`routers/query.py`(新規)、`tests/fakes.py`。frontend: `src/query/template.ts`(新規)、`src/pages/QueryTab.tsx`(新規)、`TableDetailPage.tsx`・`urlState.ts`、`src/api/`(型・関数・`ApiError` の `position`) |
+| インフラ | `deploy/nginx.conf` に `location /api/query/csv`(`proxy_read_timeout 600s`、`proxy_buffering off`)を追加(P003 §6)。`e2e/tests/a09-query-tab.spec.ts`(新規)、`e2e/scripts/a06-security.sh`(Query API の拒否を追加)、`e2e/scripts/a05-perf-api.sh`(Query の性能。※P011(CR-004)矛盾点#2にもとづき追加)、`e2e/scripts/run-suite.sh`(A09 を追加) |
+
 ### U004 frontend-er
 
 | 種別 | 対象 |
@@ -119,16 +130,19 @@ P004 の全要求 ID は上表のいずれかのスプリントに割り当た�
 
 ※CR-002により: 上表の「Oracle:」3 行と REQ-ORA-001〜004・REQ-ARCH-001(backend が Oracle に直接接続)・REQ-API-005(health から mcp を除く)・REQ-NFR-003/006 の CR-002 での変更分は **U007** が担う(U007 は上表の全列の後に追加したスプリントのため、列を増やさず本注記で割り当てる)。REQ-ARCH-002 は削除された。
 
+※CR-004により: REQ-SCREEN-016〜019(Query タブ)、REQ-API-006・007、REQ-ORA-005、REQ-SCREEN-010・REQ-NFR-001・REQ-NFR-004 の CR-004 での変更分は **U009** が担う(U007 と同じく列を増やさず本注記で割り当てる)。
+
 ※P011矛盾点#5にもとづき `GET /api/schema` 行の U005 列を修正。
 
 ## 4. 依存関係
 
 ```mermaid
 flowchart LR
-  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008
+  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009
 ```
 
 * U008(CR-003)は U007 の後に行う改修スプリント。
+* U009(CR-004)は U008 の後に行う改修スプリント。backend(SQL の検査・実行・API)→ frontend(ひな形・Query タブ)→ nginx・受入テストの順に作る。
 
 * U007(CR-002)は U001〜U006 の完成後に行う改修スプリント。
 

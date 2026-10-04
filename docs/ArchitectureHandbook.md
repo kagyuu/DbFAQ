@@ -5,7 +5,7 @@
 ## 1. アプリケーション概要
 
 * アプリケーション名: DbFAQ
-* 一言で言うと: Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データのタブ)を見せる運用者向けツール。第 1 リリース。FAQ(保存クエリ)の実行は将来 CR で追加する。
+* 一言で言うと: Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を見せる運用者向けツール。CR-004 で Query タブ(利用者の SELECT を実行、画面は 500 行まで、CSV で全行)を追加。FAQ(保存クエリ)は将来 CR で追加する。
 * 参照元: `docs/P001-requirement.md`
 
 ## 2. 全体構成図
@@ -50,25 +50,25 @@ graph LR
 
 ## 6. API/画面構成の要点
 
-* 画面: SC-01 ER 図(`/`)、SC-02 テーブル詳細(`/tables/:owner/:table?tab=schema|data&page=N`)。`docs/P002-frontend-spec.md` §2。
-* API: `GET /api/schema`、`POST /api/schema/refresh`、`GET /api/schema/tables/{owner}/{table}`、`GET /api/schema/tables/{owner}/{table}/rows?offset&limit`、`GET /api/health`。外部仕様は P002 §3、内部処理は P003 §4.3。
-* Oracle アクセスの入口: `OracleClient.get_schema_snapshot`・`get_table_rows`・`ping`(P003 §3.5・§3.6・§3.8・§3.9)。単体テストでは `create_app(oracle=FakeOracle)` で差し替える。
-* エラー形式 `{"error":{"code","message","ora_code?"}}`。コード一覧は P002 §3.1、`OracleFailure`→API の対応は P003 §4.1。`GET /api/health` は `backend`・`oracle`・`config`(`mcp` は CR-002 で削除)。
+* 画面: SC-01 ER 図(`/`)、SC-02 テーブル詳細(`/tables/:owner/:table?tab=schema|data|query&page=N`。`query` は CR-004)。Query タブのひな形は画面側の純粋関数(`client/src/query/template.ts`)で、詳細と `GET /api/schema` から作る。`docs/P002-frontend-spec.md` §2。
+* API: `GET /api/schema`、`POST /api/schema/refresh`、`GET /api/schema/tables/{owner}/{table}`、`GET /api/schema/tables/{owner}/{table}/rows?offset&limit`、`GET /api/health`、`POST /api/query`・`POST /api/query/csv`(CR-004)。外部仕様は P002 §3、内部処理は P003 §4.3。
+* Oracle アクセスの入口: `OracleClient.get_schema_snapshot`・`get_table_rows`・`ping`(P003 §3.5・§3.6・§3.8・§3.9)、`run_query`・`export_csv`(P003 §3.11。CR-004)。単体テストでは `create_app(oracle=FakeOracle)` で差し替える。
+* エラー形式 `{"error":{"code","message","ora_code?","position?"}}`(`position` は Query の `ORACLE_ERROR` のみ。`SQL_REJECTED` は 422。CR-004)。コード一覧は P002 §3.1、`OracleFailure`→API の対応は P003 §4.1。`GET /api/health` は `backend`・`oracle`・`config`(`mcp` は CR-002 で削除)。
 
 ## 7. 実装・テストの単位
 
-* スプリント: U001 foundation → U002 mcp-server → U003 backend-api → U004 frontend-er → U005 frontend-detail → U006 deploy → U007 oracle-in-backend(CR-002。U002 と U003 の MCP ゲートウェイを廃止)(`docs/P005-impl-plan.md`)。
+* スプリント: U001 foundation → U002 mcp-server → U003 backend-api → U004 frontend-er → U005 frontend-detail → U006 deploy → U007 oracle-in-backend(CR-002。U002 と U003 の MCP ゲートウェイを廃止)→ U008 merge-common(CR-003)→ U009 query-tab(CR-004)(`docs/P005-impl-plan.md`)。
 * 単体: pytest(`server/tests/unit`、偽の Oracle アクセス `FakeOracle`・偽のプール・一時 SQLite)、Vitest(`client`)。
-* 結合(P008 T01〜T12。T05 は CR-002 で廃止): 実 Oracle HR(pytest マーカー `oracle`)、T09 はテスト内の TCP 中継で Oracle との通信断と回復を作る、Vite proxy、compose。
-* 受入(P009 A01〜A08): compose の web(8088)に Playwright。スイート開始前に `docker compose down -v`。HR は読み取りのみで、前後のチェックサムが一致すること。
-* HR の期待値: 7 表、35 列、PK 7、UK 1、FK 10(自己参照 EMP_MANAGER_FK を含む)、インデックス 19、EMPLOYEES 107 行、COUNTRIES は IOT。
+* 結合(P008 T01〜T13。T05 は CR-002 で廃止、T13 は CR-004 の Query): 実 Oracle HR(pytest マーカー `oracle`)、T09 はテスト内の TCP 中継で Oracle との通信断と回復を作る、Vite proxy、compose。
+* 受入(P009 A01〜A09。A09 は CR-004 の Query タブ): compose の web(8088)に Playwright。スイート開始前に `docker compose down -v`。HR は読み取りのみで、前後のチェックサムが一致すること。
+* HR の期待値: 8 表、38 列、PK 8、UK 1、FK 11(自己参照 EMP_MANAGER_FK を含む)、インデックス 20、EMPLOYEES 107 行、EMPLOYEE_FIGURE(BLOB。行数は前提にしない)、COUNTRIES は IOT。前提の DB は ① Oracle 配布の HR サンプル + ② `server/scripts/sql/hr_employee_figure.sql`(P006 §3.1)(※P202 F010(CR-004)により 7 表から変更。人間の指示 2026-10-04)。
 
 ## 8. 横断的関心事
 
 * 認証・認可: なし。公開は web のポートのみ(ADR-012)。
-* 読み取りのみの保証: Oracle アクセスの全処理が `SET TRANSACTION READ ONLY` → 実行 → 必ず ROLLBACK。任意 SQL を実行する機能は無い。識別子は検証 + 実在確認 + クォート(ADR-011)。
+* 読み取りのみの保証: Oracle アクセスの全処理が `SET TRANSACTION READ ONLY` → 実行 → 必ず ROLLBACK。backend が組み立てる SQL の識別子は検証 + 実在確認 + クォート(ADR-011)。利用者の SQL(Query タブ、CR-004)は `oracle/sql_guard.py` の字句検査で SELECT・WITH の 1 文だけを通し、同じ読み取り専用トランザクションで包まずに実行する(ADR-015)。
 * エラーハンドリング: Oracle アクセスは `OracleFailure`(code/message/ora_code)を送出し、`SchemaService` が API エラーに変換。想定外の例外は 500。Oracle が戻れば再起動なしで回復(プールが壊れた接続を作り直す)。
-* ログ: 1 行 1 JSON を stdout へ。パスワード・テーブルデータは出さない。
+* ログ: 1 行 1 JSON を stdout へ。パスワード・テーブルデータ・Query の SQL の本文は出さない。
 * 設定: `DBFAQ_CONFIG`(既定 `./config.yaml`)、上書き `DBFAQ_ORACLE_HOST`・`DBFAQ_ORACLE_PORT`・`DBFAQ_ORACLE_PASSWORD`・`DBFAQ_SQLITE_PATH`。パスワードは SecretStr。
 
 ## 9. 既知の制約・技術的負債
@@ -79,6 +79,10 @@ graph LR
 * ★ACCEPTED★(2026-09-27 人間承認) health の疎通確認は問い合わせの上限 5 秒だが、Oracle のホストが応答しないときは接続の確立(`connect_timeout_sec`、既定 10 秒)まで待つ。検討: `asyncio.wait_for` で打ち切る/不採用理由: 通信途中の接続がプールに戻りうる/残存リスク: 応答の無いホストでは health が 5 秒を超える(P003 §3.8、ADR-014)。
 * `LAST_ANALYZED` は DB のタイムゾーンを UTC とみなしている ★ACCEPTED★(2026-09-24 人間承認)(P003 §3.5)。検討: DB のタイムゾーンを問い合わせて変換する/承認理由: 統計の取得日は目安で足りる/残存リスク: DB が UTC 以外だと日時がずれる。
 * 大規模スキーマ(300 表)の性能は偽データでのみ確認する(P006 §2.2)。
+* Query タブ(CR-004、ADR-015)の制約: 列名・別名に `UPDATE` などの語を引用符なしで使った SELECT も拒否する(誤検知)。副作用のある既存のストアドファンクション(自律型トランザクション)の呼び出しは防げない(読み取り専用ユーザーで運用する)。CSV は全行を api コンテナの一時ファイルに書いてから返すため、行数・時間の上限が無く、取得中は接続プールの接続を 1 つ占有する。nginx は `/api/query/csv` だけ待ち時間 600 秒・バッファなし。★FIXME★ 上限を設けないのは依頼者の指示「全てのデータ」による。
+* 実行環境(2026-10-04、CR-004 の P103 で確認): `server/.venv/bin/pytest` などのスクリプトのシバン行が `/home/atsushi/projects/DbFAQ/...`(小文字の projects)を指し、`uv run pytest` が `Failed to spawn: pytest`(No such file or directory)で起動しない。最小再現: `head -1 server/.venv/bin/pytest`。仮想環境を大文字小文字の違うパスで作ったことによる環境側の問題で、アプリケーションの欠陥ではない。回避策: `uv run python -m pytest ...`(または `.venv` を作り直す)。
+* 開発用 Oracle の HR の変化(2026-10-04、CR-004 の P103 で確認): 2026-09-29 に表 `EMPLOYEE_FIGURE`(BLOB 列、外部キー `FK_EMPLOYEE_FIGURE_EMP` → EMPLOYEES)が追加され、HR は 8 表・外部キー 11 本になっている。人間の指示(2026-10-04)で、これを新しいテストのベースラインにした(P202 F010、P006 §3.2)。
+* 実機で判明した python-oracledb の挙動(2026-10-04): `oracledb.Error` の `offset` は実行した SQL の **UTF-8 のバイト位置**(0 始まり)。最小再現: `-- 日本語コメント\nSELECT ほげ FROM EMPLOYEES` の ORA-00904 で 32(文字位置は 18)。位置を持たないエラー(ORA-00900 など)でも 0 を返す。
 * 開発・テスト用の接続ユーザー hr は書き込み権限を持つ(読み取り専用トランザクションで防いでいる)。実運用は読み取り専用ユーザーを推奨。
 * 実機で判明した python-oracledb 26.0.0 の挙動(2026-09-27、CR-002 の P103 で確認): 非同期プールの `close(force=True)` は、リスナーに届かない(接続拒否)間は長く戻らない(実測 124 秒)。最小再現: `oracledb.create_pool_async(dsn="localhost:1/FREEPDB1", min=1, getmode=POOL_GETMODE_TIMEDWAIT, wait_timeout=3000, tcp_connect_timeout=3)` を作り、acquire の有無にかかわらず `await pool.close(force=True)` が 40 秒以内に終わらない(`min=0` でも同じ)。Oracle に届くときは一瞬で終わる。backend の lifespan の終了(api の停止・再起動)に影響するため、close の待ち時間を `connect_timeout_sec` で打ち切る(P202 F008、P003 §3.1)。
 * 実機で判明した python-oracledb 26.0.0 の挙動(2026-09-27): ホスト名を解決できないとき、`oracledb.Error` ではなく `socket.gaierror`(`OSError`)をそのまま送出する。`run_readonly` で `OSError` も `OracleFailure` に変換する(P202 F007、P003 §3.2)。

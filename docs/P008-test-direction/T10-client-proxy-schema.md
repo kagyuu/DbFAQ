@@ -17,7 +17,7 @@
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
 * ビルド対象: `server/`(`cd server && uv sync`)と `client/`(`cd client && npm ci && npm run build`)。成功条件: 両方とも終了コード 0。失敗時は BLOCKED として出力を記録し、テストへ進まない。
-* 開発用 Oracle が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 
 ## 【使用するテストデータ】
 

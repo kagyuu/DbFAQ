@@ -12,6 +12,7 @@
 - [x] U006 [deploy](./P007-impl-direction/U006-deploy.md) — コンテナイメージ、nginx、compose、受入テストの実行環境
 - [x] U007 [oracle-in-backend](./P007-impl-direction/U007-oracle-in-backend.md) — MCP を廃止し Oracle アクセスを `dbfaq_api/oracle` に移す、health から mcp を除く ※CR-002により追加
 - [x] U008 [merge-common](./P007-impl-direction/U008-merge-common.md) — `dbfaq_common` を `dbfaq_api` に統合(`config.py`・`log.py`)※CR-003により追加
+- [x] U009 [query-tab](./P007-impl-direction/U009-query-tab.md) — SC-02 の Query タブ(SQL の検査、SELECT の実行・エラー位置・CSV、API 2 本、ひな形、nginx、受入テスト A09)※CR-004により追加
 
 ## 未解決事項
 

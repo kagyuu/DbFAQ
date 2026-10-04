@@ -2,10 +2,10 @@
 export const PAGE_SIZE = 50
 export const MAX_OFFSET = 100_000
 
-export type Tab = 'schema' | 'data'
+export type Tab = 'schema' | 'data' | 'query'
 
 export function parseTab(v: string | null): Tab {
-  return v === 'data' ? 'data' : 'schema'
+  return v === 'data' || v === 'query' ? v : 'schema'
 }
 
 export function parsePage(v: string | null): number {

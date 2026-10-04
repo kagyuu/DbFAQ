@@ -6,7 +6,7 @@ import asyncio
 import datetime as dt
 import logging
 import time
-from typing import Any
+from typing import IO, Any
 
 from starlette.concurrency import run_in_threadpool
 
@@ -18,6 +18,7 @@ from .errors import (
     ORACLE_TIMEOUT,
     REFRESH_IN_PROGRESS,
     SCHEMA_NOT_LOADED,
+    SQL_REJECTED,
     TABLE_NOT_FOUND,
     VALIDATION_ERROR,
     ApiError,
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 def _to_api_error(e: OracleFailure, context: str, owner: str = "") -> ApiError:
     """Oracle アクセスのエラーを API エラーに変換する(P003 §4.1 の表)。"""
     if e.code == oracle_errors.ORACLE_ERROR:
-        return ApiError(ORACLE_ERROR, e.message, e.ora_code)
+        return ApiError(ORACLE_ERROR, e.message, e.ora_code, position=e.position)
     if e.code == oracle_errors.ORACLE_TIMEOUT:
         return ApiError(ORACLE_TIMEOUT, e.message or "Oracle の応答がタイムアウトしました")
     if e.code == oracle_errors.NOT_FOUND:
@@ -42,6 +43,8 @@ def _to_api_error(e: OracleFailure, context: str, owner: str = "") -> ApiError:
         return ApiError(ORACLE_ERROR, f"スキーマ {owner} が見つかりません")
     if e.code == oracle_errors.INVALID_ARGUMENT:
         return ApiError(VALIDATION_ERROR, e.message)
+    if e.code == oracle_errors.SQL_REJECTED:
+        return ApiError(SQL_REJECTED, e.message)
     return ApiError(INTERNAL_ERROR, "内部エラーが発生しました")
 
 
@@ -127,3 +130,37 @@ class SchemaService:
             },
             "checked_at": now.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
+
+
+class QueryService:
+    """Query タブの SELECT の実行(P003 §4.3)。SQL の本文と結果はログに出さない。"""
+
+    def __init__(self, oracle: OracleAccess, max_rows: int = 500):
+        self.oracle = oracle
+        self.max_rows = max_rows
+
+    def _log(self, kind: str, sql: str, started: float, **extra: Any) -> None:
+        logger.info(
+            kind,
+            extra={"sql_chars": len(sql), "elapsed_ms": int((time.perf_counter() - started) * 1000), **extra},
+        )
+
+    async def run(self, sql: str) -> dict[str, Any]:
+        started = time.perf_counter()
+        try:
+            result = await self.oracle.run_query(sql, self.max_rows)
+        except OracleFailure as e:
+            self._log("query failed", sql, started, code=e.code, ora_code=e.ora_code)
+            raise _to_api_error(e, "query") from e
+        self._log("query", sql, started, row_count=result["row_count"], has_more=result["has_more"])
+        return result
+
+    async def csv(self, sql: str) -> tuple[IO[bytes], int]:
+        started = time.perf_counter()
+        try:
+            spool, count = await self.oracle.export_csv(sql)
+        except OracleFailure as e:
+            self._log("query csv failed", sql, started, code=e.code, ora_code=e.ora_code)
+            raise _to_api_error(e, "query") from e
+        self._log("query csv", sql, started, row_count=count)
+        return spool, count

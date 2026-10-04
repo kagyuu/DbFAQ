@@ -11,6 +11,8 @@
 | B007 | 0.2.0 | 2026-09-27 02:50 JST | a316427 + 未コミットの作業ツリー(B006 + 版数 0.2.0) | `bash e2e/scripts/reset-and-up.sh`(compose を再構築) | 単体 128 + 54、クライアントのビルド、A01〜A06・A08 を 1 回 | PASS | CR-002 の P302。API 契約の変更(health の mcp、MCP_UNAVAILABLE の削除)により 0.1.0 → 0.2.0。`/api/health` の backend.version が 0.2.0 |
 | B008 | 0.2.0 | 2026-09-27 23:55〜2026-09-28 00:01 JST | a316427 + 未コミットの作業ツリー(CR-002 + CR-003 の U008) | `docker compose up -d --build`、`bash e2e/scripts/reset-and-up.sh`(2 回) | 単体 + 結合 144 を 2 回、T10〜T12、A01〜A06・A08 を 2 回(A07) | PASS | CR-003 の P103・P201。docs/test-records/20260927-2358-test-record.md、20260928-0001-test-record.md |
 | B009 | 0.2.1 | 2026-09-28 JST | a316427 + 未コミットの作業ツリー(B008 + 版数 0.2.1) | `bash e2e/scripts/reset-and-up.sh`(compose を再構築) | 単体 128 + 54、クライアントのビルド、A01〜A06・A08 を 1 回 | PASS | CR-003 の P302。契約を変えない内部変更のため 0.2.0 → 0.2.1。`/api/health` の backend.version が 0.2.1 |
+| B010 | 0.2.1 | 2026-10-04 14:30〜21:10 JST | ac666af + 未コミットの作業ツリー(CR-004 の U009、F009・F010) | `docker compose up -d --build`、`bash e2e/scripts/reset-and-up.sh`(4 回) | 単体 203 + 89、単体 + 結合 225 を 2 回、T10〜T12、A01〜A06・A08・A09 を 2 回(A07) | PASS | CR-004 の P103・P201・P205。P201 1 回目は HR の表の追加で FAIL(F009・F010)。docs/test-records/20261004-1430-test-record.md、20261004-1440-test-record.md、20261004-2110-test-record.md |
+| B011 | 0.3.0 | 2026-10-04 21:15 JST | ac666af + 未コミットの作業ツリー(B010 + 版数 0.3.0) | `bash e2e/scripts/reset-and-up.sh`(compose を再構築) | 単体 203 + 89、クライアントのビルド、A01〜A06・A08・A09 を 1 回 | PASS | CR-004 の P302。API の後方互換の追加(`/api/query`・`/api/query/csv`)により 0.2.1 → 0.3.0。`/api/health` の backend.version が 0.3.0 |
 
 * コミット: B001〜B003 の作業ツリーは、人間が 9579d85(Initial Version、2026-09-24 01:03)としてコミットした。B004 の変更(★FIXME★ の受け入れと CR-001)は、9579d85 の次のコミット「★FIXME★ の受け入れと CR-001(要対応 2 件のテスト追加)」に含まれる。
-* B005〜B007(CR-002)と B008・B009(CR-003)は未コミット。
+* B005〜B007(CR-002)と B008・B009(CR-003)はコミット ac666af に含まれる。B010・B011(CR-004)は未コミット。

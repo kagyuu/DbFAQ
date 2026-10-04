@@ -20,8 +20,8 @@ from .errors import INTERNAL_ERROR, VALIDATION_ERROR, ApiError
 from .log import setup_logging
 from .migrate import apply_all
 from .oracle.client import OracleAccess, OracleClient
-from .routers import health, schema
-from .services import SchemaService
+from .routers import health, query, schema
+from .services import QueryService, SchemaService
 from .snapshot_repo import SnapshotRepository
 
 logger = logging.getLogger("dbfaq_api")
@@ -55,6 +55,7 @@ def create_app(
         ora = oracle if oracle is not None else OracleClient(config.oracle)
         app.state.now = now
         app.state.service = SchemaService(SnapshotRepository(engine), ora, config, asyncio.Lock())
+        app.state.query_service = QueryService(ora)
         try:
             yield
         finally:
@@ -96,4 +97,5 @@ def create_app(
 
     app.include_router(schema.router)
     app.include_router(health.router)
+    app.include_router(query.router)
     return app

@@ -52,3 +52,11 @@ def test_format_row():
     cells, truncated = format_row(["x" * 1001, None, Decimal(1)], ["DB_TYPE_CLOB", "DB_TYPE_VARCHAR", "DB_TYPE_NUMBER"])
     assert cells[1] is None and cells[2] == "1"
     assert truncated == [0]
+
+
+def test_full_does_not_truncate():
+    from dbfaq_api.oracle.values import format_cell
+
+    assert format_cell("x" * 1500, "DB_TYPE_CLOB", full=True) == ("x" * 1500, False)
+    assert format_cell(b"\xab" * 40, "DB_TYPE_RAW", full=True) == ("0x" + "AB" * 40, False)
+    assert format_cell("x" * 1500, "DB_TYPE_CLOB")[1] is True  # 既定は従来どおり切り詰める

@@ -12,6 +12,10 @@ if [ "${1:-hr}" = "hr" ]; then
   OUT=$(curl -s -w '\n%{time_total}' "$BASE/api/schema/tables/HR/EMPLOYEES/rows?offset=0&limit=50")
   T=$(echo "$OUT" | tail -1); MS=$(echo "$OUT" | head -1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["elapsed_ms"])')
   judge "HR rows のオーバーヘッド(total - elapsed_ms)" "$(python3 -c "print(round($T - $MS/1000, 3))")" 1
+  # 手順 3b(※CR-004により追加)
+  OUT=$(curl -s -w '\n%{time_total}' -H 'Content-Type: application/json' -d '{"sql":"SELECT * FROM HR.EMPLOYEES"}' "$BASE/api/query")
+  T=$(echo "$OUT" | tail -1); MS=$(echo "$OUT" | head -1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["elapsed_ms"])')
+  judge "HR query のオーバーヘッド(total - elapsed_ms)" "$(python3 -c "print(round($T - $MS/1000, 3))")" 1
 else
   RAW=$(for i in 1 2 3 4 5; do curl -s -o /dev/null -w '%{time_total}\n' "$BASE/api/schema"; done)
   echo "large schema raw: $(echo $RAW)"; judge "大規模 GET /api/schema 中央値" "$(echo "$RAW" | median)" 3

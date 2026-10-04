@@ -21,7 +21,7 @@ async def test_unreachable(tmp_path, base_config):
     async with app.router.lifespan_context(app):  # 起動に成功する
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=120) as c:
             view = (await c.get("/api/schema")).json()
-            assert view["loaded"] is True and len(view["tables"]) == 7
+            assert view["loaded"] is True and len(view["tables"]) == 8
 
             r = await c.post("/api/schema/refresh")
             assert r.status_code in (502, 504), r.text

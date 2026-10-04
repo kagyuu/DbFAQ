@@ -10,5 +10,8 @@ for i in $(seq 1 60); do
   sleep 1
 done
 curl -sf "http://localhost:${DBFAQ_PORT:-8088}/api/health" > /dev/null
-(cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py > ../e2e/.baseline-checksum.json)
+# 取得に失敗したら空のベースラインを残さない(空同士の比較で A06 が一致と判定しないように。P202 F009)
+rm -f e2e/.baseline-checksum.json
+(cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/hr_checksum.py > ../e2e/.baseline-checksum.json.tmp)
+mv e2e/.baseline-checksum.json.tmp e2e/.baseline-checksum.json
 echo "baseline ready"

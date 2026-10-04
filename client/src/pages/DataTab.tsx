@@ -1,5 +1,6 @@
-import { Alert, Button, Group, LoadingOverlay, Stack, Table, Text } from '@mantine/core'
+import { Alert, Button, Group, LoadingOverlay, Stack, Text } from '@mantine/core'
 import { useTableRows } from '../api/hooks'
+import ResultTable from '../components/ResultTable'
 import { PAGE_SIZE } from './urlState'
 
 type Props = { owner: string; table: string; page: number; onPageChange: (page: number) => void }
@@ -56,38 +57,13 @@ export default function DataTab({ owner, table, page, onPageChange }: Props) {
           <Text c="dimmed" p="md">データがありません</Text>
         ) : (
           data && (
-            <Table.ScrollContainer minWidth={600} maxHeight="calc(100vh - 260px)">
-              <Table stickyHeader striped withTableBorder withColumnBorders fz="xs" aria-label="データ">
-                <Table.Thead>
-                  <Table.Tr>
-                    {data.columns.map((c) => (
-                      <Table.Th key={c.name} title={c.data_type} style={{ whiteSpace: 'nowrap' }}>
-                        {c.name}
-                      </Table.Th>
-                    ))}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {data.rows.map((row, i) => (
-                    <Table.Tr key={offset + i}>
-                      {row.map((cell, j) => (
-                        <Table.Td
-                          key={j}
-                          title={data.truncated[i]?.includes(j) ? '先頭 1,000 文字のみ表示' : undefined}
-                          style={{ whiteSpace: 'nowrap' }}
-                        >
-                          {cell === null ? (
-                            <span className="null-cell" data-null="true">(null)</span>
-                          ) : (
-                            cell
-                          )}
-                        </Table.Td>
-                      ))}
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+            <ResultTable
+              label="データ"
+              columns={data.columns}
+              rows={data.rows}
+              truncated={data.truncated}
+              maxHeight="calc(100vh - 260px)"
+            />
           )
         )}
       </div>

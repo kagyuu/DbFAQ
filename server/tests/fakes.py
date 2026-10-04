@@ -31,5 +31,11 @@ class FakeOracle:
     async def ping(self) -> dict[str, Any]:
         return await self._respond("ping", {})
 
+    async def run_query(self, sql: str, max_rows: int) -> dict[str, Any]:
+        return await self._respond("run_query", {"sql": sql, "max_rows": max_rows})
+
+    async def export_csv(self, sql: str):
+        return await self._respond("export_csv", {"sql": sql})
+
     async def close(self) -> None:
         pass

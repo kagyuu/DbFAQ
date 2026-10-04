@@ -17,7 +17,7 @@
 ## 【前提条件】全モジュールビルドが成功していること
 
 * ビルド対象: 全モジュール。ビルドコマンド: `cd server && uv sync && uv run pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。成功条件: すべて終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 * テスト実行環境の構成は P003 §7(ADR-004)に従い、compose の web(`http://localhost:8088`)の同一オリジンに対して実行する。
 
 ## 【使用するテストデータ】
@@ -38,14 +38,15 @@
 1. HR: `curl -s -o /dev/null -w '%{time_total}' localhost:8088/api/schema` を 5 回 → 中央値 < 1 秒。
 2. HR: `POST /api/schema/refresh` の `time_total` → < 10 秒。
 3. HR: `GET /api/schema/tables/HR/EMPLOYEES/rows?offset=0&limit=50` の `time_total` − 応答の `elapsed_ms`/1000 → < 1 秒。
-4. HR(ブラウザ): `/` を開いてから 7 ノードが表示されるまで < 1 秒(`performance.now()` の差。Playwright で測る)。
+3b. ※CR-004により追加: HR: `POST /api/query`(`{"sql":"SELECT * FROM HR.EMPLOYEES"}`)の `time_total` − 応答の `elapsed_ms`/1000 → < 1 秒。
+4. HR(ブラウザ): `/` を開いてから 8 ノード(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)が表示されるまで < 1 秒(`performance.now()` の差。Playwright で測る)。
 5. 大規模(api): `GET /api/schema` の `time_total` の中央値(5 回)< 3 秒。
 6. 大規模(ブラウザ): `/` を開いてから 300 ノードが表示されるまで < 3 秒。表示後、ホイールでの拡大縮小が操作できる(1 回の操作後 1 秒以内に transform が変わる)。
 7. 後片付け: `a05-restore-hr.sh` で HR に戻す。
 
 ## 【実行コマンド】
 
-* `bash e2e/scripts/a05-perf-api.sh hr`(手順 1〜3)
+* `bash e2e/scripts/a05-perf-api.sh hr`(手順 1〜3、3b)
 * `cd e2e && npx playwright test tests/a05-performance.spec.ts -g "hr:"`(手順 4)
 * `bash e2e/scripts/a05-load-large.sh && bash e2e/scripts/a05-perf-api.sh large`(手順 5)
 * `cd e2e && npx playwright test tests/a05-performance.spec.ts -g "large:"`(手順 6)

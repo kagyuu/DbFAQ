@@ -4,10 +4,10 @@ import { viewportScale, waitForNodes } from './helpers'
 // A05: 性能(docs/P009-acceptance-direction/A05-performance.md)
 test('hr: ER 図の表示が 1 秒未満', async ({ page }) => {
   await page.goto('/')
-  await waitForNodes(page, 7)
+  await waitForNodes(page, 8)
   const t0 = Date.now()
   await page.reload()
-  await waitForNodes(page, 7)
+  await waitForNodes(page, 8)
   const ms = Date.now() - t0
   console.log(`HR ER 図の表示: ${ms} ms`)
   expect(ms).toBeLessThan(1000)

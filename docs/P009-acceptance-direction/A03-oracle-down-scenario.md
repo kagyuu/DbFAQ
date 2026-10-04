@@ -17,7 +17,7 @@
 ## 【前提条件】全モジュールビルドが成功していること
 
 * ビルド対象: 全モジュール。ビルドコマンド: `cd server && uv sync && uv run pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。成功条件: すべて終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 * テスト実行環境の構成は P003 §7(ADR-004)に従い、compose の web(`http://localhost:8088`)の同一オリジンに対して実行する。
 
 ## 【使用するテストデータ】
@@ -33,8 +33,8 @@
 ## 【実行手順】
 
 1. api が起動している(`/api/health` が 200、status=degraded、oracle.status=error)。
-2. `/` を開く → ER 図のノードが 7 個表示される(保存済み)。ヘッダの `data-status` が `error`。
-3. [Oracle から再読み込み] → 赤い通知(エラーメッセージを含む)。ノードは 7 個のまま。取得日時が変わらない。
+2. `/` を開く → ER 図のノードが 8 個表示される(保存済み)(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)。ヘッダの `data-status` が `error`。
+3. [Oracle から再読み込み] → 赤い通知(エラーメッセージを含む)。ノードは 8 個のまま。取得日時が変わらない。
 4. `/tables/HR/EMPLOYEES` → スキーマ情報タブが表示される。
 5. [データ] タブ → 表の代わりにエラー表示と [再試行]。
 6. 後片付けを実行し、`/tables/HR/EMPLOYEES?tab=data` で 50 行が表示される(回復)。

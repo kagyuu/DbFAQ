@@ -17,7 +17,7 @@
 ## 【前提条件】対象スプリントの全モジュールビルドが成功していること
 
 * ビルド対象: `server/`(Python)。ビルドコマンド: `cd server && uv sync`。成功条件: 終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7` を出す。出なければ BLOCKED として記録する。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更) を出す。出なければ BLOCKED として記録する。
 
 ## 【使用するテストデータ】
 
@@ -32,6 +32,7 @@
 1. チェックサムを取る(`run_readonly` の中で)。
 2. `run_readonly` の中で `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1 WHERE EMPLOYEE_ID = 100` を実行 → `OracleFailure` で ora_code が `ORA-01456`。
 3. `OracleClient` で `get_schema_snapshot`、`get_table_rows`(EMPLOYEES 全 3 ページ)、`ping` を呼ぶ(※CR-002により「MCP クライアント経由で」を変更)。
+   * ※CR-004により追加: `OracleClient.run_query` と `export_csv` に `SELECT * FROM HR.EMPLOYEES` を渡して実行する。`run_query` に `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1`・`DELETE FROM HR.EMPLOYEES` を渡すと `SQL_REJECTED`(Oracle に送られない)になる。
 4. 再度チェックサムを取り、1 と一致する。
 
 ## 【実行コマンド】

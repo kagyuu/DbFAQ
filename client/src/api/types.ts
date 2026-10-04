@@ -138,6 +138,24 @@ export interface Health {
   checked_at: string
 }
 
+/** Query の SQL のエラー位置(P002 §3.1。offset・column はコードポイント単位、line・column は 1 始まり) */
+export interface ErrorPosition {
+  offset: number
+  line: number
+  column: number
+}
+
 export interface ApiErrorBody {
-  error: { code: string; message: string; ora_code?: string }
+  error: { code: string; message: string; ora_code?: string; position?: ErrorPosition }
+}
+
+/** POST /api/query の結果(P002 §3.8) */
+export interface QueryResult {
+  columns: { name: string; data_type: string }[]
+  rows: (string | null)[][]
+  truncated: number[][]
+  row_count: number
+  has_more: boolean
+  max_rows: number
+  elapsed_ms: number
 }

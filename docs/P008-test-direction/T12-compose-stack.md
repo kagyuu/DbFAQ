@@ -30,7 +30,7 @@
 ## 【実行手順】
 
 1. `curl -s localhost:8088/api/health` → status=ok、oracle.version が空でない。本文に config.yaml のパスワードの文字列が含まれない(`grep -c` で 0)。
-2. `curl -s -X POST localhost:8088/api/schema/refresh` → `"table_count":7`。
+2. `curl -s -X POST localhost:8088/api/schema/refresh` → `"table_count":8`。(※P202 F010(CR-004)により変更。人間の指示 2026-10-04)
 3. `curl -s -o /dev/null -w '%{http_code}' localhost:8088/tables/HR/EMPLOYEES` → 200、本文が index.html(`<div id="root">` を含む)。
 4. `docker compose port api 8000` が何も出さない(公開されていない)。`curl -s -m 3 localhost:8000/api/health` が接続できない(8000 番を他に使っていないことを先に `ss -ltn | grep :8000` で確認)。
 5. `docker compose exec api sh -c 'ls /app /app/server'` の結果に `config.yaml` が無い(マウントは /config のみ)。

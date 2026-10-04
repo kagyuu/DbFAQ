@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+MAX_SQL_CHARS = 100_000
 
 
 class SnapshotSummary(BaseModel):
@@ -145,6 +147,27 @@ class RowsResponse(BaseModel):
     elapsed_ms: int
 
 
+class QueryRequest(BaseModel):
+    sql: str = Field(min_length=1, max_length=MAX_SQL_CHARS)
+
+    @field_validator("sql")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("SQL を入力してください")
+        return v
+
+
+class QueryResponse(BaseModel):
+    columns: list[RowColumn]
+    rows: list[list[str | None]]
+    truncated: list[list[int]]
+    row_count: int
+    has_more: bool
+    max_rows: int
+    elapsed_ms: int
+
+
 class BackendHealth(BaseModel):
     status: str
     version: str
@@ -165,10 +188,17 @@ class HealthResponse(BaseModel):
     checked_at: str
 
 
+class ErrorPosition(BaseModel):
+    offset: int
+    line: int
+    column: int
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
     ora_code: str | None = None
+    position: ErrorPosition | None = None
 
 
 class ErrorResponse(BaseModel):

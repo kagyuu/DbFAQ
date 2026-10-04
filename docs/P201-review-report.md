@@ -1,6 +1,51 @@
 # P201 実装横断レビュー
 
-## 最新の判定(CR-003 の 1 回目)
+## 最新の判定(CR-004 の 2 回目。P205 の再実施による)
+
+* 実行回数: CR-004 の 2 回目(1 回目の差し戻し → P202〜P205(F009・F010)の後)
+* P008: T01〜T04・T06〜T13 PASS(T05 は廃止)。単体 + 結合の pytest は 2 回続けて 225 passed
+* P009: A01〜A06・A08・A09 PASS(スイートを 2 回続けて実行し出力が同一。A07 PASS)
+* 記録: `docs/test-records/20261004-2110-test-record.md`
+
+| テストID | 種別 | 結果 | 記録 |
+|---|---|---|---|
+| T01〜T04・T06〜T13 | 結合(P008) | PASS | docs/test-records/20261004-2110-test-record.md |
+| A01〜A09 | 受け入れ結合(P009) | PASS | 同上 |
+
+**判定: 全件 PASS。Closing(P301〜)へ進む。**
+
+---
+
+## CR-004 の 1 回目の判定
+
+* 実行回数: CR-004 の 1 回目
+* P008: T02〜T04・T07・T09〜T11・T13 PASS、**T01・T06・T08・T12 FAIL**(`docs/test-records/20261004-1430-test-record.md`。pytest は 2 回とも 222 passed / 3 failed)
+* P009: A02・A04・A08・A09 PASS、A07 PASS(2 回の結果が一致)、**A01・A03・A05 FAIL、A06 FAIL(偽の PASS)、RESET FAIL**(`docs/test-records/20261004-1440-test-record.md`)
+
+| テストID | 種別 | 結果 | 記録 |
+|---|---|---|---|
+| T01 | 結合(P008) | FAIL(環境) | docs/test-records/20261004-1430-test-record.md |
+| T02・T03・T04・T07・T09・T10・T11 | 結合(P008) | PASS | 同上 |
+| T06・T08 | 結合(P008) | FAIL(環境) | 同上 |
+| T12 | 結合(P008) | FAIL(環境。table_count の 1 項目) | 同上 |
+| T13 | 結合(P008) | PASS | 同上 |
+| A01・A03・A05 | 受け入れ結合(P009) | FAIL(環境) | docs/test-records/20261004-1440-test-record.md |
+| A02・A04・A08・A09 | 受け入れ結合(P009) | PASS | 同上 |
+| A06 | 受け入れ結合(P009) | FAIL(テストの欠陥。チェックサムを比べられていない) | 同上 |
+| A07 | 受け入れ結合(P009) | PASS(2 回一致) | 同上 |
+
+| # | 種別 | 内容 | 対応 |
+|---|---|---|---|
+| 1 | FAIL(テストの欠陥) | `hr_checksum.py` が LOB 列を持つ表で ORA-22835 になり、`reset-and-up.sh`・`a06-security.sh` はその失敗を検出せず、空のベースラインと空の現在値を「一致」と判定する(A06 手順 1 の偽の PASS) | P202 へ(F009) |
+| 2 | FAIL(テストデータの変化) | 開発用 Oracle の HR に 2026-09-29 に表 `EMPLOYEE_FIGURE` が追加され、7 表・外部キー 10 本を期待する T01・T06・T08・T12・A01・A03・A05 が失敗する。アプリケーション(CR-004 を含む)の欠陥ではない | P202 へ(F010。直し方は人間の判断を要する) |
+
+* CR-004 の変更点(Query タブ・API・SQL の検査・CSV・エラー位置・nginx)に関わるテスト(T03 の追加分、T13、A05 手順 3b、A06 手順 6、A09)はすべて PASS。
+
+**判定: 失敗あり。P202(修正計画)へ差し戻す。**
+
+---
+
+## CR-003 の 1 回目の判定
 
 * 実行回数: CR-003 の 1 回目
 * P008: 単体 + T01〜T04・T06〜T09 を 2 回続けて 144 passed、T10〜T12 PASS(`docs/test-records/20260927-2358-test-record.md`)

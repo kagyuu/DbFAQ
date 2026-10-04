@@ -4,7 +4,7 @@
 
 ## 【目的】
 
-* 受入テストのスイート全体(A01〜A06、A08。※CR-001により A08 を追加)を 2 回続けて実行しても同じ結果になること(再実行可能であること)を確認する。
+* 受入テストのスイート全体(A01〜A06、A08、A09。※CR-001により A08 を追加。※CR-004により A09 を追加)を 2 回続けて実行しても同じ結果になること(再実行可能であること)を確認する。
 
 ## 【参照テスト計画】
 
@@ -17,16 +17,16 @@
 ## 【前提条件】全モジュールビルドが成功していること
 
 * ビルド対象: 全モジュール。ビルドコマンド: `cd server && uv sync && uv run pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。成功条件: すべて終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
-* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `7`)。
+* 開発用 Oracle(`localhost:1521/FREEPDB1`、hr)が起動していること(`cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8`(※P202 F010(CR-004)により 7 から変更))。
 * テスト実行環境の構成は P003 §7(ADR-004)に従い、compose の web(`http://localhost:8088`)の同一オリジンに対して実行する。
 
 ## 【使用するテストデータ】
 
-* A01〜A06、A08 と同じ。
+* A01〜A06、A08、A09 と同じ。
 
 ## 【事前準備】
 
-* `e2e/scripts/run-suite.sh` を作る(新規): `reset-and-up.sh` → A01・A02(playwright)→ A03(api の作り直しを含む)→ A04(スクリプト)→ A05(スクリプト + playwright)→ A08(スクリプト)→ A06(スクリプト)を順に実行し(※CR-001により A08 を追加。A08 も読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く)、各テストの PASS/FAIL を 1 行ずつ出力する。
+* `e2e/scripts/run-suite.sh` を作る(新規): `reset-and-up.sh` → A01・A02(playwright)→ A03(api の作り直しを含む)→ A04(スクリプト)→ A05(スクリプト + playwright)→ A08(スクリプト)→ A06(スクリプト)を順に実行し(※CR-004により A02 の後に A09(playwright)を追加。※CR-001により A08 を追加。A08 も読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く)、各テストの PASS/FAIL を 1 行ずつ出力する。
 
 ## 【実行手順】
 

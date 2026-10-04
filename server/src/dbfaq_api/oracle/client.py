@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import IO, Any, Protocol
 
 from ..config import OracleConfig
+from . import query as query_mod
 from . import rows as rows_mod
 from . import snapshot as snapshot_mod
 from .db import Database
@@ -22,6 +23,10 @@ class OracleAccess(Protocol):
     async def get_table_rows(self, owner: str, table: str, offset: int, limit: int) -> dict[str, Any]: ...
 
     async def ping(self) -> dict[str, Any]: ...
+
+    async def run_query(self, sql: str, max_rows: int) -> dict[str, Any]: ...
+
+    async def export_csv(self, sql: str) -> tuple[IO[bytes], int]: ...
 
     async def close(self) -> None: ...
 
@@ -43,6 +48,14 @@ class OracleClient:
     async def get_table_rows(self, owner: str, table: str, offset: int, limit: int) -> dict[str, Any]:
         """テーブルのデータを主キー順(主キーが無ければ ROWID 順)に 1 ページ分返す。"""
         return await rows_mod.get_table_rows(self._db, owner, table, offset, limit)
+
+    async def run_query(self, sql: str, max_rows: int = query_mod.MAX_ROWS) -> dict[str, Any]:
+        """利用者の SELECT を実行し、先頭 max_rows 行を返す(P003 §3.11)。"""
+        return await query_mod.run_query(self._db, sql, max_rows)
+
+    async def export_csv(self, sql: str) -> tuple[IO[bytes], int]:
+        """利用者の SELECT の全行を CSV の一時ファイルにして返す(P003 §3.11)。"""
+        return await query_mod.export_csv(self._db, sql)
 
     async def ping(self) -> dict[str, Any]:
         """Oracle への疎通を確認し、バージョンと接続ユーザーを返す。問い合わせの上限は HEALTH_TIMEOUT_SEC。"""

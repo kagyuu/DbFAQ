@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { ApiError, getSchema, getTableRows, refreshSchema } from './client'
+import { ApiError, fetchQueryCsv, getSchema, getTableRows, refreshSchema, runQuery } from './client'
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -56,4 +56,33 @@ test('JSON でないエラー本文は INTERNAL_ERROR', async () => {
   const err = (await getSchema().catch((e) => e)) as ApiError
   expect(err.code).toBe('INTERNAL_ERROR')
   expect(err.message).toBe('サーバでエラーが発生しました (HTTP 500)')
+})
+
+test('runQuery は SQL を JSON で POST し、エラー位置を ApiError に入れる', async () => {
+  const position = { offset: 33, line: 3, column: 7 }
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(json(200, { rows: [] }))
+    .mockResolvedValueOnce(json(502, { error: { code: 'ORACLE_ERROR', message: 'ORA-00904: x', ora_code: 'ORA-00904', position } }))
+  vi.stubGlobal('fetch', fetchMock)
+  await runQuery('SELECT 1 FROM DUAL')
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/query')
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: '{"sql":"SELECT 1 FROM DUAL"}' })
+  const err = (await runQuery('x').catch((e) => e)) as ApiError
+  expect(err.position).toEqual(position)
+  expect(err.displayMessage).toBe('[ORA-00904] ORA-00904: x')
+})
+
+test('fetchQueryCsv は Blob と行数を返し、失敗は ApiError', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response('A\r\n1\r\n', { status: 200, headers: { 'Content-Type': 'text/csv', 'X-Row-Count': '1' } }))
+    .mockResolvedValueOnce(json(422, { error: { code: 'SQL_REJECTED', message: '複数の文は実行できません' } }))
+  vi.stubGlobal('fetch', fetchMock)
+  const r = await fetchQueryCsv('SELECT 1 FROM DUAL')
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/query/csv')
+  expect(r.rowCount).toBe(1)
+  expect(await r.blob.text()).toBe('A\r\n1\r\n')
+  const err = (await fetchQueryCsv('x').catch((e) => e)) as ApiError
+  expect(err.code).toBe('SQL_REJECTED')
 })

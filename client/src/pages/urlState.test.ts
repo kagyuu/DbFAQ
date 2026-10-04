@@ -3,6 +3,7 @@ import { parsePage, parseTab } from './urlState'
 
 test('parseTab', () => {
   expect(parseTab('data')).toBe('data')
+  expect(parseTab('query')).toBe('query')
   expect(parseTab('schema')).toBe('schema')
   expect(parseTab('x')).toBe('schema')
   expect(parseTab(null)).toBe('schema')

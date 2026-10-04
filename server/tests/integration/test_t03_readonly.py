@@ -38,6 +38,15 @@ async def test_dml_rejected_and_data_unchanged(base_config, oracle_client: Oracl
             await oracle_client.get_table_rows("HR", "EMPLOYEES", offset, 50)
         await oracle_client.ping()
 
+        # ※CR-004により追加: Query の経路(T03 手順 3)
+        await oracle_client.run_query("SELECT * FROM HR.EMPLOYEES", 500)
+        spool, _ = await oracle_client.export_csv("SELECT * FROM HR.EMPLOYEES")
+        spool.close()
+        for sql in ("UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1", "DELETE FROM HR.EMPLOYEES"):
+            with pytest.raises(OracleFailure) as ei:
+                await oracle_client.run_query(sql, 500)
+            assert ei.value.code == "SQL_REJECTED"
+
         assert await checksum(db) == before
     finally:
         await db.close()
