@@ -1,37 +1,24 @@
-"""PDB の Query のひな型(docs/P003-backend-spec.md §4.7、docs/P001-requirement.md §6 SC-03)。※CR-005により追加
+"""PDB の Query のひな型の第 1 版(CR-005。v0.4.0)。※CR-006により追加
 
-起動時に 1 回だけ saved_queries(scope='pdb')へ登録する(登録済みかは query_template_seeds で判定)。
-登録した後は通常の保存済み Query と同じく、利用者が変更・削除できる。key は登録済みの判定に使うため変えない。
-SQL は Query タブの検査(oracle/sql_guard.py)を通る形にする(更新系のキーワードを引用符なしで書かない)。
-※CR-006により: スキーマ単位のひな型は対象スキーマ(SYS_CONTEXT('USERENV','CURRENT_SCHEMA')。backend が接続ごとに
-oracle.schema を設定する)で絞る。SQL を直したひな型は以前の版を previous に持ち、利用者が変えていない登録済みの行を
-起動時に新しい版に更新する(saved_query_repo.seed_templates)。以前の版は pdb_templates_v1.py に残す。
+登録済みのひな型の更新(docs/P003-backend-spec.md §4.7、ADR-016)の照合に使う。**内容を変えない**
+(変えると、既存の環境で利用者が変えていないひな型を見分けられなくなる)。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
-from .pdb_templates_v1 import PDB_TEMPLATES_V1
-
-NEEDS_DBA = "DBA_* ・V$ ビューを読む権限(SELECT_CATALOG_ROLE など)が要ります。権限が無いと ORA-00942 になります。"
-TARGET = "対象スキーマ(config.yaml の oracle.schema)"
+from typing import NamedTuple
 
 
-@dataclass(frozen=True)
-class PreviousVersion:
-    name: str
-    description: str
-    sql: str
-
-
-@dataclass(frozen=True)
-class PdbTemplate:
+class TemplateV1(NamedTuple):
     key: str
     name: str
     description: str
     sql: str
-    previous: tuple[PreviousVersion, ...] = field(default=(), compare=False)
+
+
+_t = TemplateV1
+
+NEEDS_DBA = "DBA_* ・V$ ビューを読む権限(SELECT_CATALOG_ROLE など)が要ります。権限が無いと ORA-00942 になります。"
 
 
 _USERS_TS_SIZE = """\
@@ -61,38 +48,30 @@ WHERE df.tablespace_name = 'USERS'"""
 
 _USERS_TS_MINE = """\
 SELECT
-  q.username,
   q.tablespace_name,
   ROUND(q.bytes / 1024 / 1024, 2) AS used_mb,
   CASE WHEN q.max_bytes = -1 THEN 'UNLIMITED' ELSE TO_CHAR(ROUND(q.max_bytes / 1024 / 1024, 2)) END AS quota_mb,
-  (SELECT COUNT(*) FROM dba_segments s
-    WHERE s.owner = q.username AND s.tablespace_name = q.tablespace_name) AS segment_count
-FROM dba_ts_quotas q
-WHERE q.username = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-  AND q.tablespace_name = 'USERS'"""
+  (SELECT COUNT(*) FROM user_segments s WHERE s.tablespace_name = q.tablespace_name) AS segment_count
+FROM user_ts_quotas q
+WHERE q.tablespace_name = 'USERS'"""
 
 # 実データの合計は列ごとに SUM(DBMS_LOB.GETLENGTH(列)) を求める必要があり、列名を動的に埋め込む。
 # 動的 SQL(EXECUTE IMMEDIATE・DBMS_SQL)は Query の検査で拒否されるため、DBMS_XMLGEN で問い合わせを実行して値を取り出す。
 _LOB_MINE = """\
 WITH lob_cols AS (
   SELECT
-    l.owner,
     l.table_name,
     l.column_name,
     c.data_type,
     l.segment_name,
     l.securefile,
-    (SELECT NVL(SUM(s.bytes), 0) FROM dba_segments s
-      WHERE s.owner = l.owner AND s.segment_name = l.segment_name) AS segment_bytes,
-    (SELECT NVL(SUM(s.bytes), 0) FROM dba_segments s
-      WHERE s.owner = l.owner AND s.segment_name = l.index_name) AS lobindex_bytes,
+    (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s WHERE s.segment_name = l.segment_name) AS segment_bytes,
+    (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s WHERE s.segment_name = l.index_name) AS lobindex_bytes,
     TO_NUMBER(XMLCAST(XMLQUERY('/ROWSET/ROW/V/text()' PASSING DBMS_XMLGEN.GETXMLTYPE(
-      'SELECT NVL(SUM(DBMS_LOB.GETLENGTH("' || l.column_name || '")), 0) AS V FROM "'
-        || l.owner || '"."' || l.table_name || '"'
+      'SELECT NVL(SUM(DBMS_LOB.GETLENGTH("' || l.column_name || '")), 0) AS V FROM "' || l.table_name || '"'
     ) RETURNING CONTENT) AS VARCHAR2(40))) AS data_length
-  FROM all_lobs l
-    JOIN all_tab_columns c ON c.owner = l.owner AND c.table_name = l.table_name AND c.column_name = l.column_name
-  WHERE l.owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
+  FROM user_lobs l
+    JOIN user_tab_columns c ON c.table_name = l.table_name AND c.column_name = l.column_name
 )
 SELECT
   table_name || '.' || column_name AS table_column,
@@ -122,8 +101,8 @@ WITH lob_cols AS (
       'SELECT NVL(SUM(DBMS_LOB.GETLENGTH("' || l.column_name || '")), 0) AS V FROM "'
         || l.owner || '"."' || l.table_name || '"'
     ) RETURNING CONTENT) AS VARCHAR2(40))) AS data_length
-  FROM all_lobs l
-    JOIN all_tab_columns c ON c.owner = l.owner AND c.table_name = l.table_name AND c.column_name = l.column_name
+  FROM dba_lobs l
+    JOIN dba_tab_columns c ON c.owner = l.owner AND c.table_name = l.table_name AND c.column_name = l.column_name
     JOIN dba_users u ON u.username = l.owner
   WHERE u.oracle_maintained = 'N'
 )
@@ -193,8 +172,7 @@ SELECT
   tablespace_name,
   ROUND(bytes / 1024 / 1024, 2) AS size_mb,
   extents
-FROM dba_segments
-WHERE owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
+FROM user_segments
 ORDER BY bytes DESC
 FETCH FIRST 50 ROWS ONLY"""
 
@@ -206,9 +184,8 @@ SELECT
   t.avg_row_len,
   TO_CHAR(t.last_analyzed, 'YYYY-MM-DD HH24:MI:SS') AS last_analyzed,
   s.stale_stats
-FROM all_tables t
-  LEFT JOIN all_tab_statistics s ON s.owner = t.owner AND s.table_name = t.table_name AND s.object_type = 'TABLE'
-WHERE t.owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
+FROM user_tables t
+  LEFT JOIN user_tab_statistics s ON s.table_name = t.table_name AND s.object_type = 'TABLE'
 ORDER BY t.last_analyzed NULLS FIRST, t.table_name"""
 
 _INVALID_OBJECTS = """\
@@ -217,22 +194,19 @@ SELECT
   object_name,
   status,
   TO_CHAR(last_ddl_time, 'YYYY-MM-DD HH24:MI:SS') AS last_ddl_time
-FROM all_objects
-WHERE owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-  AND status <> 'VALID'
+FROM user_objects
+WHERE status <> 'VALID'
 ORDER BY object_type, object_name"""
 
 _UNUSABLE_INDEXES = """\
 SELECT index_name, NULL AS partition_name, table_name, status
-FROM all_indexes
-WHERE owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-  AND status = 'UNUSABLE'
+FROM user_indexes
+WHERE status = 'UNUSABLE'
 UNION ALL
 SELECT p.index_name, p.partition_name, i.table_name, p.status
-FROM all_ind_partitions p
-  JOIN all_indexes i ON i.owner = p.index_owner AND i.index_name = p.index_name
-WHERE p.index_owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-  AND p.status = 'UNUSABLE'
+FROM user_ind_partitions p
+  JOIN user_indexes i ON i.index_name = p.index_name
+WHERE p.status = 'UNUSABLE'
 ORDER BY 3, 1, 2"""
 
 _DISABLED_CONSTRAINTS = """\
@@ -242,15 +216,13 @@ SELECT
   constraint_type,
   status,
   validated
-FROM all_constraints
-WHERE owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-  AND (status = 'DISABLED' OR validated = 'NOT VALIDATED')
+FROM user_constraints
+WHERE status = 'DISABLED' OR validated = 'NOT VALIDATED'
 ORDER BY table_name, constraint_name"""
 
 _OBJECT_COUNTS = """\
 SELECT object_type, status, COUNT(*) AS object_count
-FROM all_objects
-WHERE owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
+FROM user_objects
 GROUP BY object_type, status
 ORDER BY object_type, status"""
 
@@ -309,136 +281,117 @@ SELECT
 FROM dba_ts_quotas
 ORDER BY bytes DESC"""
 
-PDB_TEMPLATES: tuple[PdbTemplate, ...] = (
-    PdbTemplate(
+PDB_TEMPLATES_V1: tuple[TemplateV1, ...] = (
+    _t(
         "pdb.users_ts_size",
         "01. USERS 表領域の大きさ",
         "USERS 表領域の合計・使用・空き(MB)、使用率、自動拡張の上限、データファイル数。" + NEEDS_DBA,
         _USERS_TS_SIZE,
     ),
-    PdbTemplate(
+    _t(
         "pdb.users_ts_mine",
-        "02. USERS 表領域の使用量(対象スキーマ分)",
-        TARGET + "が USERS 表領域で使っている容量と割り当て上限、セグメント数。表領域全体の大きさは 01 で見ます。"
-        + NEEDS_DBA,
+        "02. USERS 表領域の使用量(接続ユーザー分)",
+        "接続ユーザーが USERS 表領域で使っている容量と割り当て上限(USER_TS_QUOTAS)。権限は要りません。"
+        "表領域全体の大きさは 01 で見ます。",
         _USERS_TS_MINE,
     ),
-    PdbTemplate(
+    _t(
         "pdb.lob_size_mine",
         "03. LOB 領域の大きさと実データの合計(テーブル.カラムごと)",
-        TARGET + "のテーブルの LOB 列ごとに、LOB セグメントと LOB 索引の大きさ(MB)と、実データの合計"
+        "接続ユーザーのテーブルの LOB 列ごとに、LOB セグメントと LOB 索引の大きさ(MB)と、実データの合計"
         "(SUM(DBMS_LOB.GETLENGTH))を表示します。実データの単位は BLOB はバイト、CLOB・NCLOB は文字数です"
-        "(AL32UTF8 の CLOB は内部では 1 文字 2 バイトで格納されます)。"
-        + NEEDS_DBA
-        + "全行の LOB を読むため、大きな表では時間がかかります。",
+        "(AL32UTF8 の CLOB は内部では 1 文字 2 バイトで格納されます)。権限は要りません。"
+        "全行の LOB を読むため、大きな表では時間がかかります。",
         _LOB_MINE,
     ),
-    PdbTemplate(
+    _t(
         "pdb.lob_size_all",
         "04. LOB 領域の大きさと実データの合計(全スキーマ)",
-        "Oracle 管理以外の全スキーマの LOB 列のうち、接続ユーザーが読めるテーブルの列ごとに、LOB セグメントの大きさ(MB)と"
-        "実データの合計を表示します(読めないテーブルは出ません)。"
+        "Oracle 管理以外の全スキーマの LOB 列ごとに、LOB セグメントの大きさ(MB)と実データの合計を表示します。"
         + NEEDS_DBA
-        + "全行の LOB を読むため時間がかかります。",
+        + "各テーブルを SELECT する権限も要ります。全行の LOB を読むため時間がかかります。",
         _LOB_ALL,
     ),
-    PdbTemplate(
+    _t(
         "pdb.ts_usage",
         "05. 表領域ごとの使用率",
         "全表領域(一時表領域を除く)の合計・使用・空き(MB)、使用率、自動拡張の上限に対する使用率。使用率の高い順。"
         + NEEDS_DBA,
         _TS_USAGE,
     ),
-    PdbTemplate(
+    _t(
         "pdb.data_files",
         "06. データファイルと自動拡張の設定",
         "データファイルごとの大きさ、自動拡張の有無と上限、状態。" + NEEDS_DBA,
         _DATA_FILES,
     ),
-    PdbTemplate(
+    _t(
         "pdb.temp_usage",
         "07. 一時表領域の使用状況",
         "一時表領域の大きさ・割り当て済み・空き(MB)。" + NEEDS_DBA,
         _TEMP_USAGE,
     ),
-    PdbTemplate(
+    _t(
         "pdb.top_segments",
         "08. セグメントの大きい順(上位 50)",
-        TARGET + "のセグメント(表・索引・LOB など)を大きい順に 50 件。" + NEEDS_DBA,
+        "接続ユーザーのセグメント(表・索引・LOB など)を大きい順に 50 件。権限は要りません。",
         _TOP_SEGMENTS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.table_stats",
         "09. テーブルの行数と統計情報の鮮度",
-        TARGET + "のテーブルの統計上の行数・ブロック数、統計の取得日時、統計が古いか(STALE_STATS)。"
-        "統計の無いテーブルが先頭。DBA_* の権限は要りません(対象スキーマの表を読めること)。",
+        "接続ユーザーのテーブルの統計上の行数・ブロック数、統計の取得日時、統計が古いか(STALE_STATS)。"
+        "統計の無いテーブルが先頭。権限は要りません。",
         _TABLE_STATS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.invalid_objects",
         "10. 無効なオブジェクト",
-        TARGET + "の VALID でないオブジェクト(ビュー・プロシージャ・トリガーなど)。DBA_* の権限は要りません"
-        "(見えるのは接続ユーザーが参照できるオブジェクト)。",
+        "接続ユーザーの VALID でないオブジェクト(ビュー・プロシージャ・トリガーなど)。権限は要りません。",
         _INVALID_OBJECTS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.unusable_indexes",
         "11. 使用できない索引",
-        TARGET + "の UNUSABLE の索引と索引パーティション。DBA_* の権限は要りません(対象スキーマの表を読めること)。",
+        "接続ユーザーの UNUSABLE の索引と索引パーティション。権限は要りません。",
         _UNUSABLE_INDEXES,
     ),
-    PdbTemplate(
+    _t(
         "pdb.disabled_constraints",
         "12. 無効または未検証の制約",
-        TARGET + "の DISABLED または NOT VALIDATED の制約。DBA_* の権限は要りません(対象スキーマの表を読めること)。",
+        "接続ユーザーの DISABLED または NOT VALIDATED の制約。権限は要りません。",
         _DISABLED_CONSTRAINTS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.object_counts",
         "13. オブジェクトの種類ごとの数",
-        TARGET + "のオブジェクトの種類・状態ごとの数。DBA_* の権限は要りません"
-        "(数えるのは接続ユーザーが参照できるオブジェクト)。",
+        "接続ユーザーのオブジェクトの種類・状態ごとの数。権限は要りません。",
         _OBJECT_COUNTS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.sessions",
         "14. セッションの一覧",
         "利用者のセッション(状態、OS ユーザー、端末、プログラム、実行中の SQL_ID、最後の呼び出しからの秒数)。"
         + NEEDS_DBA,
         _SESSIONS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.blocking_sessions",
         "15. ロック待ちのセッション",
         "他のセッションを待っているセッションと、待たせているセッション。待ち時間の長い順。" + NEEDS_DBA,
         _BLOCKING,
     ),
-    PdbTemplate(
+    _t(
         "pdb.long_ops",
         "16. 長時間実行中の処理",
         "V$SESSION_LONGOPS のうち終わっていない処理(全表走査・バックアップ・統計の収集など)の進み具合と残り秒数。"
         + NEEDS_DBA,
         _LONG_OPS,
     ),
-    PdbTemplate(
+    _t(
         "pdb.user_quotas",
         "17. ユーザーごとの表領域の使用量と割り当て",
         "全ユーザーの表領域ごとの使用量と割り当て上限。使用量の多い順。" + NEEDS_DBA,
         _USER_QUOTAS,
     ),
 )
-
-
-def _with_previous(templates: tuple[PdbTemplate, ...]) -> tuple[PdbTemplate, ...]:
-    """第 1 版(CR-005)と名前・説明・SQL のどれかが違うひな型に、第 1 版を previous として付ける。"""
-    v1 = {t.key: t for t in PDB_TEMPLATES_V1}
-    out = []
-    for t in templates:
-        old = v1.get(t.key)
-        if old and (old.name, old.description, old.sql) != (t.name, t.description, t.sql):
-            t = PdbTemplate(t.key, t.name, t.description, t.sql, (PreviousVersion(old.name, old.description, old.sql),))
-        out.append(t)
-    return tuple(out)
-
-
-PDB_TEMPLATES = _with_previous(PDB_TEMPLATES)

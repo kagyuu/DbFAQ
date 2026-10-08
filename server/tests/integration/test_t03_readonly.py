@@ -31,7 +31,9 @@ async def test_dml_rejected_and_data_unchanged(base_config, oracle_client: Oracl
 
         with pytest.raises(OracleFailure) as ei:
             await db.run_readonly(update)
-        assert ei.value.ora_code == "ORA-01456"
+        # 読み取り専用トランザクション(ORA-01456)。※CR-006により、読み取り専用ユーザー dbfaq_ro では
+        # 権限で先に拒否される(23ai は ORA-41900、以前の版は ORA-01031)。どれでも更新は起きない
+        assert ei.value.ora_code in {"ORA-01456", "ORA-41900", "ORA-01031"}
 
         await oracle_client.get_schema_snapshot(None)
         for offset in (0, 50, 100):

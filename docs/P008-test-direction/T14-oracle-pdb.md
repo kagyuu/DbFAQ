@@ -18,7 +18,7 @@
 
 * ビルド対象: `server/`(Python)。ビルドコマンド: `cd server && uv sync`。成功条件: 終了コード 0。失敗時はテスト記録に BLOCKED として出力を残し、テストへ進まない。
 * 開発用 Oracle が起動していること: `cd server && DBFAQ_CONFIG=../config.yaml uv run python scripts/check_oracle.py` が `8` を出す。出なければ BLOCKED。
-* 接続ユーザー `hr` は DBA_* ・V$SESSION を読めない(2026-10-07 確認)。
+* ※CR-006により、接続ユーザーは読み取り専用ユーザー `dbfaq_ro`(`SELECT_CATALOG_ROLE` あり)、対象スキーマ(`oracle.schema`)は `HR`。以前の記述: 接続ユーザー `hr` は DBA_* ・V$SESSION を読めない(2026-10-07 確認)。
 
 ## 【使用するテストデータ】
 
@@ -30,11 +30,12 @@
 
 ## 【実行手順】
 
-1. `get_pdb_info()` → セクションの `key` が `overview`・`ts_quotas`・`segments`・`tablespaces` の順。`overview` は 10 行で、コンテナ名(PDB)が `FREEPDB1`、接続ユーザーが `HR`、既定の表領域が `USERS`。
+1. `get_pdb_info()` → セクションの `key` が `overview`・`ts_quotas`・`segments`・`tablespaces` の順。`overview` は 10 行で、コンテナ名(PDB)が `FREEPDB1`、接続ユーザーが `DBFAQ_RO`、対象スキーマが `HR`、対象スキーマの既定の表領域が `USERS`(※CR-006により変更)。
 2. `ts_quotas` に `USERS` の行があり、`segments` に `TABLE`・`INDEX`・`LOBSEGMENT` の行がある(いずれも `error` が null)。
-3. `tablespaces` は `error.ora_code` が `ORA-00942`(hr に権限が無いため)で、`rows` が空。他のセクションには影響しない。
+3. ※CR-006により変更: `tablespaces` も `error` が null で、`USERS` の行がある(`dbfaq_ro` は DBA_* を読める)。以前の手順: `tablespaces` は `error.ora_code` が `ORA-00942`(hr に権限が無いため)。
 4. `GET /api/pdb` → 200、`sections` が 4 件、`fetched_at`(`Z` 付き)・`elapsed_ms`。
-5. ひな型を全件 `run_query` で実行する: 権限の要らないもの(02・03・08〜13)は成功する。03 は `TABLE_COLUMN=EMPLOYEE_FIGURE.FIGURE`、`DATA_TYPE=BLOB`、`SEGMENT_MB` > 0、`DATA_LENGTH` > 0 の行を含む。権限の要るもの(01・04〜07・14〜17。16 は開発用 Oracle の hr でも読めたが、一般には権限が要る)は成功するか、`ORACLE_ERROR` の `ORA-00942`・`ORA-01031` のどちらかで失敗する(構文エラー(ORA-009xx の 942 以外)にならない)。※P011(CR-005)矛盾点#1にもとづき修正
+5. ※CR-006により変更: ひな型を全件 `run_query` で実行し、**17 件すべて成功**する。03 と 04 は `TABLE_COLUMN` が `EMPLOYEE_FIGURE.FIGURE`(04 は `HR.EMPLOYEE_FIGURE.FIGURE`)、`DATA_TYPE=BLOB`、`SEGMENT_MB` > 0、`DATA_LENGTH` > 0 の行を含み、04 には読めない APPOWNER の表の行が無い。02・08・09 は HR の行を返す(0 行でない)。
+5b. ※CR-006により追加: スキーマ名を付けない `SELECT COUNT(*) FROM EMPLOYEES` が 107 を返す(カレントスキーマが HR)。
 6. 2 回続けて実行して同じ結果になる。
 
 ## 【実行コマンド】

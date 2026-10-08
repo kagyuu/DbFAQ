@@ -49,7 +49,7 @@ class Database:
         return self._pool
 
     async def run_readonly(self, fn: Callable[[Any], Awaitable[T]], timeout_sec: int | None = None) -> T:
-        """接続を借り、SET TRANSACTION READ ONLY の中で fn を実行し、必ず ROLLBACK する。
+        """接続を借り、カレントスキーマを対象スキーマにして、SET TRANSACTION READ ONLY の中で fn を実行し、必ず ROLLBACK する。
 
         timeout_sec を省略すると問い合わせの上限は query_timeout_sec になる。
         """
@@ -57,6 +57,8 @@ class Database:
             pool = await self._get_pool()
             async with pool.acquire() as conn:
                 conn.call_timeout = (timeout_sec or self._cfg.query_timeout_sec) * 1000
+                # スキーマ名の無い名前と CURRENT_SCHEMA を対象スキーマにする(権限は変えない。P003 §3.1、ADR-017)
+                conn.current_schema = self._cfg.target_schema
                 await conn.execute("SET TRANSACTION READ ONLY")  # 失敗したら fn を実行しない
                 try:
                     return await fn(conn)

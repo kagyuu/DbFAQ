@@ -16,7 +16,7 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
   - services.py — API の内部処理(`SchemaService`、Query の `QueryService`、保存済み Query の `SavedQueryService`・PDB の `PdbService`(CR-005))、`OracleFailure` → API エラーの変換
   - oracle/ — Oracle アクセス(CR-002 で `dbfaq_mcp` から移設)
     - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認・SELECT の実行・CSV の入口)と `OracleAccess` プロトコル
-    - db.py — 非同期接続プールと読み取り専用トランザクション(`run_readonly`)
+    - db.py — 非同期接続プールと読み取り専用トランザクション(`run_readonly`。CR-006 で接続のカレントスキーマを対象スキーマに)
     - dictionary.py — データディクショナリの問い合わせ Q-00〜Q-05
     - snapshot.py — スナップショットの組み立て(`build_snapshot`)
     - rows.py — テーブルデータのページ取得(主キー順/ROWID 順、OFFSET)
@@ -32,8 +32,9 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
   - migrate.py — 管理テーブル付きの差分マイグレーション
   - migrations/0001_init.sql — 初期スキーマ
   - migrations/0002_saved_queries.sql — 保存済み Query とひな型の登録記録(CR-005)
-  - saved_query_repo.py — 保存済み Query の保存・読み出しと PDB のひな型の登録(スナップショットと結ばない。ADR-016)。CR-005 で追加
-  - pdb_templates.py — PDB の Query のひな型 17 件(USERS 表領域、LOB の大きさと実データ ほか)。CR-005 で追加
+  - saved_query_repo.py — 保存済み Query の保存・読み出しと PDB のひな型の登録・更新(スナップショットと結ばない。ADR-016)。CR-005 で追加。未変更のひな型の更新は CR-006
+  - pdb_templates.py — PDB の Query のひな型 17 件(USERS 表領域、LOB の大きさと実データ ほか)。CR-005 で追加。CR-006 で対象スキーマ基準にし、以前の版(`previous`)を持つ
+  - pdb_templates_v1.py — ひな型の第 1 版(CR-005)。登録済みのひな型の更新の照合に使う(内容を変えない)。CR-006 で追加
   - schemas.py — API のレスポンス型(pydantic)
   - errors.py — API エラーとエラーコード
 - scripts/check_oracle.py — 開発用 Oracle への疎通確認

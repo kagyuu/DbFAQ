@@ -140,7 +140,8 @@ async with pool.acquire() as conn:
         except Exception: log.warning(...)           # 元の例外を上書きしない
 ```
 
-* 実機確認(2026-09-23): 読み取り専用トランザクション中の UPDATE は `ORA-01456` で拒否される。`call_timeout` 超過時は `DPY-4024`(呼び出しタイムアウト)のほか、回復処理が間に合わないと `DPY-4011`(接続が閉じられた。メッセージに `timed out` を含む)になる。いずれの場合も接続は使えなくなるので、プールへ返さず破棄する(python-oracledb のプールが自動で破棄する)。
+* ※CR-006により追加: 接続を借りたら、`SET TRANSACTION READ ONLY` の前に `conn.current_schema = 対象スキーマ`(`oracle.schema`。既定は接続ユーザー)を設定する。これにより、スキーマ名を付けない表名(Query タブ)と `SYS_CONTEXT('USERENV','CURRENT_SCHEMA')`(PDB 情報・ひな型)が対象スキーマを指す。カレントスキーマの変更は権限を要らず、名前の解決だけを変える(権限は接続ユーザーのまま)。プールの接続に設定が残るが、毎回設定し直すので問題ない(2026-10-09 に `dbfaq_ro` で実機確認: `USER`=`DBFAQ_RO`、`CURRENT_SCHEMA`=`HR`、`SELECT COUNT(*) FROM EMPLOYEES` が 107) ★ACCEPTED★(2026-10-09 人間承認)検討: 対象スキーマの示し方(ひな型に書き込む/バインド変数/カレントスキーマ。ADR-017)/承認理由: `oracle.schema` の変更に追従し、権限を変えない/残存リスク: Query タブでスキーマ名の無い表名が接続ユーザーではなく対象スキーマの表になる
+* 実機確認(2026-09-23): 読み取り専用トランザクション中の UPDATE は `ORA-01456` で拒否される。※CR-006により: 接続ユーザーが読み取り専用ユーザー(`dbfaq_ro`。対象の表への `READ` だけ)のときは、読み取り専用トランザクションより先に権限で `ORA-41900`(missing DELETE privilege など。23ai。以前の版では `ORA-01031`)で拒否される(2026-10-09 実機確認)。`call_timeout` 超過時は `DPY-4024`(呼び出しタイムアウト)のほか、回復処理が間に合わないと `DPY-4011`(接続が閉じられた。メッセージに `timed out` を含む)になる。いずれの場合も接続は使えなくなるので、プールへ返さず破棄する(python-oracledb のプールが自動で破棄する)。
 
 ### 3.2 エラー
 
@@ -325,9 +326,9 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 | セクション | SQL(要旨) | 備考 |
 | --- | --- | --- |
-| `overview` | `SELECT SYS_CONTEXT('USERENV','CON_NAME'), SYS_CONTEXT('USERENV','DB_NAME'), SYS_CONTEXT('USERENV','SERVICE_NAME'), USER, SYS_CONTEXT('USERENV','CURRENT_SCHEMA'), (SELECT value FROM nls_database_parameters WHERE parameter='NLS_CHARACTERSET'), (… 'NLS_NCHAR_CHARACTERSET'), (SELECT default_tablespace FROM user_users), (SELECT temporary_tablespace FROM user_users) FROM DUAL` | 1 行を Python で `ITEM`・`VALUE` の 10 行に組み替える。バージョンは接続の `conn.version`(SQL を使わない) |
-| `ts_quotas` | `SELECT tablespace_name, ROUND(bytes/1024/1024,2) AS used_mb, CASE WHEN max_bytes=-1 THEN 'UNLIMITED' ELSE TO_CHAR(ROUND(max_bytes/1024/1024,2)) END AS max_mb FROM user_ts_quotas ORDER BY tablespace_name` | 権限不要 |
-| `segments` | `SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/1024/1024,2) AS size_mb FROM user_segments GROUP BY segment_type ORDER BY SUM(bytes) DESC` | 権限不要 |
+| `overview` | (1) `SELECT SYS_CONTEXT('USERENV','CON_NAME'), SYS_CONTEXT('USERENV','DB_NAME'), SYS_CONTEXT('USERENV','SERVICE_NAME'), USER, SYS_CONTEXT('USERENV','CURRENT_SCHEMA'), (SELECT value FROM nls_database_parameters WHERE parameter='NLS_CHARACTERSET'), (… 'NLS_NCHAR_CHARACTERSET') FROM DUAL`、(2) `SELECT default_tablespace, temporary_tablespace FROM dba_users WHERE username = SYS_CONTEXT('USERENV','CURRENT_SCHEMA')` | 2 つの結果を Python で `ITEM`・`VALUE` の 10 行に組み替える。バージョンは接続の `conn.version`(SQL を使わない)。(2) が `ORACLE_ERROR` なら、その 2 行の値を `(権限が無いため取得できません)`(ORA-00942・ORA-01031)または `(取得できません: ORA-xxxxx)` にし、セクションのエラーにはしない。※CR-006により、表領域を `user_users`(接続ユーザー)から `dba_users`(対象スキーマ)に変更 |
+| `ts_quotas` | `SELECT tablespace_name, ROUND(bytes/1024/1024,2) AS used_mb, CASE WHEN max_bytes=-1 THEN 'UNLIMITED' ELSE TO_CHAR(ROUND(max_bytes/1024/1024,2)) END AS max_mb FROM dba_ts_quotas WHERE username = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') ORDER BY tablespace_name` | DBA_* を読む権限が要る(※CR-006により `user_ts_quotas` から変更) |
+| `segments` | `SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/1024/1024,2) AS size_mb FROM dba_segments WHERE owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') GROUP BY segment_type ORDER BY SUM(bytes) DESC` | DBA_* を読む権限が要る(※CR-006により `user_segments` から変更) |
 | `tablespaces` | ひな型「05. 表領域ごとの使用率」(§4.7)から `used_pct_of_max` を除いたもの(DBA_DATA_FILES・DBA_FREE_SPACE) | DBA_* を読む権限が要る |
 
 * 列名・セル値は §3.11 と同じ(`cursor.description` の名前、`values.format_row` による表示用文字列。`truncated` も同じ)。
@@ -477,31 +478,33 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 * ひな型は `pdb_templates.PDB_TEMPLATES`(キー・名前・説明・SQL)に定義する。登録は lifespan でマイグレーションの直後に `SavedQueryRepository.seed_templates(PDB_TEMPLATES)` を呼んで行う。
 * 1 つのトランザクションで、ひな型ごとに: `query_template_seeds` にキーがあれば何もしない。無ければ `saved_queries` に `scope='pdb'`・`template_key`=キーで挿入し、`query_template_seeds` にキーを記録する。挿入しようとした名前が既にある(利用者が同じ名前で保存していた)場合は、名前の末尾に「 (ひな型)」を付けて挿入する。
 * このため、何回起動しても 1 回だけ登録される。利用者がひな型を削除・改名・変更しても、次の起動で元に戻さない。新しいひな型(新しいキー)を後の版で追加した場合は、次の起動で そのひな型だけが登録される。
+* ※CR-006により追加 — **ひな型の更新**: ひな型の SQL を後の版で直したときは、`PdbTemplate.previous` に以前の版(名前・説明・SQL)を残す。登録済みのキーについて、`template_key` が同じ行の SQL が以前の版のどれかと**完全に一致する**(利用者が SQL を変えていない)ときだけ、SQL を新しい版にし、説明・名前も以前の版のままなら新しい版にする(名前が他の行と重なるときは名前だけ変えない)。`updated_at` を更新する。利用者が SQL を変えた行・削除した行は触らない。同じトランザクションで行い、何回起動しても結果は同じ(新しい版の SQL は以前の版に含まれないため、2 回目は何もしない) ★ACCEPTED★(2026-10-09 人間承認)検討: 登録済みのひな型を常に上書きするか、更新しないか、未変更のときだけ更新するか/承認理由: 利用者の変更を上書きしない/残存リスク: SQL を少しでも変えたひな型は新しい版にならない(削除して登録し直す)
+* ※CR-006により追加: スキーマ単位のひな型(02・03・08〜13)は、接続ユーザーの USER_* ではなく、対象スキーマ(`SYS_CONTEXT('USERENV','CURRENT_SCHEMA')`。§3.1)で絞った ALL_* ・DBA_* を使う。ALL_* で足りるもの(09〜13)は、対象スキーマの表を読める接続ユーザーなら DBA_* の権限が無くても動く。04 は ALL_LOBS(接続ユーザーが読める表の LOB だけが出る)を使い、読めない表があっても失敗しない。
 * ひな型の SQL は Query の検査(§3.10)を通ること(単体テストで全件確かめる)。DBA_* ・V$ を使うひな型は、説明に「権限が要る」旨を書く。
 * ひな型の一覧(名前の順。キーは `pdb.` で始まる):
 
 | 名前 | 主に使うビュー | 権限 |
 | --- | --- | --- |
 | 01. USERS 表領域の大きさ | DBA_DATA_FILES、DBA_FREE_SPACE | 要(SELECT_CATALOG_ROLE など) |
-| 02. USERS 表領域の使用量(接続ユーザー分) | USER_TS_QUOTAS、USER_SEGMENTS | 不要 |
-| 03. LOB 領域の大きさと実データの合計(テーブル.カラムごと) | USER_LOBS、USER_TAB_COLUMNS、USER_SEGMENTS、`DBMS_XMLGEN` + `DBMS_LOB.GETLENGTH` | 不要 |
-| 04. LOB 領域の大きさと実データの合計(全スキーマ) | DBA_LOBS、DBA_TAB_COLUMNS、DBA_SEGMENTS、DBA_USERS | 要(加えて各テーブルの SELECT) |
+| 02. USERS 表領域の使用量(対象スキーマ分)(※CR-006により「接続ユーザー分」から変更) | DBA_TS_QUOTAS、DBA_SEGMENTS(※CR-006により USER_* から変更) | 要 |
+| 03. LOB 領域の大きさと実データの合計(テーブル.カラムごと) | ALL_LOBS、ALL_TAB_COLUMNS、DBA_SEGMENTS、`DBMS_XMLGEN` + `DBMS_LOB.GETLENGTH`(※CR-006により対象スキーマの ALL_* ・DBA_* に変更) | 要 |
+| 04. LOB 領域の大きさと実データの合計(全スキーマ) | ALL_LOBS(読める表だけ)、ALL_TAB_COLUMNS、DBA_SEGMENTS、DBA_USERS(※CR-006により DBA_LOBS・DBA_TAB_COLUMNS から変更) | 要(加えて各テーブルの READ) |
 | 05. 表領域ごとの使用率 | DBA_DATA_FILES、DBA_FREE_SPACE | 要 |
 | 06. データファイルと自動拡張の設定 | DBA_DATA_FILES | 要 |
 | 07. 一時表領域の使用状況 | DBA_TEMP_FREE_SPACE | 要 |
-| 08. セグメントの大きい順(上位 50) | USER_SEGMENTS | 不要 |
-| 09. テーブルの行数と統計情報の鮮度 | USER_TABLES、USER_TAB_STATISTICS | 不要 |
-| 10. 無効なオブジェクト | USER_OBJECTS | 不要 |
-| 11. 使用できない索引 | USER_INDEXES、USER_IND_PARTITIONS | 不要 |
-| 12. 無効または未検証の制約 | USER_CONSTRAINTS | 不要 |
-| 13. オブジェクトの種類ごとの数 | USER_OBJECTS | 不要 |
+| 08. セグメントの大きい順(上位 50) | DBA_SEGMENTS(対象スキーマ。※CR-006により USER_SEGMENTS から変更) | 要 |
+| 09. テーブルの行数と統計情報の鮮度 | ALL_TABLES、ALL_TAB_STATISTICS(対象スキーマ。※CR-006) | 不要(対象スキーマの表を読めること) |
+| 10. 無効なオブジェクト | ALL_OBJECTS(対象スキーマ。※CR-006) | 不要(同上) |
+| 11. 使用できない索引 | ALL_INDEXES、ALL_IND_PARTITIONS(対象スキーマ。※CR-006) | 不要(同上) |
+| 12. 無効または未検証の制約 | ALL_CONSTRAINTS(対象スキーマ。※CR-006) | 不要(同上) |
+| 13. オブジェクトの種類ごとの数 | ALL_OBJECTS(対象スキーマ。※CR-006) | 不要(同上) |
 | 14. セッションの一覧 | V$SESSION | 要 |
 | 15. ロック待ちのセッション | V$SESSION | 要 |
 | 16. 長時間実行中の処理 | V$SESSION_LONGOPS | 要(開発用 Oracle の hr では読めた。環境による) |
 | 17. ユーザーごとの表領域の使用量と割り当て | DBA_TS_QUOTAS | 要 |
 
 * LOB の実データの合計は、列ごとに `SUM(DBMS_LOB.GETLENGTH(列))` を求めるため列名を動的に埋め込む必要がある。動的 SQL(`EXECUTE IMMEDIATE`・`DBMS_SQL`)は Query の検査で拒否されるため、`DBMS_XMLGEN.GETXMLTYPE` で問い合わせを実行して `XMLQUERY` で値を取り出す ★ACCEPTED★(2026-10-09 人間承認)検討: `DBMS_XMLGEN` による動的な問い合わせ(Query の検査は `DBMS_XMLGEN` を拒否しない)/承認理由: 読み取り専用トランザクションの中なので書き込みはできない/残存リスク: 利用者も同じ方法で動的な SELECT を書ける。実データの単位は BLOB はバイト、CLOB・NCLOB は文字数
-* 権限の要るひな型(01・04〜07・14〜17。16 の V$SESSION_LONGOPS は開発用 Oracle の hr でも読めたが、一般には権限が要るため要とする。※P011(CR-005)矛盾点#1にもとづき修正)は、開発用 Oracle の `hr` では ORA-00942 になるため、結果の正しさを実機で確かめられない。結合テストでは「検査を通り、Oracle が構文エラーではなく権限・存在のエラー(ORA-00942・ORA-01031)か成功を返すこと」を確かめる ★ACCEPTED★(2026-10-09 人間承認)検討: DBA 権限のあるユーザーでの確認/承認理由: 構文は Oracle が受け付けることを確認済み/残存リスク: 実行結果の正しさは未確認(列名の誤りなどは権限のある環境で初めて分かる)
+* ※CR-006により: 開発用 Oracle の接続ユーザーを `dbfaq_ro`(`SELECT_CATALOG_ROLE` あり)にしたため、権限の要るひな型も実行して結果を確かめる(T14)。以下は CR-005 時点の記述。権限の要るひな型(01・04〜07・14〜17。16 の V$SESSION_LONGOPS は開発用 Oracle の hr でも読めたが、一般には権限が要るため要とする。※P011(CR-005)矛盾点#1にもとづき修正)は、開発用 Oracle の `hr` では ORA-00942 になるため、結果の正しさを実機で確かめられない。結合テストでは「検査を通り、Oracle が構文エラーではなく権限・存在のエラー(ORA-00942・ORA-01031)か成功を返すこと」を確かめる ★ACCEPTED★(2026-10-09 人間承認)検討: DBA 権限のあるユーザーでの確認/承認理由: 構文は Oracle が受け付けることを確認済み/残存リスク: 実行結果の正しさは未確認(列名の誤りなどは権限のある環境で初めて分かる)。※CR-006により解消: 2026-10-09 に `dbfaq_ro`(`SELECT_CATALOG_ROLE`)で 17 件すべての実行と結果を確認した(T14)
 
 ## 5. SQLite とマイグレーション
 
@@ -555,7 +558,7 @@ P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABL
 | 性能: Query の実行 | 501 行だけを取得し(§3.11)、SQL を包まない | — |
 | 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
 | 可用性: バックアップ | スナップショットは再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる。※CR-005により、保存済み Query は**利用者が作ったデータで、作り直せない**ものになった。アプリは引き続きバックアップ機能を持たない ★ACCEPTED★(2026-10-09 人間承認)検討: アプリにバックアップ・エクスポート機能を持たせるか/承認理由: SQLite ファイルの複写で足りる(手順は P302 7 章)/残存リスク: 運用でバックアップしないと保存済み Query を失いうる | ボリュームの扱いと、SQLite ファイルのバックアップ手順(backend を止めるか `sqlite3 .backup` で WAL を含めて複写する)は **P302** の手順書(※CR-005により追加) |
-| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-005により: 保存済み Query は保存時に検査せず、実行時に Query と同じ検査を通す。PDB 情報は固定の SELECT だけ。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する) |
+| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-005により: 保存済み Query は保存時に検査せず、実行時に Query と同じ検査を通す。PDB 情報は固定の SELECT だけ。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する)。※CR-006により、推奨ユーザー `dbfaq_ro`(`CREATE SESSION`、`SELECT_CATALOG_ROLE`、対象スキーマの表への `READ`)を作る理由・SQL・`config.yaml` への登録を README.md と P302 7 章に載せる。`config.example.yaml` の `oracle.user` の例を `dbfaq_ro` にする |
 | セキュリティ: 公開範囲 | backend は nginx からのみ呼ばれる前提で CORS を設定しない | ホストに公開するのは web コンテナのポートだけにする構成は **P005・P302** |
 | セキュリティ: TLS | アプリは HTTP のみ。TLS 終端は運用環境のリバースプロキシで行う前提 | **P302**(手順書に前提として記載) |
 | セキュリティ: パスワード | `SecretStr`、ログ・API に出さない、`config.yaml` を Git 管理外 | イメージに含めない(マウント)構成は **P005・P302** |
@@ -581,6 +584,7 @@ P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABL
 | ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージ(CR-002 で 3 → 2、CR-003 で 2 → 1。※P011(CR-003)矛盾点#1にもとづき修正) | §1.2 |
 | ADR-008 | SQLite へは SQLAlchemy Core でアクセスする | §1.2 |
 | ADR-011 | Oracle へは python-oracledb(Thin)で読み取り専用トランザクション内でのみアクセスする(※CR-004により「任意 SQL を受け付ける機能は作らない」を変更) | §3.1 |
-| ADR-016(※CR-005により追加。P021 で確定) | 保存済み Query はスナップショットと外部キーで結ばず、保存先(スキーマ名 + テーブル名)の文字列で照合する。PDB のひな型は起動時に 1 回だけ登録する | §4.6、§4.7、P002 §4.2 |
+| ADR-017(※CR-006により追加。P021 で確定) | 接続ごとにカレントスキーマを対象スキーマにする。推奨の接続ユーザーは読み取り専用ユーザー(`dbfaq_ro`) | §3.1、§3.12、§4.7 |
+| ADR-016(※CR-005により追加。P021 で確定。※CR-006により未変更のひな型の更新を追加) | 保存済み Query はスナップショットと外部キーで結ばず、保存先(スキーマ名 + テーブル名)の文字列で照合する。PDB のひな型は起動時に 1 回だけ登録する | §4.6、§4.7、P002 §4.2 |
 | ADR-015(※P011(CR-004)矛盾点#1にもとづき暫定番号とし、P021 で確定) | 利用者の SELECT は字句の検査と読み取り専用トランザクションの二重で守り、SQL を包まずに実行する。CSV は一時ファイルに書いてから返す(※CR-004により追加) | §3.10、§3.11 |
 | ADR-014 | backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない)。※CR-002により追加。旧 ADR-001(MCP サーバを子プロセスとして常駐)は廃止 | §1.1、§3、§4.1 |

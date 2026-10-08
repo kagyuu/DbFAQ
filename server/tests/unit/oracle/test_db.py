@@ -148,3 +148,18 @@ async def test_close_gives_up_after_connect_timeout():
     started = time.perf_counter()
     await db.close()
     assert time.perf_counter() - started < 2
+
+
+# ※CR-006により追加: 接続のカレントスキーマを対象スキーマにする(P003 §3.1、ADR-017)
+@pytest.mark.parametrize("schema, expected", [(None, "HR"), ("HR", "HR"), ("APP", "APP")])
+async def test_current_schema_is_target_schema(schema, expected):
+    conn = FakeConnection()
+    cfg = OracleConfig(host="h", service_name="s", user="dbfaq_ro" if schema else "hr", password="pw", schema=schema)
+    db = Database(cfg, pool_factory=lambda **kw: FakePool(conn))
+    seen = []
+
+    async def fn(c):
+        seen.append(c.current_schema)
+
+    await db.run_readonly(fn)
+    assert seen == [expected]

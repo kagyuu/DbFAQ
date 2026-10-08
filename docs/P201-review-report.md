@@ -1,6 +1,22 @@
 # P201 実装横断レビュー
 
-## 最新の判定(CR-005 の 2 回目。P205 の再実施による)
+## 最新の判定(CR-006 の 1 回目)
+
+* 実行回数: CR-006 の 1 回目
+* P008: T01〜T04・T06〜T15 PASS(T05 は廃止)。単体 + 結合の pytest は 2 回続けて 329 passed(`docs/test-records/20261009-0047-test-record.md`)
+* P009: A01〜A06・A08〜A10 PASS(スイートを 2 回続けて実行し出力が同一。A07 PASS。`docs/test-records/20261009-0051-test-record.md`)
+* 接続ユーザーは読み取り専用ユーザー `dbfaq_ro`(CR-006)
+
+| テストID | 種別 | 結果 | 記録 |
+|---|---|---|---|
+| T01〜T04・T06〜T15 | 結合(P008) | PASS | docs/test-records/20261009-0047-test-record.md |
+| A01〜A10 | 受け入れ結合(P009) | PASS | docs/test-records/20261009-0051-test-record.md |
+
+**判定: 全件 PASS。Closing(P301〜)へ進む(P202〜P205 は不要)。**
+
+---
+
+## (以前の判定)CR-005 の 2 回目
 
 * 実行回数: CR-005 の 2 回目(1 回目の差し戻し → P202〜P205(F011)の後)
 * P008: T01〜T04・T06〜T15 PASS(T05 は廃止)。単体 + 結合の pytest は 2 回続けて 320 passed(`docs/test-records/20261007-0100-test-record.md`)

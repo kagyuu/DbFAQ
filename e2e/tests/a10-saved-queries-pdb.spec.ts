@@ -93,12 +93,13 @@ test('ドラム缶のアイコン → PDB 情報 → ひな型の実行・保存
 
   // 10
   await expect(page.getByTestId('pdb-section-overview')).toContainText('コンテナ名(PDB)FREEPDB1')
-  await expect(page.getByTestId('pdb-section-overview')).toContainText('接続ユーザーHR')
+  // ※CR-006により: 接続ユーザーは読み取り専用ユーザー dbfaq_ro、対象スキーマは HR。DBA_* を読める
+  await expect(page.getByTestId('pdb-section-overview')).toContainText('接続ユーザーDBFAQ_RO')
+  await expect(page.getByTestId('pdb-section-overview')).toContainText('対象スキーマHR')
   await expect(page.getByTestId('pdb-section-ts_quotas')).toContainText('USERS')
   await expect(page.getByTestId('pdb-section-segments')).toContainText('LOBSEGMENT')
-  const denied = page.getByTestId('pdb-section-error-tablespaces')
-  await expect(denied).toContainText('権限が無いため取得できません')
-  await expect(denied).toContainText('[ORA-00942]')
+  await expect(page.getByTestId('pdb-section-error-tablespaces')).toHaveCount(0)
+  await expect(page.getByTestId('pdb-section-tablespaces')).toContainText('USERS')
 
   // 11
   await page.getByRole('tab', { name: 'Query' }).click()
@@ -120,7 +121,7 @@ test('ドラム缶のアイコン → PDB 情報 → ひな型の実行・保存
   // 13
   await page.getByRole('button', { name: '復元: 01. USERS 表領域の大きさ' }).click()
   await page.getByRole('button', { name: '実行 (Ctrl+Enter)' }).click()
-  await expect(page.getByTestId('query-error')).toContainText('[ORA-00942]')
+  await expect(page.getByRole('table', { name: 'Query の結果' }).getByRole('cell', { name: 'USERS', exact: true })).toBeVisible() // ※CR-006
 
   // 14
   await editor(page).fill("SELECT SYS_CONTEXT('USERENV','CON_NAME') AS CON FROM DUAL")

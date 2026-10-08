@@ -30,7 +30,7 @@
 ## 【実行手順】
 
 1. チェックサムを取る(`run_readonly` の中で)。
-2. `run_readonly` の中で `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1 WHERE EMPLOYEE_ID = 100` を実行 → `OracleFailure` で ora_code が `ORA-01456`。
+2. `run_readonly` の中で `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1 WHERE EMPLOYEE_ID = 100` を実行 → `OracleFailure` で ora_code が `ORA-01456`(読み取り専用トランザクション)。※CR-006により: 接続ユーザーが読み取り専用ユーザー `dbfaq_ro` のときは権限で先に拒否され `ORA-41900`(23ai。以前の版では `ORA-01031`)になる。`ORA-01456`・`ORA-41900`・`ORA-01031` のいずれかであれば合格とする(どれでも更新は起きない)。
 3. `OracleClient` で `get_schema_snapshot`、`get_table_rows`(EMPLOYEES 全 3 ページ)、`ping` を呼ぶ(※CR-002により「MCP クライアント経由で」を変更)。
    * ※CR-004により追加: `OracleClient.run_query` と `export_csv` に `SELECT * FROM HR.EMPLOYEES` を渡して実行する。`run_query` に `UPDATE HR.EMPLOYEES SET SALARY = SALARY + 1`・`DELETE FROM HR.EMPLOYEES` を渡すと `SQL_REJECTED`(Oracle に送られない)になる。
 4. 再度チェックサムを取り、1 と一致する。

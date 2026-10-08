@@ -60,8 +60,8 @@ def create_app(
         # PDB のひな型は登録記録の無いものだけを 1 回登録する(P003 §4.7。※CR-005により追加)
         saved_repo = SavedQueryRepository(engine, stamp)
         seeded = saved_repo.seed_templates(PDB_TEMPLATES)
-        if seeded:
-            logger.info("pdb templates seeded", extra={"keys": seeded})
+        if seeded.added or seeded.updated:
+            logger.info("pdb templates seeded", extra={"added": seeded.added, "updated": seeded.updated})
         # 接続プールは最初の Oracle アクセスで作る(Oracle に届かなくても backend は起動する)
         ora = oracle if oracle is not None else OracleClient(config.oracle)
         app.state.now = now

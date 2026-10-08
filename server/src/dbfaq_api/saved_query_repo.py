@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, NamedTuple
 
 from sqlalchemy import Connection, Engine, text
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +17,13 @@ from .pdb_templates import PdbTemplate
 TEMPLATE_NAME_SUFFIX = " (ひな型)"
 
 _COLUMNS = "id, scope, owner, table_name, name, description, sql, template_key, created_at, updated_at"
+
+
+class SeedResult(NamedTuple):
+    added: list[str]
+    """新しく登録したひな型のキー"""
+    updated: list[str]
+    """利用者が変えていなかったため新しい版にしたひな型のキー(※CR-006により追加)"""
 
 
 class NameConflict(Exception):
@@ -116,14 +123,22 @@ class SavedQueryRepository:
         with self.engine.begin() as conn:
             return conn.execute(text("DELETE FROM saved_queries WHERE id = :id"), {"id": query_id}).rowcount > 0
 
-    def seed_templates(self, templates: Iterable[PdbTemplate]) -> list[str]:
-        """登録記録の無いひな型だけを PDB の保存済み Query として登録し、登録したキーを返す(P003 §4.7)。"""
-        seeded: list[str] = []
+    def seed_templates(self, templates: Iterable[PdbTemplate]) -> SeedResult:
+        """ひな型を登録・更新する(P003 §4.7、ADR-016)。1 つのトランザクションで行い、何回実行しても結果は同じ。
+
+        * 登録記録の無いキーは PDB の保存済み Query として登録する(名前が重なれば「 (ひな型)」を付ける)。
+        * 登録済みのキーは、行の SQL が以前の版(previous)のどれかと完全に一致するときだけ新しい版にする(※CR-006)。
+          説明・名前も以前の版のままなら新しい版にする(名前が他の行と重なるときは名前を変えない)。
+        """
+        added: list[str] = []
+        updated: list[str] = []
         with self.engine.begin() as conn:
             done = {r[0] for r in conn.execute(text("SELECT template_key FROM query_template_seeds"))}
             names = {r[0] for r in conn.execute(text("SELECT name FROM saved_queries WHERE scope = 'pdb'"))}
             for t in templates:
                 if t.key in done:
+                    if self._update_template(conn, t, names):
+                        updated.append(t.key)
                     continue
                 name = t.name if t.name not in names else t.name + TEMPLATE_NAME_SUFFIX
                 self._insert(conn, "pdb", "", "", name, t.description, t.sql, t.key)
@@ -132,5 +147,26 @@ class SavedQueryRepository:
                     {"k": t.key, "ts": self.now()},
                 )
                 names.add(name)
-                seeded.append(t.key)
-        return seeded
+                added.append(t.key)
+        return SeedResult(added, updated)
+
+    def _update_template(self, conn: Connection, t: PdbTemplate, names: set[str]) -> bool:
+        row = conn.execute(
+            text("SELECT id, name, description, sql FROM saved_queries WHERE template_key = :k"), {"k": t.key}
+        ).first()
+        if row is None or row.sql == t.sql:  # 削除済み、または最新の版
+            return False
+        prev = next((p for p in t.previous if p.sql == row.sql), None)
+        if prev is None:  # 利用者が SQL を変えた
+            return False
+        name = row.name
+        if row.name == prev.name and t.name != row.name and t.name not in names:
+            names.discard(row.name)
+            names.add(t.name)
+            name = t.name
+        description = t.description if row.description == prev.description else row.description
+        conn.execute(
+            text("UPDATE saved_queries SET name = :name, description = :d, sql = :sql, updated_at = :ts WHERE id = :id"),
+            {"id": row.id, "name": name, "d": description, "sql": t.sql, "ts": self.now()},
+        )
+        return True

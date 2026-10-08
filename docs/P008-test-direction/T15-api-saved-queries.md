@@ -35,6 +35,7 @@
 4. (B) で refresh。`GET /api/schema/tables/HR/EMPLOYEES` → 404 `TABLE_NOT_FOUND`。`GET ?scope=table&owner=HR&table=EMPLOYEES` → 「部署50」が同じ id・SQL で残っている。
 5. ひな型を 1 件削除し、別の 1 件を改名する。アプリを止めて同じ SQLite ファイルで 2 回目の起動 → マイグレーションの適用は 0 件で起動に成功し、`scope=pdb` は 16 件(削除したひな型は戻らず、改名はそのまま)。
 6. (A) で refresh。`GET /api/schema/tables/HR/EMPLOYEES` → 200。`GET ?scope=table&owner=HR&table=EMPLOYEES` → 「部署50」(手順 2 と同じ id・SQL)。`PUT` で SQL を変える → 200、`DELETE` → 204、もう一度 `DELETE` → 404。
+6b. ※CR-006により追加: ひな型の更新。(a) ひな型を以前の版の SQL で登録した状態(CR-005 の版を再現)で起動すると、利用者が変えていないひな型は新しい版の SQL・名前になり、SQL を変えたひな型はそのまま残る。(b) もう一度起動しても変わらない。この手順はリポジトリの単体テスト(`test_saved_query_repo.py`)で一時 SQLite を使って確かめる。
 7. 2 回続けて実行して同じ結果になる。
 
 ## 【実行コマンド】

@@ -42,6 +42,7 @@ class FakeConnection:
     def __init__(self, responder=None, fail_on=None, rollback_error=None, version="23.26.3.0.0"):
         self.calls: list = []
         self.call_timeout = 0
+        self.current_schema = None
         self.version = version
         self.responder = responder or (lambda sql, params: (None, []))
         self.fail_on = fail_on or {}

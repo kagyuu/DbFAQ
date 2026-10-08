@@ -25,6 +25,7 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 | ADR-013 | 設定は `config.yaml` + 環境変数上書き、パスワードは SecretStr |
 | ADR-015 | 利用者の SQL(Query タブ)は `oracle/sql_guard.py` の字句検査 + 読み取り専用トランザクション。SQL を包まずに `fetchmany(501)`。CSV は一時ファイルに書き終えてから返す(CR-004) |
 | ADR-016 | 保存済み Query(`saved_queries`)はスナップショットと外部キーで結ばず `scope`・`owner`・`table_name` の文字列で照合。PDB のひな型は起動時に `query_template_seeds` で 1 回だけ登録(CR-005) |
+| ADR-017 | 推奨の接続ユーザーは読み取り専用ユーザー `dbfaq_ro`。接続を借りるたびに `current_schema` を対象スキーマに(CR-006) |
 | ADR-014 | backend が `dbfaq_api/oracle` の `OracleClient`(python-oracledb の非同期プール)で Oracle に直接接続する。MCP は使わない。uvicorn 1 ワーカー(ADR-001 は CR-002 で廃止し `docs/ADR_master.md` へ) |
 
 ## 3. これから着手するスプリント
@@ -34,6 +35,7 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 * U007 の完了後、P103 で P008 の再オープンした項目(T01〜T04・T06・T08・T09・T12。変更の無い T07・T10・T11 も回帰として一括実行する)を実行する。
 * **CR-004(2026-10-04)**: U009 query-tab(`docs/P007-impl-direction/U009-query-tab.md`)に着手する。backend(T1 SQL の検査 → T2 実行・エラー位置・CSV → T3 API)→ frontend(T4 ひな形 → T5 Query タブ)→ T6 nginx・受入テスト の順。参考実装は `../OracleSearchMCP/app/src/guard/`。`err.offset` は UTF-8 のバイト位置(`docs/ArchitectureHandbook.md` §9)。完了後、P103 で T13 と T03(Query の経路)を実行し、T01〜T12 を回帰として再実行する。
 * **CR-005(2026-10-07)**: U010 saved-queries-pdb(`docs/P007-impl-direction/U010-saved-queries-pdb.md`)に着手する。backend(T1 マイグレーション 0002・リポジトリ・ひな型の登録 → T2 PDB 情報 → T3 API 5 本)→ frontend(T4 API クライアント・`SavedQueries` → T5 `QueryTab` の共用化・`PdbIcon`・SC-03)→ T6 受入テスト A10 の順。ひな型の SQL は `server/src/dbfaq_api/pdb_templates.py`(設計時に作成し、開発用 Oracle で検査・実行を確認済み)。hr は DBA_* ・V$SESSION を読めない(`docs/ArchitectureHandbook.md` §9)。完了後、P103 で T14・T15 を実行し、T01〜T13 を回帰として再実行する。
+* **CR-006(2026-10-09)**: U011 readonly-user(`docs/P007-impl-direction/U011-readonly-user.md`)に着手する。T1 カレントスキーマ → T2 PDB 情報 → T3 ひな型と更新 → T4 テストの期待値 → T5 README・`config.example.yaml`。`config.yaml` の接続ユーザーは依頼者が `dbfaq_ro` に変えた(パスワードは読まない)。CR-005 の版のひな型の SQL は `git show 6767764:server/src/dbfaq_api/pdb_templates.py` にある。
 * 各スプリントの P102 が終わるたびに本書の「着手するスプリント」を更新する。全スプリント完了後に P103(P008 の T01〜T12 を一括実行)。
 
 ## 4. 詳細仕様の場所

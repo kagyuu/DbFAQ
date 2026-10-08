@@ -12,8 +12,8 @@
 - [x] A06 [読み取りのみ・秘密情報・公開範囲](./P009-acceptance-direction/A06-security-readonly.md) — HR のチェックサム不変、パスワード非露出、web のみ公開 ※CR-002で再実行 ※CR-004で Query API の拒否を追加
 - [x] A08 [同時利用者 10 名](./P009-acceptance-direction/A08-concurrent-users.md) — 10 名同時でエラー 0、性能目標内 ※CR-001により追加(A07 の前に単独で実行し、A07 のスイートにも含める) ※CR-002で再実行
 - [x] A09 [Query タブのシナリオ](./P009-acceptance-direction/A09-query-tab-scenario.md) — ひな形 → JOIN → 実行 → 500 行の打ち切り → CSV で全行 → エラー位置 → DELETE の拒否 ※CR-004により追加(スイートでは A02 の後に実行)
-- [x] A10 [保存済み Query と PDB 画面のシナリオ](./P009-acceptance-direction/A10-saved-queries-pdb-scenario.md) — 保存 → テーブルごとの分離 → 復元・実行 → 上書き・変更・削除 → ドラム缶 → PDB 情報 → ひな型の実行・保存 ※CR-005により追加(スイートでは A09 の後に実行)
-- [x] A07 [スイートの再実行性](./P009-acceptance-direction/A07-suite-repeatability.md) — A01〜A06・A08〜A10 を 2 回続けて同じ結果(A08 は CR-001 で追加) ※CR-002で再実行 ※CR-004で A09 を追加 ※CR-005で A10 を追加して再実行
+- [x] A10 [保存済み Query と PDB 画面のシナリオ](./P009-acceptance-direction/A10-saved-queries-pdb-scenario.md) — 保存 → テーブルごとの分離 → 復元・実行 → 上書き・変更・削除 → ドラム缶 → PDB 情報 → ひな型の実行・保存 ※CR-005により追加(スイートでは A09 の後に実行) ※CR-006で手順 10・13 の期待値を変えて再実行
+- [x] A07 [スイートの再実行性](./P009-acceptance-direction/A07-suite-repeatability.md) — A01〜A06・A08〜A10 を 2 回続けて同じ結果(A08 は CR-001 で追加) ※CR-002で再実行 ※CR-004で A09 を追加 ※CR-005で A10 を追加して再実行 ※CR-006で再実行
 
 FAIL/BLOCKED が残った場合は、P202(修正計画)への引き渡しが必要。
 
@@ -36,3 +36,5 @@ FAIL/BLOCKED が残った場合は、P202(修正計画)への引き渡しが必�
 **P201(CR-005 の 1 回目、2026-10-07、`docs/test-records/20261007-0115-test-record.md`)**: A10 FAIL(テストのロケータ)。P202 へ(F011)。
 
 **P205(CR-005、2026-10-07、`docs/test-records/20261007-0130-test-record.md`)**: A01〜A10 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。
+
+**P201(CR-006、2026-10-09、`docs/test-records/20261009-0051-test-record.md`)**: 接続ユーザー `dbfaq_ro` で A01〜A10 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。
