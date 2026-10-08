@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRefreshSchema, useSchema } from '../api/hooks'
 import type { ErTable } from '../api/types'
 import AppShell from '../components/AppShell'
+import PdbIcon from '../components/PdbIcon'
 import SelfLoopEdge from '../er/SelfLoopEdge'
 import TableNode from '../er/TableNode'
 import TableSearch from '../er/TableSearch'
@@ -155,7 +156,10 @@ function Diagram() {
           </Text>
         )}
       </Group>
-      <div style={{ flex: 1, minHeight: 0 }}>{body}</div>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        {body}
+        <PdbIcon />
+      </div>
     </>
   )
 }

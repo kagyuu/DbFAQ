@@ -1,9 +1,10 @@
 import { Alert, Button, Checkbox, Code, Group, Loader, Stack, Text, Textarea } from '@mantine/core'
-import { type Dispatch, type SetStateAction, useMemo, useRef } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useMemo, useRef } from 'react'
 import { ApiError, fetchQueryCsv, runQuery } from '../api/client'
 import { useSchema } from '../api/hooks'
-import type { QueryResult, TableDetail } from '../api/types'
+import type { QueryResult, SavedQuery, SavedQueryTarget, TableDetail } from '../api/types'
 import ResultTable from '../components/ResultTable'
+import SavedQueries, { type LoadedQuery } from '../components/SavedQueries'
 import { buildSelectTemplate, candidateLabel, listJoinCandidates } from '../query/template'
 
 export const MAX_SQL_CHARS = 100_000
@@ -18,12 +19,17 @@ export interface QueryState {
   /** template を作ったときの selected */
   appliedSelected: string[]
   running: 'run' | 'csv' | null
+  /** 復元中の保存済み Query(※CR-005により追加) */
+  loaded?: LoadedQuery | null
+  /** 最後にひな形・復元・保存した SQL(これと sql が違えば編集中。※CR-005により追加) */
+  baseline?: string
   result?: QueryResult
   error?: { kind: 'run' | 'csv'; error: ApiError; sql: string }
 }
 
 type Props = {
-  detail: TableDetail
+  /** 表示中のテーブル。省略すると PDB の Query タブ(SC-03。JOIN・ひな形なし。※CR-005により追加) */
+  detail?: TableDetail
   state: QueryState | null
   setState: Dispatch<SetStateAction<QueryState | null>>
 }
@@ -59,21 +65,23 @@ export function toUtf16Index(sql: string, offset: number): number {
   return Array.from(sql).slice(0, offset).join('').length
 }
 
-// SC-02 Query タブ(P002 §2.2.6)
+// SC-02 Query タブ(P002 §2.2.6)。SC-03 の Query タブ(P002 §2.3.3)でも使う(※CR-005により追加)
 export default function QueryTab({ detail, state, setState }: Props) {
   const { data: schema, isPending: schemaPending } = useSchema()
   const editor = useRef<HTMLTextAreaElement>(null)
-  const candidates = useMemo(() => listJoinCandidates(detail, schema), [detail, schema])
+  const candidates = useMemo(() => (detail ? listJoinCandidates(detail, schema) : []), [detail, schema])
 
   const initial = useMemo<QueryState>(() => {
-    const t = buildSelectTemplate(detail, [])
-    return { sql: t, template: t, selected: [], appliedSelected: [], running: null }
+    const t = detail ? buildSelectTemplate(detail, []) : ''
+    return { sql: t, template: t, selected: [], appliedSelected: [], running: null, loaded: null, baseline: t }
   }, [detail])
   const s = state ?? initial
   const update = (patch: Partial<QueryState>) => setState((prev) => ({ ...(prev ?? initial), ...patch }))
 
-  const templateFor = (keys: string[]) => buildSelectTemplate(detail, candidates.filter((c) => keys.includes(c.key)))
+  const templateFor = (keys: string[]) =>
+    detail ? buildSelectTemplate(detail, candidates.filter((c) => keys.includes(c.key))) : ''
   const edited = s.sql !== s.template
+  const dirty = s.sql.trim() !== '' && s.sql !== (s.baseline ?? s.template)
 
   const toggle = (key: string, on: boolean) => {
     const selected = on ? [...s.selected, key] : s.selected.filter((k) => k !== key)
@@ -81,13 +89,27 @@ export default function QueryTab({ detail, state, setState }: Props) {
       update({ selected })
     } else {
       const t = templateFor(selected)
-      update({ selected, sql: t, template: t, appliedSelected: selected })
+      update({ selected, sql: t, template: t, appliedSelected: selected, baseline: t })
     }
   }
   const applyTemplate = () => {
     const t = templateFor(s.selected)
-    update({ sql: t, template: t, appliedSelected: s.selected })
+    update({ sql: t, template: t, appliedSelected: s.selected, baseline: t })
   }
+
+  // 保存済み Query(P002 §2.2.8。※CR-005により追加)
+  const target = useMemo<SavedQueryTarget>(
+    () => (detail ? { scope: 'table', owner: detail.table.owner, table: detail.table.name } : { scope: 'pdb' }),
+    [detail],
+  )
+  const loadedOf = (q: SavedQuery): LoadedQuery => ({ id: q.id, name: q.name, description: q.description })
+  const restore = (q: SavedQuery) => update({ sql: q.sql, baseline: q.sql, loaded: loadedOf(q) })
+  const saved = (q: SavedQuery, sqlChanged: boolean) =>
+    update(sqlChanged ? { loaded: loadedOf(q), baseline: q.sql } : { loaded: loadedOf(q) })
+  const unload = useCallback(
+    () => setState((prev) => ({ ...(prev ?? initial), loaded: null })),
+    [setState, initial],
+  )
 
   const tooLong = s.sql.length > MAX_SQL_CHARS
   const canRun = s.sql.trim() !== '' && !tooLong && s.running === null
@@ -113,7 +135,7 @@ export default function QueryTab({ detail, state, setState }: Props) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = csvFileName(detail.table.name, new Date())
+      a.download = csvFileName(detail ? detail.table.name : 'PDB', new Date())
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -140,6 +162,7 @@ export default function QueryTab({ detail, state, setState }: Props) {
 
   return (
     <Stack p="md" gap="sm" data-testid="query-tab">
+      {detail && (
       <Stack gap={4}>
         <Text size="sm" fw={600}>JOIN するテーブル(外部キー)</Text>
         {schemaPending ? (
@@ -171,6 +194,18 @@ export default function QueryTab({ detail, state, setState }: Props) {
           )}
         </Group>
       </Stack>
+      )}
+
+      <SavedQueries
+        target={target}
+        targetLabel={detail ? `${detail.table.owner}.${detail.table.name}` : 'PDB'}
+        sql={s.sql}
+        loaded={s.loaded ?? null}
+        dirty={dirty}
+        onRestore={restore}
+        onSaved={saved}
+        onUnload={unload}
+      />
 
       <Textarea
         ref={editor}
@@ -183,6 +218,7 @@ export default function QueryTab({ detail, state, setState }: Props) {
             void run()
           }
         }}
+        placeholder={detail ? undefined : 'SELECT 文を入力するか、保存済み Query(ひな型)を復元してください'}
         autosize
         minRows={8}
         maxRows={20}

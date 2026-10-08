@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 MAX_SQL_CHARS = 100_000
+MAX_QUERY_NAME_CHARS = 100
+MAX_QUERY_DESCRIPTION_CHARS = 1_000
 
 
 class SnapshotSummary(BaseModel):
@@ -165,6 +169,94 @@ class QueryResponse(BaseModel):
     row_count: int
     has_more: bool
     max_rows: int
+    elapsed_ms: int
+
+
+# ---- 保存済み Query・PDB(P002 §3.10〜§3.14。※CR-005により追加) -------------------------
+
+
+def _not_blank_sql(v: str) -> str:
+    if not v.strip():
+        raise ValueError("SQL を入力してください")
+    return v
+
+
+class SavedQueryBody(BaseModel):
+    """PUT の本文。名前・説明は前後の空白を除いてから長さを検査する。"""
+
+    name: str
+    description: str = ""
+    sql: str = Field(min_length=1, max_length=MAX_SQL_CHARS)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("名前を入力してください")
+        if len(v) > MAX_QUERY_NAME_CHARS:
+            raise ValueError(f"{MAX_QUERY_NAME_CHARS} 文字以内で入力してください")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def _description(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) > MAX_QUERY_DESCRIPTION_CHARS:
+            raise ValueError(f"{MAX_QUERY_DESCRIPTION_CHARS} 文字以内で入力してください")
+        return v
+
+    @field_validator("sql")
+    @classmethod
+    def _sql(cls, v: str) -> str:
+        return _not_blank_sql(v)
+
+
+class SavedQueryUpdate(SavedQueryBody):
+    description: str
+
+
+class SavedQueryCreate(SavedQueryBody):
+    scope: Literal["table", "pdb"]
+    owner: str | None = Field(default=None, min_length=1, max_length=128)
+    table: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class SavedQuery(BaseModel):
+    id: int
+    scope: str
+    owner: str | None
+    table: str | None
+    name: str
+    description: str
+    sql: str
+    is_template: bool
+    created_at: str
+    updated_at: str
+
+
+class SavedQueryList(BaseModel):
+    items: list[SavedQuery]
+
+
+class PdbSectionError(BaseModel):
+    code: str
+    message: str
+    ora_code: str | None = None
+
+
+class PdbSection(BaseModel):
+    key: str
+    title: str
+    columns: list[RowColumn]
+    rows: list[list[str | None]]
+    truncated: list[list[int]]
+    error: PdbSectionError | None
+
+
+class PdbInfoResponse(BaseModel):
+    sections: list[PdbSection]
+    fetched_at: str
     elapsed_ms: int
 
 

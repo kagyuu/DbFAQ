@@ -6,17 +6,19 @@
 - vite.config.ts — 開発時の `/api` 中継(→ localhost:8000)と Vitest の設定(jsdom、TZ=UTC)
 - index.html — エントリの HTML
 - src/main.tsx — Provider(Mantine・通知・TanStack Query・Router)の組み立て
-- src/App.tsx — ルーティング(`/`、`/tables/:owner/:table`、それ以外)
+- src/App.tsx — ルーティング(`/`、`/tables/:owner/:table`、`/pdb`(CR-005)、それ以外)
 - src/index.css — 全体のスタイル(`(null)` の表示など)
 - src/format.ts — 日時のローカル表示
 - src/api/ — backend API
   - types.ts — レスポンスの型
-  - client.ts — `fetch` のラッパと `ApiError`(エラー位置 `position` を含む)、Query の `runQuery`・`fetchQueryCsv`
-  - hooks.ts — TanStack Query のフック
+  - client.ts — `fetch` のラッパと `ApiError`(エラー位置 `position` を含む)、Query の `runQuery`・`fetchQueryCsv`、保存済み Query・PDB の関数(CR-005)
+  - hooks.ts — TanStack Query のフック(保存済み Query の `useSavedQueries`・`savedQueriesKey`、`usePdbInfo` は CR-005)
 - src/components/ — 共通部品
   - AppShell.tsx — 共通ヘッダ(スキーマ名、取得日時、ER 図リンク、Oracle 状態)
   - OracleStatus.tsx — Oracle 状態の丸(`/api/health` を 60 秒ごとに取得)
   - ResultTable.tsx — データタブと Query タブの結果の表(`(null)`、切り詰めのツールチップ)。CR-004 で DataTab から切り出し
+  - SavedQueries.tsx — 保存済み Query の一覧・保存・復元・上書き保存・変更・削除とダイアログ(SC-02・SC-03 で共用)。CR-005 で追加
+  - PdbIcon.tsx — SC-01 のドラム缶のアイコン(`/pdb` へ)、ドラム缶の絵、PDB 名。CR-005 で追加
 - src/query/ — Query タブ(CR-004)
   - template.ts — SELECT 文のひな形(外部キーの JOIN、識別子のクォート)
 - src/er/ — ER 図
@@ -26,12 +28,14 @@
   - SelfLoopEdge.tsx — 自己参照の線
   - TableSearch.tsx — テーブル名検索
 - src/pages/ — 画面
-  - ErDiagramPage.tsx — SC-01 ER 図(拡大縮小・ミニマップ・クリックで遷移・再読み込み)
+  - ErDiagramPage.tsx — SC-01 ER 図(拡大縮小・ミニマップ・クリックで遷移・再読み込み、左上の PDB のアイコン(CR-005))
   - TableDetailPage.tsx — SC-02 テーブル詳細(タブ、URL の `tab`・`page`、Query タブの状態の保持)
   - SchemaTab.tsx — スキーマ情報タブ
   - DataTab.tsx — データタブ(50 行ずつのページ送り)
-  - QueryTab.tsx — Query タブ(JOIN の選択、SELECT 文の入力・実行、500 行の結果、CSV の保存、エラー位置)。CR-004 で追加
-  - urlState.ts — URL クエリの解釈
+  - QueryTab.tsx — Query タブ(JOIN の選択、SELECT 文の入力・実行、500 行の結果、CSV の保存、エラー位置)。CR-004 で追加。CR-005 で保存済み Query を組み込み、`detail` を省略すると PDB の Query タブ
+  - PdbPage.tsx — SC-03 PDB(PDB 情報・Query のタブ、URL の `tab`)。CR-005 で追加
+  - PdbInfoTab.tsx — PDB 情報タブ(セクションの表、権限のエラー、再読み込み)。CR-005 で追加
+  - urlState.ts — URL クエリの解釈(SC-03 の `parsePdbTab` は CR-005)
   - NotFoundPage.tsx — ページが見つからない
-- src/test/ — テスト用の部品(`render.tsx`、`fetchMock.ts`、HR 相当のデータ `hr.ts`・`detail.ts`、`setup.ts`)
+- src/test/ — テスト用の部品(`render.tsx`、`fetchMock.ts`、HR 相当のデータ `hr.ts`・`detail.ts`、`setup.ts`、保存済み Query の API の偽物 `savedQueries.ts`(CR-005))
 - src/**/*.test.ts(x) — 単体テスト(Vitest + Testing Library)

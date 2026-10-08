@@ -159,3 +159,40 @@ export interface QueryResult {
   max_rows: number
   elapsed_ms: number
 }
+
+/** 保存済み Query の保存先(P002 §2.2.8。※CR-005により追加) */
+export type SavedQueryTarget = { scope: 'table'; owner: string; table: string } | { scope: 'pdb' }
+
+/** 保存済み Query(P002 §3.10) */
+export interface SavedQuery {
+  id: number
+  scope: 'table' | 'pdb'
+  owner: string | null
+  table: string | null
+  name: string
+  description: string
+  sql: string
+  is_template: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SavedQueryList {
+  items: SavedQuery[]
+}
+
+/** GET /api/pdb のセクション(P002 §3.14) */
+export interface PdbSection {
+  key: string
+  title: string
+  columns: { name: string; data_type: string }[]
+  rows: (string | null)[][]
+  truncated: number[][]
+  error: { code: string; message: string; ora_code?: string | null } | null
+}
+
+export interface PdbInfo {
+  sections: PdbSection[]
+  fetched_at: string
+  elapsed_ms: number
+}

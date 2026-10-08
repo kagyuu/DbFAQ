@@ -5,13 +5,15 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
 - pyproject.toml — 依存と pytest の設定(マーカー `oracle`)
 - uv.lock / .python-version — ロックファイルと Python のバージョン
 - src/dbfaq_api/ — backend(FastAPI。`uvicorn --factory dbfaq_api.main:create_app`)
-  - main.py — アプリの組み立て(lifespan でマイグレーションと `OracleClient` の作成・終了)、例外ハンドラ、アクセスログ
+  - main.py — アプリの組み立て(lifespan でマイグレーション・PDB のひな型の登録(CR-005)と `OracleClient` の作成・終了)、例外ハンドラ、アクセスログ
   - config.py — `config.yaml` の読み込み(環境変数での上書き、パスワードは SecretStr)。CR-003 で `dbfaq_common` から移設
   - log.py — 1 行 1 JSON のログ、`mask_secret`。CR-003 で `dbfaq_common/logging.py` から移設
   - routers/schema.py — `/api/schema`、`/api/schema/refresh`、`/api/schema/tables/{owner}/{table}`、`.../rows`
   - routers/health.py — `/api/health`
   - routers/query.py — `/api/query`(先頭 500 行)、`/api/query/csv`(全行の CSV)。CR-004 で追加
-  - services.py — API の内部処理(`SchemaService`、Query の `QueryService`)、`OracleFailure` → API エラーの変換
+  - routers/saved_queries.py — `/api/saved-queries`(一覧・保存)、`/api/saved-queries/{id}`(更新・削除)。CR-005 で追加
+  - routers/pdb.py — `/api/pdb`(PDB の情報)。CR-005 で追加
+  - services.py — API の内部処理(`SchemaService`、Query の `QueryService`、保存済み Query の `SavedQueryService`・PDB の `PdbService`(CR-005))、`OracleFailure` → API エラーの変換
   - oracle/ — Oracle アクセス(CR-002 で `dbfaq_mcp` から移設)
     - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認・SELECT の実行・CSV の入口)と `OracleAccess` プロトコル
     - db.py — 非同期接続プールと読み取り専用トランザクション(`run_readonly`)
@@ -20,6 +22,7 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
     - rows.py — テーブルデータのページ取得(主キー順/ROWID 順、OFFSET)
     - sql_guard.py — 利用者の SQL の検査(SELECT・WITH の 1 文だけを通す。ADR-015)。CR-004 で追加
     - query.py — 利用者の SELECT の実行(先頭 500 行)と CSV(一時ファイル)。CR-004 で追加
+    - pdb.py — PDB の情報の読み取り(セクションごとのエラー)。CR-005 で追加
     - values.py — セル値の表示用文字列化(CSV 用の切り詰めない形を含む)
     - type_format.py — データ型の表記(`NUMBER(8,2)` など)
     - identifiers.py — 識別子の検証とクォート
@@ -28,6 +31,9 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
   - db.py — SQLite エンジン(foreign_keys、WAL、busy_timeout)
   - migrate.py — 管理テーブル付きの差分マイグレーション
   - migrations/0001_init.sql — 初期スキーマ
+  - migrations/0002_saved_queries.sql — 保存済み Query とひな型の登録記録(CR-005)
+  - saved_query_repo.py — 保存済み Query の保存・読み出しと PDB のひな型の登録(スナップショットと結ばない。ADR-016)。CR-005 で追加
+  - pdb_templates.py — PDB の Query のひな型 17 件(USERS 表領域、LOB の大きさと実データ ほか)。CR-005 で追加
   - schemas.py — API のレスポンス型(pydantic)
   - errors.py — API エラーとエラーコード
 - scripts/check_oracle.py — 開発用 Oracle への疎通確認
@@ -40,4 +46,4 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
 - tests/ — テスト
   - fakes.py — backend 用の偽の Oracle アクセス(`FakeOracle`)
   - unit/ — 単体テスト(Oracle 不要)。`oracle/`(Oracle アクセス。偽のプールを使う)、`api/`(backend)、`test_config.py`・`test_logging.py`・`test_compose.py`
-  - integration/ — 結合テスト T01〜T04・T06〜T09・T13(T13 は CR-004 の Query。実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ
+  - integration/ — 結合テスト T01〜T04・T06〜T09・T13〜T15(T13 は CR-004 の Query、T14(PDB 情報・ひな型)・T15(保存済み Query と refresh。Oracle に接続しない)は CR-005。実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ

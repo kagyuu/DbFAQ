@@ -127,3 +127,5 @@
 
 * F009(CR-004、2026-10-04): `hr_checksum.py` を LOB 列の表に対応させ、`reset-and-up.sh`・`a06-security.sh` がチェックサムの取得失敗を FAIL にするようにした。記録: `fixed/F009-hr-checksum-lob.md`
 * F010(CR-004、2026-10-04): 依頼者の判断(案 B)で、HR のベースラインを 8 表(`EMPLOYEE_FIGURE` を含む)に改め、テストの期待値と P006 §3.2 などを更新した。記録: `fixed/F010-hr-extra-table.md`
+* F011(CR-005、2026-10-07): A10 の [実行] のロケータを完全一致の名前にした。記録: `fixed/F011-a10-run-button-locator.md`
+* F012(CR-005、2026-10-07): ER 図の最初のテストの待ち時間を 5 秒にした(15 回続けて合格)。記録: `fixed/F012-er-test-first-layout-timeout.md`

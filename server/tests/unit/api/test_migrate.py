@@ -8,7 +8,7 @@ from dbfaq_api.db import create_sqlite_engine
 from dbfaq_api.migrate import MIGRATIONS_DIR, MigrationError, apply_all
 
 TABLES = {"snapshots", "db_tables", "db_columns", "db_constraints", "db_constraint_columns", "db_indexes",
-          "db_index_columns", "schema_migrations"}
+          "db_index_columns", "schema_migrations", "saved_queries", "query_template_seeds"}  # 後 2 つは CR-005
 
 
 def now():
@@ -22,7 +22,7 @@ def tables(path):
 
 def test_first_apply(tmp_path):
     db = tmp_path / "t.sqlite3"
-    assert apply_all(create_sqlite_engine(str(db)), now) == ["0001_init"]
+    assert apply_all(create_sqlite_engine(str(db)), now) == ["0001_init", "0002_saved_queries"]
     assert tables(db) == TABLES
 
 
@@ -65,3 +65,20 @@ def test_foreign_keys_pragma(tmp_path):
 
 def test_sql_is_packaged():
     assert (importlib.resources.files("dbfaq_api") / "migrations" / "0001_init.sql").is_file()
+
+
+def test_0002_applied_to_existing_0001_database(tmp_path):
+    """0001 だけ適用済みの既存のデータベースに 0002 だけが適用される(CR-005)。"""
+    mdir = tmp_path / "m"
+    mdir.mkdir()
+    shutil.copy(MIGRATIONS_DIR / "0001_init.sql", mdir)
+    db = str(tmp_path / "t.sqlite3")
+    assert apply_all(create_sqlite_engine(db), now, mdir) == ["0001_init"]
+    with sqlite3.connect(db) as c:
+        c.execute("INSERT INTO snapshots (owner, fetched_at, oracle_version, table_count, relation_count) "
+                  "VALUES ('HR', 'x', 'v', 0, 0)")
+    assert apply_all(create_sqlite_engine(db), now) == ["0002_saved_queries"]
+    assert apply_all(create_sqlite_engine(db), now) == []
+    assert tables(db) == TABLES
+    with sqlite3.connect(db) as c:
+        assert c.execute("SELECT count(*) FROM snapshots").fetchone()[0] == 1  # 既存のデータは残る

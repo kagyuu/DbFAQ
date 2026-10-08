@@ -37,5 +37,8 @@ class FakeOracle:
     async def export_csv(self, sql: str):
         return await self._respond("export_csv", {"sql": sql})
 
+    async def get_pdb_info(self) -> dict[str, Any]:
+        return await self._respond("get_pdb_info", {})
+
     async def close(self) -> None:
         pass

@@ -16,7 +16,9 @@ from .errors import (
     INTERNAL_ERROR,
     ORACLE_ERROR,
     ORACLE_TIMEOUT,
+    QUERY_NAME_CONFLICT,
     REFRESH_IN_PROGRESS,
+    SAVED_QUERY_NOT_FOUND,
     SCHEMA_NOT_LOADED,
     SQL_REJECTED,
     TABLE_NOT_FOUND,
@@ -26,6 +28,7 @@ from .errors import (
 from .oracle import errors as oracle_errors
 from .oracle.client import OracleAccess
 from .oracle.errors import OracleFailure
+from .saved_query_repo import NameConflict, SavedQueryRepository
 from .snapshot_repo import SnapshotRepository
 
 logger = logging.getLogger(__name__)
@@ -164,3 +167,76 @@ class QueryService:
             raise _to_api_error(e, "query") from e
         self._log("query csv", sql, started, row_count=count)
         return spool, count
+
+
+def check_target(scope: str, owner: str | None, table: str | None) -> None:
+    """保存先の scope と owner・table の組み合わせを検査する(P002 §3.10)。違反は 422 VALIDATION_ERROR。"""
+    if scope == "table":
+        missing = [n for n, v in (("owner", owner), ("table", table)) if not v]
+        if missing:
+            raise ApiError(VALIDATION_ERROR, ", ".join(f"{n}: scope=table のときは必須です" for n in missing))
+    else:
+        given = [n for n, v in (("owner", owner), ("table", table)) if v is not None]
+        if given:
+            raise ApiError(VALIDATION_ERROR, ", ".join(f"{n}: scope=pdb のときは指定しません" for n in given))
+
+
+class SavedQueryService:
+    """保存済み Query(P003 §4.3・§4.6)。SQLite だけを使い、Oracle・スナップショットにはアクセスしない。※CR-005により追加
+
+    名前・説明・SQL の本文はログに出さない。
+    """
+
+    def __init__(self, repo: SavedQueryRepository):
+        self.repo = repo
+
+    async def list(self, scope: str, owner: str | None, table: str | None) -> dict[str, Any]:
+        check_target(scope, owner, table)
+        return {"items": await run_in_threadpool(self.repo.list, scope, owner, table)}
+
+    async def create(self, scope: str, owner: str | None, table: str | None, name: str, description: str,
+                     sql: str) -> dict[str, Any]:
+        check_target(scope, owner, table)
+        try:
+            item = await run_in_threadpool(self.repo.create, scope, owner, table, name, description, sql)
+        except NameConflict as e:
+            raise ApiError(QUERY_NAME_CONFLICT, f"同じ名前の Query が既にあります: {name}") from e
+        logger.info("saved query created", extra={"saved_query_id": item["id"], "scope": scope, "sql_chars": len(sql)})
+        return item
+
+    async def update(self, query_id: int, name: str, description: str, sql: str) -> dict[str, Any]:
+        try:
+            item = await run_in_threadpool(self.repo.update, query_id, name, description, sql)
+        except NameConflict as e:
+            raise ApiError(QUERY_NAME_CONFLICT, f"同じ名前の Query が既にあります: {name}") from e
+        if item is None:
+            raise ApiError(SAVED_QUERY_NOT_FOUND, f"保存済みの Query が見つかりません: {query_id}")
+        logger.info("saved query updated", extra={"saved_query_id": query_id, "sql_chars": len(sql)})
+        return item
+
+    async def delete(self, query_id: int) -> None:
+        if not await run_in_threadpool(self.repo.delete, query_id):
+            raise ApiError(SAVED_QUERY_NOT_FOUND, f"保存済みの Query が見つかりません: {query_id}")
+        logger.info("saved query deleted", extra={"saved_query_id": query_id})
+
+
+class PdbService:
+    """PDB の情報(P003 §4.3・§3.12)。※CR-005により追加"""
+
+    def __init__(self, oracle: OracleAccess):
+        self.oracle = oracle
+
+    async def info(self, now: dt.datetime) -> dict[str, Any]:
+        started = time.perf_counter()
+        try:
+            result = await self.oracle.get_pdb_info()
+        except OracleFailure as e:
+            raise _to_api_error(e, "pdb") from e
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        failed = [{"key": s["key"], "ora_code": s["error"].get("ora_code")} for s in result["sections"] if s["error"]]
+        logger.info("pdb info", extra={"sections": len(result["sections"]), "failed": failed, "elapsed_ms": elapsed_ms})
+        return {
+            **result,
+            "fetched_at": now.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "elapsed_ms": elapsed_ms,
+        }

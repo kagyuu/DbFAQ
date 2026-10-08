@@ -1,4 +1,17 @@
-import type { ApiErrorBody, ErrorPosition, ErView, Health, QueryResult, RefreshResult, RowsPage, TableDetail } from './types'
+import type {
+  ApiErrorBody,
+  ErrorPosition,
+  ErView,
+  Health,
+  PdbInfo,
+  QueryResult,
+  RefreshResult,
+  RowsPage,
+  SavedQuery,
+  SavedQueryList,
+  SavedQueryTarget,
+  TableDetail,
+} from './types'
 
 export class ApiError extends Error {
   code: string
@@ -45,7 +58,9 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  return (await (await send(path, init)).json()) as T
+  const res = await send(path, init)
+  if (res.status === 204) return undefined as T
+  return (await res.json()) as T
 }
 
 const postSql = (sql: string): RequestInit => ({
@@ -71,3 +86,34 @@ export async function fetchQueryCsv(sql: string): Promise<{ blob: Blob; rowCount
   const n = res.headers.get('X-Row-Count')
   return { blob: await res.blob(), rowCount: n === null ? null : Number(n) }
 }
+
+// ---- 保存済み Query・PDB(P002 §3.10〜§3.14。※CR-005により追加) ----
+
+const json = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+})
+
+export function savedQueriesPath(target: SavedQueryTarget): string {
+  const p = new URLSearchParams({ scope: target.scope })
+  if (target.scope === 'table') {
+    p.set('owner', target.owner)
+    p.set('table', target.table)
+  }
+  return `/saved-queries?${p.toString()}`
+}
+
+export interface SavedQueryInput {
+  name: string
+  description: string
+  sql: string
+}
+
+export const listSavedQueries = (target: SavedQueryTarget) => request<SavedQueryList>(savedQueriesPath(target))
+export const createSavedQuery = (target: SavedQueryTarget, input: SavedQueryInput) =>
+  request<SavedQuery>('/saved-queries', json('POST', { ...target, ...input }))
+export const updateSavedQuery = (id: number, input: SavedQueryInput) =>
+  request<SavedQuery>(`/saved-queries/${id}`, json('PUT', input))
+export const deleteSavedQuery = (id: number) => request<void>(`/saved-queries/${id}`, { method: 'DELETE' })
+export const getPdbInfo = () => request<PdbInfo>('/pdb')

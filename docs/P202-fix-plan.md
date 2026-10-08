@@ -23,3 +23,10 @@
 
 - [x] F009 [HR のチェックサムと LOB](./P202-fix-plan/fixed/F009-hr-checksum-lob.md) — RESET・A06: LOB 列の表で ORA-22835、取得失敗を検出せず空同士を一致と判定する(テストの欠陥)
 - [x] F010 [HR の 8 表目](./P202-fix-plan/fixed/F010-hr-extra-table.md) — T01・T06・T08・T12・A01・A03・A05: HR に `EMPLOYEE_FIGURE` が追加され 7 表の期待値と合わない。依頼者の判断(案 B)で 8 表を新しいベースラインにした
+
+## CR-005(2026-10-07)
+
+入力: `docs/P201-review-report.md`(CR-005 の 1 回目)、`docs/test-records/20261007-0115-test-record.md`。
+
+- [x] F011 [A10 の [実行] のロケータ](./P202-fix-plan/fixed/F011-a10-run-button-locator.md) — A10: `/実行/` がひな型「16. 長時間実行中の処理」のボタンにも一致する(テストの欠陥)
+- [x] F012 [ER 図のテストの初回レイアウトの待ち時間](./P202-fix-plan/fixed/F012-er-test-first-layout-timeout.md) — クライアント単体: テストファイルが増えた並列実行の負荷で、ER 図の最初のテストが既定の待ち時間 1 秒を超えることがある(テストの欠陥。P302 の B013 で発見)

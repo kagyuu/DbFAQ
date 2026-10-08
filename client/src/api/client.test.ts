@@ -1,5 +1,17 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { ApiError, fetchQueryCsv, getSchema, getTableRows, refreshSchema, runQuery } from './client'
+import {
+  ApiError,
+  createSavedQuery,
+  deleteSavedQuery,
+  fetchQueryCsv,
+  getPdbInfo,
+  getSchema,
+  getTableRows,
+  listSavedQueries,
+  refreshSchema,
+  runQuery,
+  updateSavedQuery,
+} from './client'
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -85,4 +97,40 @@ test('fetchQueryCsv は Blob と行数を返し、失敗は ApiError', async () 
   expect(await r.blob.text()).toBe('A\r\n1\r\n')
   const err = (await fetchQueryCsv('x').catch((e) => e)) as ApiError
   expect(err.code).toBe('SQL_REJECTED')
+})
+
+// ※CR-005により追加
+test('保存済み Query の API: 一覧のクエリ、POST・PUT の本文、DELETE の 204、409 は ApiError', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(json(200, { items: [] }))
+    .mockResolvedValueOnce(json(200, { items: [] }))
+    .mockResolvedValueOnce(json(201, { id: 1 }))
+    .mockResolvedValueOnce(json(200, { id: 1 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockResolvedValueOnce(json(409, { error: { code: 'QUERY_NAME_CONFLICT', message: 'dup' } }))
+  vi.stubGlobal('fetch', fetchMock)
+  await listSavedQueries({ scope: 'table', owner: 'HR', table: 'MY TABLE' })
+  expect(fetchMock.mock.calls[0][0]).toBe('/api/saved-queries?scope=table&owner=HR&table=MY+TABLE')
+  await listSavedQueries({ scope: 'pdb' })
+  expect(fetchMock.mock.calls[1][0]).toBe('/api/saved-queries?scope=pdb')
+  await createSavedQuery({ scope: 'pdb' }, { name: 'n', description: '', sql: 'SELECT 1 FROM DUAL' })
+  expect(fetchMock.mock.calls[2][1].method).toBe('POST')
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ scope: 'pdb', name: 'n', description: '', sql: 'SELECT 1 FROM DUAL' })
+  await updateSavedQuery(1, { name: 'n', description: 'd', sql: 's' })
+  expect(fetchMock.mock.calls[3][0]).toBe('/api/saved-queries/1')
+  expect(fetchMock.mock.calls[3][1].method).toBe('PUT')
+  await expect(deleteSavedQuery(1)).resolves.toBeUndefined()
+  expect(fetchMock.mock.calls[4][1]).toEqual({ method: 'DELETE' })
+  const err = await createSavedQuery({ scope: 'pdb' }, { name: 'n', description: '', sql: 's' }).catch((e) => e)
+  expect(err).toBeInstanceOf(ApiError)
+  expect(err.code).toBe('QUERY_NAME_CONFLICT')
+  expect(err.status).toBe(409)
+})
+
+test('getPdbInfo は /api/pdb を GET する', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(json(200, { sections: [], fetched_at: 'x', elapsed_ms: 1 }))
+  vi.stubGlobal('fetch', fetchMock)
+  await getPdbInfo()
+  expect(fetchMock).toHaveBeenCalledWith('/api/pdb', undefined)
 })

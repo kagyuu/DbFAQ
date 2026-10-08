@@ -13,6 +13,7 @@
 - [x] U007 [oracle-in-backend](./P007-impl-direction/U007-oracle-in-backend.md) — MCP を廃止し Oracle アクセスを `dbfaq_api/oracle` に移す、health から mcp を除く ※CR-002により追加
 - [x] U008 [merge-common](./P007-impl-direction/U008-merge-common.md) — `dbfaq_common` を `dbfaq_api` に統合(`config.py`・`log.py`)※CR-003により追加
 - [x] U009 [query-tab](./P007-impl-direction/U009-query-tab.md) — SC-02 の Query タブ(SQL の検査、SELECT の実行・エラー位置・CSV、API 2 本、ひな形、nginx、受入テスト A09)※CR-004により追加
+- [x] U010 [saved-queries-pdb](./P007-impl-direction/U010-saved-queries-pdb.md) — 保存済み Query(テーブルごと・PDB)、SC-01 のドラム缶のアイコン、SC-03 PDB 画面、PDB のひな型、API 5 本、受入テスト A10 ※CR-005により追加
 
 ## 未解決事項
 

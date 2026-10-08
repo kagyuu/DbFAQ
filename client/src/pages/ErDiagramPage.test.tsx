@@ -27,7 +27,8 @@ const REFRESHED = { snapshot: { ...HR_VIEW.snapshot } }
 test('ER 図のノード・ミニマップ・コントロールを表示する', async () => {
   mockFetch({ '/api/schema': { body: HR_VIEW }, '/api/health': { body: HEALTH_OK } })
   const { container } = renderPage()
-  expect(await screen.findByTestId('er-node-EMPLOYEES')).toBeInTheDocument()
+  // ファイルの最初のテストは elkjs の初回起動を含むため、並列実行の負荷で 1 秒(既定)を超えることがある(P202 F012)
+  expect(await screen.findByTestId('er-node-EMPLOYEES', {}, { timeout: 5000 })).toBeInTheDocument()
   expect(screen.getAllByTestId(/^er-node-/)).toHaveLength(7)
   expect(container.querySelector('.react-flow__minimap')).not.toBeNull()
   expect(container.querySelector('.react-flow__controls')).not.toBeNull()
@@ -75,4 +76,23 @@ test('再読み込みの失敗は通知し、ER 図は残す', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Oracle から再読み込み' }))
   expect(await screen.findByText('[ORA-01017] ORA-01017: invalid credential')).toBeInTheDocument()
   await waitFor(() => expect(screen.getAllByTestId(/^er-node-/)).toHaveLength(7))
+})
+
+// ※CR-005により追加: ドラム缶のアイコン(P002 §2.1)
+test.each([
+  ['取得済み', HR_VIEW],
+  ['未取得', NOT_LOADED],
+])('PDB のアイコンを表示し、クリックで /pdb へ(%s)', async (_label, view) => {
+  mockFetch({ '/api/schema': { body: view }, '/api/health': { body: HEALTH_OK } })
+  renderWithProviders(
+    <Routes>
+      <Route path="/" element={<ErDiagramPage />} />
+      <Route path="/pdb" element={<div data-testid="pdb-page" />} />
+    </Routes>,
+  )
+  const icon = await screen.findByRole('button', { name: 'PDB を開く' })
+  expect(icon).toHaveTextContent('PDB')
+  expect(await screen.findByTestId('pdb-icon-name')).toHaveTextContent('FREEPDB1')
+  fireEvent.click(icon)
+  expect(await screen.findByTestId('pdb-page')).toBeInTheDocument()
 })

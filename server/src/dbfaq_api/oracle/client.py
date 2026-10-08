@@ -11,6 +11,7 @@ from . import query as query_mod
 from . import rows as rows_mod
 from . import snapshot as snapshot_mod
 from .db import Database
+from .pdb import get_pdb_info as _get_pdb_info
 
 HEALTH_TIMEOUT_SEC = 5
 
@@ -27,6 +28,8 @@ class OracleAccess(Protocol):
     async def run_query(self, sql: str, max_rows: int) -> dict[str, Any]: ...
 
     async def export_csv(self, sql: str) -> tuple[IO[bytes], int]: ...
+
+    async def get_pdb_info(self) -> dict[str, Any]: ...
 
     async def close(self) -> None: ...
 
@@ -56,6 +59,10 @@ class OracleClient:
     async def export_csv(self, sql: str) -> tuple[IO[bytes], int]:
         """利用者の SELECT の全行を CSV の一時ファイルにして返す(P003 §3.11)。"""
         return await query_mod.export_csv(self._db, sql)
+
+    async def get_pdb_info(self) -> dict[str, Any]:
+        """PDB の情報をセクションごとに返す(権限不足のセクションは error 付き。P003 §3.12)。※CR-005により追加"""
+        return await _get_pdb_info(self._db)
 
     async def ping(self) -> dict[str, Any]:
         """Oracle への疎通を確認し、バージョンと接続ユーザーを返す。問い合わせの上限は HEALTH_TIMEOUT_SEC。"""

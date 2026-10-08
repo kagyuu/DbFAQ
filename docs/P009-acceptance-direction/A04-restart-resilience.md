@@ -32,11 +32,12 @@
 
 1. `curl -s localhost:8088/api/schema` の `snapshot.fetched_at` を記録(F0)。
 2. `docker compose restart api` → `/api/health` が 200 になるまで待つ(最大 60 秒)。起動に成功する。
-3. `fetched_at` が F0 と同じ。tables 7。
+3. `fetched_at` が F0 と同じ。tables 8(※P202 F010(CR-004)により 7 から変更)。
 4. `docker compose down`(**`-v` を付けない**)→ `docker compose up -d` → 待つ。起動に成功し、`fetched_at` が F0 と同じ。
-5. `docker compose exec api python -c "import sqlite3; print(sqlite3.connect('/data/dbfaq.sqlite3').execute('select count(*) from schema_migrations').fetchone()[0])"` → `1`(0001_init が 1 回だけ記録されている)。
+5. `docker compose exec api python -c "import sqlite3; print(sqlite3.connect('/data/dbfaq.sqlite3').execute('select count(*) from schema_migrations').fetchone()[0])"` → `2`(0001_init・0002_saved_queries が 1 回ずつ記録されている。※CR-005により 1 から変更)。
 6. `docker compose logs api` に起動時の例外(`Traceback`、`MigrationError`)が無い。
 7. api コンテナに MCP の子プロセスが無い: api イメージには `ps` が無いため、Python で `/proc` を走査して数える: `docker compose exec -T api python -c "import os; print(sum(1 for p in os.listdir('/proc') if p.isdigit() and int(p)!=os.getpid() and b'dbfaq_mcp' in open(f'/proc/{p}/cmdline','rb').read()))"` → `0`。続けて `/api/health` の status が `ok`。※CR-002により「MCP 子プロセスの強制終了からの回復」(※P011(2回目)矛盾点#2)から置き換え。子プロセスが無くなったため
+8. ※CR-005により追加: 手順 1 の前に `POST /api/saved-queries`(`scope=pdb`、名前 `A04-再起動`)で 1 件保存しておく。手順 2 の後と手順 4 の後のそれぞれで、`GET /api/saved-queries?scope=pdb` が `A04-再起動` を含み、ひな型(`is_template=true`)がちょうど 17 件(再起動でひな型が重複しない)。最後に `A04-再起動` を削除する。
 
 ## 【実行コマンド】
 

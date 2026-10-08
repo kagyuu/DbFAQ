@@ -20,8 +20,10 @@ from .errors import INTERNAL_ERROR, VALIDATION_ERROR, ApiError
 from .log import setup_logging
 from .migrate import apply_all
 from .oracle.client import OracleAccess, OracleClient
-from .routers import health, query, schema
-from .services import QueryService, SchemaService
+from .pdb_templates import PDB_TEMPLATES
+from .routers import health, pdb, query, saved_queries, schema
+from .saved_query_repo import SavedQueryRepository
+from .services import PdbService, QueryService, SavedQueryService, SchemaService
 from .snapshot_repo import SnapshotRepository
 
 logger = logging.getLogger("dbfaq_api")
@@ -48,14 +50,25 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         engine = create_sqlite_engine(config.app.sqlite_path)
-        applied = apply_all(engine, now=lambda: now().strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+        def stamp() -> str:
+            return now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        applied = apply_all(engine, now=stamp)
         if applied:
             logger.info("migrations applied", extra={"versions": applied})
+        # PDB のひな型は登録記録の無いものだけを 1 回登録する(P003 §4.7。※CR-005により追加)
+        saved_repo = SavedQueryRepository(engine, stamp)
+        seeded = saved_repo.seed_templates(PDB_TEMPLATES)
+        if seeded:
+            logger.info("pdb templates seeded", extra={"keys": seeded})
         # 接続プールは最初の Oracle アクセスで作る(Oracle に届かなくても backend は起動する)
         ora = oracle if oracle is not None else OracleClient(config.oracle)
         app.state.now = now
         app.state.service = SchemaService(SnapshotRepository(engine), ora, config, asyncio.Lock())
         app.state.query_service = QueryService(ora)
+        app.state.saved_query_service = SavedQueryService(saved_repo)
+        app.state.pdb_service = PdbService(ora)
         try:
             yield
         finally:
@@ -98,4 +111,6 @@ def create_app(
     app.include_router(schema.router)
     app.include_router(health.router)
     app.include_router(query.router)
+    app.include_router(saved_queries.router)
+    app.include_router(pdb.router)
     return app

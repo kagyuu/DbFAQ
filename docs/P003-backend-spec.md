@@ -55,14 +55,18 @@ DbFAQ/
 │   │       │   ├── rows.py       # テーブルデータのページ取得
 │   │       │   ├── sql_guard.py  # 利用者の SQL の検査(§3.10)※CR-004により追加
 │   │       │   ├── query.py      # 利用者の SELECT の実行・CSV(§3.11)※CR-004により追加
+│   │       │   ├── pdb.py        # PDB の情報の読み取り(§3.12)※CR-005により追加
 │   │       │   └── values.py     # セル値の表示用文字列化
 │   │       ├── db.py             # SQLAlchemy エンジン、PRAGMA
 │   │       ├── migrate.py        # マイグレーション実行(§5)
 │   │       ├── migrations/0001_init.sql
+│   │       ├── migrations/0002_saved_queries.sql  # ※CR-005により追加(§5.4)
+│   │       ├── saved_query_repo.py # 保存済み Query の保存・読み出し、ひな型の登録(§4.6・§4.7)※CR-005により追加
+│   │       ├── pdb_templates.py  # PDB の Query のひな型(§4.7)※CR-005により追加
 │   │       ├── snapshot_repo.py  # スナップショットの保存・読み出し
 │   │       ├── schemas.py        # API のレスポンス型(pydantic)
-│   │       ├── services.py       # refresh / 詳細 / rows / health / query の処理
-│   │       └── routers/{schema.py, health.py, query.py}  # query.py は ※CR-004により追加
+│   │       ├── services.py       # refresh / 詳細 / rows / health / query / 保存済み Query / PDB の処理
+│   │       └── routers/{schema.py, health.py, query.py, saved_queries.py, pdb.py}  # query.py は ※CR-004、saved_queries.py・pdb.py は ※CR-005により追加
 │   └── tests/{unit, integration}/
 ├── client/                       # Vite + React(P002 §6)
 ├── e2e/                          # Playwright(受入テスト)
@@ -283,7 +287,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 * 語の判定は、前後が識別子の文字(英数字・`_`・`$`・`#`)でないこと、引用符付き識別子の範囲の外であることを条件にする。
 * 検査を通ったら、実行用の SQL は元の SQL から末尾の空白とセミコロン 1 個を取り除いたものにする(先頭は変えない。エラー位置が元の SQL の位置と一致するように)。
-* ★FIXME★ 誤検知: 列名・別名に `UPDATE` などの語を引用符なしで使った正当な SELECT も拒否する(OracleSearchMCP と同じ割り切り)。見逃し: 副作用のある既存のストアドファンクション(自律型トランザクション)を SELECT から呼ぶことは字句では防げない。読み取り専用トランザクションも自律型トランザクションには及ばないため、運用では読み取り専用ユーザーを使う(P302 の手順書)
+* ★ACCEPTED★(2026-10-09 人間承認)(検討: 字句検査の割り切り/承認理由: ADR-015 の二重の防御/残存リスク: 以下)誤検知: 列名・別名に `UPDATE` などの語を引用符なしで使った正当な SELECT も拒否する(OracleSearchMCP と同じ割り切り)。見逃し: 副作用のある既存のストアドファンクション(自律型トランザクション)を SELECT から呼ぶことは字句では防げない。読み取り専用トランザクションも自律型トランザクションには及ばないため、運用では読み取り専用ユーザーを使う(P302 の手順書)
 
 ### 3.11 利用者の SELECT の実行(`query.py`)※CR-004により追加
 
@@ -305,8 +309,8 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 5. 全行を書き終えたら、ファイルを先頭に戻して(ファイル, 行数)を返す。途中で失敗したらファイルを閉じて例外を送出する(応答を始める前なので JSON のエラーで返せる)。
 6. API 層はファイルを 64 KiB ずつ読む `StreamingResponse` で返し、送り終えたら(利用者が途中で切断しても)ファイルを閉じる。
 
-* ★FIXME★ 全行を一時ファイルに書いてから返すため、結果の大きさだけ api コンテナのディスクを使い、取得中は接続プールの接続を 1 つ占有する(既定 `pool_max=4`)。行数・時間の上限は設けない(人間の指示「全てのデータ」)。直接ストリーミングする方式も検討したが、途中のエラーを利用者に伝えられず(壊れた CSV が保存される)、ダウンロードの遅い利用者が Oracle の接続とトランザクションを長く占有するため採らなかった
-* ★FIXME★ CSV の値は数式として解釈されうる文字(`=`・`+`・`-`・`@`)で始まってもそのまま出す(データを変えないため)。表計算ソフトで開くときの数式の実行(CSV インジェクション)は利用者の注意に任せる
+* ★ACCEPTED★(2026-10-09 人間承認)(検討・承認理由・残存リスクは以下の文のとおり)全行を一時ファイルに書いてから返すため、結果の大きさだけ api コンテナのディスクを使い、取得中は接続プールの接続を 1 つ占有する(既定 `pool_max=4`)。行数・時間の上限は設けない(人間の指示「全てのデータ」)。直接ストリーミングする方式も検討したが、途中のエラーを利用者に伝えられず(壊れた CSV が保存される)、ダウンロードの遅い利用者が Oracle の接続とトランザクションを長く占有するため採らなかった
+* ★ACCEPTED★(2026-10-09 人間承認)(検討: CSV インジェクションの対策/承認理由: データを変えない/残存リスク: 以下)CSV の値は数式として解釈されうる文字(`=`・`+`・`-`・`@`)で始まってもそのまま出す(データを変えないため)。表計算ソフトで開くときの数式の実行(CSV インジェクション)は利用者の注意に任せる
 
 **エラー位置**(`run_query`・`export_csv` 共通)
 
@@ -314,6 +318,23 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 * `err.offset` は**実行した SQL の UTF-8 のバイト位置(0 始まり)**である(2026-10-04 に HR で確認: `-- 日本語コメント\nSELECT ほげ FROM EMPLOYEES` の ORA-00904 は 32 = 「ほげ」の先頭のバイト位置)。実行用の SQL を UTF-8 に変換し、先頭からそのバイト位置までを復号した文字数を `offset`(コードポイント単位)とする。バイト位置が文字の途中や SQL の長さを超える場合は `position` を付けない。
 * `line` = `offset` までの `\n` の数 + 1、`column` = `offset` − 直前の `\n` の次の位置 + 1。
 * 実行用の SQL は元の SQL の先頭部分そのもの(§3.10)なので、位置は利用者が入力した SQL の位置と一致する。
+
+### 3.12 PDB の情報の読み取り `OracleClient.get_pdb_info`(`pdb.py`)※CR-005により追加
+
+`GET /api/pdb`(P002 §3.14)のための決まった SELECT を、1 回の読み取り専用トランザクション(`run_readonly`。上限は `query_timeout_sec`)の中でセクションの順に実行する。
+
+| セクション | SQL(要旨) | 備考 |
+| --- | --- | --- |
+| `overview` | `SELECT SYS_CONTEXT('USERENV','CON_NAME'), SYS_CONTEXT('USERENV','DB_NAME'), SYS_CONTEXT('USERENV','SERVICE_NAME'), USER, SYS_CONTEXT('USERENV','CURRENT_SCHEMA'), (SELECT value FROM nls_database_parameters WHERE parameter='NLS_CHARACTERSET'), (… 'NLS_NCHAR_CHARACTERSET'), (SELECT default_tablespace FROM user_users), (SELECT temporary_tablespace FROM user_users) FROM DUAL` | 1 行を Python で `ITEM`・`VALUE` の 10 行に組み替える。バージョンは接続の `conn.version`(SQL を使わない) |
+| `ts_quotas` | `SELECT tablespace_name, ROUND(bytes/1024/1024,2) AS used_mb, CASE WHEN max_bytes=-1 THEN 'UNLIMITED' ELSE TO_CHAR(ROUND(max_bytes/1024/1024,2)) END AS max_mb FROM user_ts_quotas ORDER BY tablespace_name` | 権限不要 |
+| `segments` | `SELECT segment_type, COUNT(*) AS segments, ROUND(SUM(bytes)/1024/1024,2) AS size_mb FROM user_segments GROUP BY segment_type ORDER BY SUM(bytes) DESC` | 権限不要 |
+| `tablespaces` | ひな型「05. 表領域ごとの使用率」(§4.7)から `used_pct_of_max` を除いたもの(DBA_DATA_FILES・DBA_FREE_SPACE) | DBA_* を読む権限が要る |
+
+* 列名・セル値は §3.11 と同じ(`cursor.description` の名前、`values.format_row` による表示用文字列。`truncated` も同じ)。
+* **セクションごとのエラー**: セクションの実行・取得で `oracledb.Error` が出たら `from_oracle_error` で変換し、code が `ORACLE_ERROR` ならそのセクションの `error`(`code`・`message`・`ora_code`)に入れて次のセクションへ進む(Oracle は読み取り専用トランザクションの中で 1 文が失敗してもトランザクションを続けられる)。`ORACLE_TIMEOUT` なら残りを実行せず `OracleFailure(ORACLE_TIMEOUT)` を送出する(呼び出しの上限を超えた接続は使い続けられないため)。
+* 接続・`SET TRANSACTION READ ONLY` の失敗は従来どおり `OracleFailure` として送出する(全体のエラー)。
+* SQL はすべて固定の文字列で、利用者の入力を埋め込まない。
+* 行数の上限: 各セクション 500 行(`fetchmany(500)`)。上限を超えた分は捨てる(現実のセクションの行数は表領域・セグメントの種類の数で、上限に届かない) ★ACCEPTED★ 検討: `has_more` を返す/不採用理由: セクションの行数は表領域・セグメント種別の数で、500 に届く現実的な構成が無い/残存リスク: 500 を超える表領域がある環境では一部が表示されない
 
 ## 4. backend(`dbfaq_api`)
 
@@ -347,6 +368,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 | 状態 | スコープ | 実現方法 |
 | --- | --- | --- |
 | スキーマのスナップショット | システム(永続) | SQLite(§5) |
+| 保存済み Query・ひな型の登録記録 | システム(永続) | SQLite(§5、`saved_queries`・`query_template_seeds`)。※CR-005により追加 |
 | 再読み込みの実行中フラグ | アプリケーション(プロセス) | `asyncio.Lock`。`locked()` なら 409 を返す。uvicorn は 1 ワーカーで動かす前提(複数ワーカーにするとロックが効かず、Oracle の接続プールもワーカーごとに増える)★ACCEPTED★(2026-09-24 人間承認)検討: 複数ワーカー/承認理由: 利用規模に 1 ワーカーで足りる(ADR-014)/残存リスク: 特になし(※CR-002により「MCP 子プロセスもワーカーごとに増え」を変更) |
 | Oracle の接続プール | アプリケーション(backend のプロセス) | python-oracledb の非同期プール。`OracleClient` が持つ(※CR-002により「MCP サーバのプロセス」から変更) |
 
@@ -383,13 +405,38 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 1. 本文を pydantic で検証(`sql` は 1〜100,000 文字、空白だけは不可)。違反は 422 `VALIDATION_ERROR`。
 2. `oracle.run_query(sql, 500)`(§3.11)。スナップショットの有無は問わない(SQL は SC-02 のテーブルに限らない)。
-3. ログに `sql_chars`(文字数)、`row_count`、`has_more`、`elapsed_ms`、エラー時は `ora_code` を INFO で出す。SQL の本文は出さない ★FIXME★ SQL の本文をログに出さないのは Agent の想定(リテラルに業務データを含みうるため。監査の目的で残したい場合は CR で変更する)
+3. ログに `sql_chars`(文字数)、`row_count`、`has_more`、`elapsed_ms`、エラー時は `ora_code` を INFO で出す。SQL の本文は出さない ★ACCEPTED★(2026-10-09 人間承認)検討: SQL の本文をログに出すか/承認理由: リテラルに業務データを含みうる/残存リスク: 誰がどの SQL を実行したかはログから追えない(監査が要るなら CR)
 
 **`POST /api/query/csv`**(※CR-004により追加)
 
 1. 検証は `POST /api/query` と同じ。
 2. `oracle.export_csv(sql)`(§3.11)。失敗したら JSON のエラー。
 3. `StreamingResponse`(`text/csv; charset=utf-8`、`Content-Disposition: attachment; filename="query.csv"`、`X-Row-Count`)で返す。ログは `POST /api/query` と同じ項目(`row_count` は全行数)。
+
+**`GET /api/saved-queries`**(※CR-005により追加)
+
+1. クエリパラメータを検証(`scope` は `table`/`pdb`、`scope=table` なら `owner`・`table` が 1〜128 文字で必須、`scope=pdb` なら `owner`・`table` を指定しない)。違反は 422 `VALIDATION_ERROR`。
+2. `SavedQueryRepository.list(scope, owner, table)`(§4.6)。スナップショットは見ない。
+
+**`POST /api/saved-queries`**(※CR-005により追加)
+
+1. 本文を pydantic で検証(P002 §3.11。`name`・`description` は前後の空白を除いてから長さを検査する)。違反は 422。
+2. `SavedQueryRepository.create(...)`。UNIQUE(scope, owner, table_name, name)の違反(`sqlite3.IntegrityError` を SQLAlchemy が包んだ `IntegrityError`)は 409 `QUERY_NAME_CONFLICT`(message: 「同じ名前の Query が既にあります: {name}」)。
+3. 201 で作った項目を返す。ログに `saved_query_id`・`scope`・`sql_chars` を INFO で出す(名前・SQL の本文は出さない)。
+
+**`PUT /api/saved-queries/{id}`**(※CR-005により追加)
+
+1. `id` は 1 以上の整数(違反は 422)。本文の検証は POST と同じ(`name`・`description`・`sql` が必須)。
+2. `SavedQueryRepository.update(id, name, description, sql)`。対象が無ければ 404 `SAVED_QUERY_NOT_FOUND`、名前の重複は 409 `QUERY_NAME_CONFLICT`。`updated_at` を現在時刻にする。`template_key` は変えない。
+
+**`DELETE /api/saved-queries/{id}`**(※CR-005により追加)
+
+1. `SavedQueryRepository.delete(id)`。対象が無ければ 404 `SAVED_QUERY_NOT_FOUND`。204 を返す。`query_template_seeds` の記録は消さない(ひな型を削除しても次の起動で登録し直さない)。
+
+**`GET /api/pdb`**(※CR-005により追加)
+
+1. `oracle.get_pdb_info()`(§3.12)。全体の `OracleFailure` は §4.1 の表で変換する(`ORACLE_ERROR` → 502、`ORACLE_TIMEOUT` → 504)。
+2. `fetched_at`(現在時刻、ISO 8601 UTC)と `elapsed_ms` を付けて返す。ログにセクション数とエラーのあったセクションの `key`・`ora_code` を INFO で出す。
 
 **`GET /api/health`**
 
@@ -409,7 +456,52 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 * 形式: 1 行 1 JSON(`ts`, `level`, `logger`, `msg`, 任意の追加項目)。標準出力へ出す。
 * 出すもの: リクエスト(メソッド、パス、ステータス、所要時間)、refresh の開始・終了(件数、所要時間)、Oracle のエラー(ora_code)。
 * ※CR-002により MCP サーバのログ(標準エラー出力)と「MCP の再接続」を削除。
-* 出さないもの: パスワード、テーブルデータの中身、Query の SQL の本文と結果(※CR-004により追加)。
+* 出さないもの: パスワード、テーブルデータの中身、Query の SQL の本文と結果(※CR-004により追加)、保存済み Query の名前・説明・SQL の本文(※CR-005により追加。id・scope・文字数だけを出す)。
+
+### 4.6 保存済み Query のリポジトリ(`saved_query_repo.py`)※CR-005により追加
+
+| メソッド | 処理 |
+| --- | --- |
+| `list(scope, owner, table)` | `SELECT ... FROM saved_queries WHERE scope=:scope AND owner=:owner AND table_name=:table ORDER BY name, id`。`scope=pdb` は `owner=''`・`table=''` で照合する |
+| `create(scope, owner, table, name, description, sql, template_key=None)` | `INSERT ... RETURNING ...`。`created_at`=`updated_at`=現在時刻 |
+| `update(id, name, description, sql)` | `UPDATE ... SET name, description, sql, updated_at WHERE id=:id RETURNING ...`。0 行なら None |
+| `delete(id)` | `DELETE ... WHERE id=:id`。消した行数 |
+| `seed_templates(templates)` | §4.7 |
+
+* 時刻は `create_app(now=...)` の時計で決める(テストで固定できるように)。
+* 保存先の照合は文字列の完全一致(大文字小文字を区別)。スナップショットのテーブルとは結合しない。**テーブルが無くなっても `saved_queries` の行は消えない**(スナップショットの置き換え(§4.3 refresh)は `snapshots` 以下だけを削除し、`saved_queries` に触れない)。同じ `owner`・`table_name` のテーブルが戻れば、同じ行がそのまま一覧に出る。
+* 行の項目 → API の項目: `table_name` → `table`、`scope=pdb` の `owner`・`table` は `null`、`is_template` = `template_key IS NOT NULL`。
+
+### 4.7 PDB の Query のひな型の登録(`pdb_templates.py`)※CR-005により追加
+
+* ひな型は `pdb_templates.PDB_TEMPLATES`(キー・名前・説明・SQL)に定義する。登録は lifespan でマイグレーションの直後に `SavedQueryRepository.seed_templates(PDB_TEMPLATES)` を呼んで行う。
+* 1 つのトランザクションで、ひな型ごとに: `query_template_seeds` にキーがあれば何もしない。無ければ `saved_queries` に `scope='pdb'`・`template_key`=キーで挿入し、`query_template_seeds` にキーを記録する。挿入しようとした名前が既にある(利用者が同じ名前で保存していた)場合は、名前の末尾に「 (ひな型)」を付けて挿入する。
+* このため、何回起動しても 1 回だけ登録される。利用者がひな型を削除・改名・変更しても、次の起動で元に戻さない。新しいひな型(新しいキー)を後の版で追加した場合は、次の起動で そのひな型だけが登録される。
+* ひな型の SQL は Query の検査(§3.10)を通ること(単体テストで全件確かめる)。DBA_* ・V$ を使うひな型は、説明に「権限が要る」旨を書く。
+* ひな型の一覧(名前の順。キーは `pdb.` で始まる):
+
+| 名前 | 主に使うビュー | 権限 |
+| --- | --- | --- |
+| 01. USERS 表領域の大きさ | DBA_DATA_FILES、DBA_FREE_SPACE | 要(SELECT_CATALOG_ROLE など) |
+| 02. USERS 表領域の使用量(接続ユーザー分) | USER_TS_QUOTAS、USER_SEGMENTS | 不要 |
+| 03. LOB 領域の大きさと実データの合計(テーブル.カラムごと) | USER_LOBS、USER_TAB_COLUMNS、USER_SEGMENTS、`DBMS_XMLGEN` + `DBMS_LOB.GETLENGTH` | 不要 |
+| 04. LOB 領域の大きさと実データの合計(全スキーマ) | DBA_LOBS、DBA_TAB_COLUMNS、DBA_SEGMENTS、DBA_USERS | 要(加えて各テーブルの SELECT) |
+| 05. 表領域ごとの使用率 | DBA_DATA_FILES、DBA_FREE_SPACE | 要 |
+| 06. データファイルと自動拡張の設定 | DBA_DATA_FILES | 要 |
+| 07. 一時表領域の使用状況 | DBA_TEMP_FREE_SPACE | 要 |
+| 08. セグメントの大きい順(上位 50) | USER_SEGMENTS | 不要 |
+| 09. テーブルの行数と統計情報の鮮度 | USER_TABLES、USER_TAB_STATISTICS | 不要 |
+| 10. 無効なオブジェクト | USER_OBJECTS | 不要 |
+| 11. 使用できない索引 | USER_INDEXES、USER_IND_PARTITIONS | 不要 |
+| 12. 無効または未検証の制約 | USER_CONSTRAINTS | 不要 |
+| 13. オブジェクトの種類ごとの数 | USER_OBJECTS | 不要 |
+| 14. セッションの一覧 | V$SESSION | 要 |
+| 15. ロック待ちのセッション | V$SESSION | 要 |
+| 16. 長時間実行中の処理 | V$SESSION_LONGOPS | 要(開発用 Oracle の hr では読めた。環境による) |
+| 17. ユーザーごとの表領域の使用量と割り当て | DBA_TS_QUOTAS | 要 |
+
+* LOB の実データの合計は、列ごとに `SUM(DBMS_LOB.GETLENGTH(列))` を求めるため列名を動的に埋め込む必要がある。動的 SQL(`EXECUTE IMMEDIATE`・`DBMS_SQL`)は Query の検査で拒否されるため、`DBMS_XMLGEN.GETXMLTYPE` で問い合わせを実行して `XMLQUERY` で値を取り出す ★ACCEPTED★(2026-10-09 人間承認)検討: `DBMS_XMLGEN` による動的な問い合わせ(Query の検査は `DBMS_XMLGEN` を拒否しない)/承認理由: 読み取り専用トランザクションの中なので書き込みはできない/残存リスク: 利用者も同じ方法で動的な SELECT を書ける。実データの単位は BLOB はバイト、CLOB・NCLOB は文字数
+* 権限の要るひな型(01・04〜07・14〜17。16 の V$SESSION_LONGOPS は開発用 Oracle の hr でも読めたが、一般には権限が要るため要とする。※P011(CR-005)矛盾点#1にもとづき修正)は、開発用 Oracle の `hr` では ORA-00942 になるため、結果の正しさを実機で確かめられない。結合テストでは「検査を通り、Oracle が構文エラーではなく権限・存在のエラー(ORA-00942・ORA-01031)か成功を返すこと」を確かめる ★ACCEPTED★(2026-10-09 人間承認)検討: DBA 権限のあるユーザーでの確認/承認理由: 構文は Oracle が受け付けることを確認済み/残存リスク: 実行結果の正しさは未確認(列名の誤りなどは権限のある環境で初めて分かる)
 
 ## 5. SQLite とマイグレーション
 
@@ -423,7 +515,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 | 項目 | 内容 |
 | --- | --- |
-| 適用のタイミング | backend の起動時(lifespan の最初)に `migrate.apply_all(engine)` を実行する |
+| 適用のタイミング | backend の起動時(lifespan の最初)に `migrate.apply_all(engine)` を実行する。※CR-005により、その直後に PDB のひな型の登録(§4.7)を行う |
 | 方式 | `dbfaq_api/migrations/NNNN_*.sql` をファイル名順に読み、**適用済みを記録する管理テーブル `schema_migrations(version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)` に無いものだけ**を、1 ファイル = 1 トランザクションで実行して記録する |
 | 冪等性 | 冪等。2 回目以降の起動では適用済みのファイルを実行しないため、`ALTER TABLE ... ADD COLUMN` のような条件付き構文の無い DDL を後から追加しても失敗しない。管理テーブル自体は `CREATE TABLE IF NOT EXISTS` で作る |
 | 失敗時 | そのファイルのトランザクションをロールバックし、例外で起動を中止する(中途半端な状態で動かない) |
@@ -439,7 +531,19 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | --- | --- |
 | `db_constraints(ref_owner, ref_table)` | 参照元外部キー(`referenced_by`)の検索 |
 
-内部用のテーブル(ユーザインタフェースに現れない)は `schema_migrations` のみ。
+内部用のテーブル(ユーザインタフェースに現れない)は `schema_migrations` のみ(※CR-005により `query_template_seeds` を追加。§5.4)。
+
+### 5.4 `0002_saved_queries.sql`(※CR-005により追加)
+
+P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABLE` と `CREATE INDEX` だけで、既存のテーブルは変えない。
+
+| インデックス | 用途 |
+| --- | --- |
+| UNIQUE(scope, owner, table_name, name)(テーブル定義の制約) | 名前の重複の禁止と、保存先ごとの一覧(`list`)の検索を兼ねる |
+| `template_key` の UNIQUE(テーブル定義の制約) | ひな型の重複の禁止 |
+
+* 0001 適用済みの既存のデータベースに対しては 0002 だけが適用される(§5.2 の方式のまま)。ファイルには `;` を文の区切り以外に使わず、`--` で始まる行はコメントだけにする(`migrate.py` の分割規則)。ひな型の SQL は `;`・`--` を含みうるため、マイグレーションではなく §4.7 の起動時の処理で登録する。
+* 起動処理(マイグレーション + ひな型の登録)を同じファイルに 2 回続けて実行しても、2 回目は何もせず成功し、ひな型は重複しない(単体テストと、受け入れ結合テスト A04(再起動耐性)で確かめる)。
 
 ## 6. 非機能要件の実現と委譲
 
@@ -447,11 +551,11 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | --- | --- | --- |
 | 性能: ER 図表示 | `GET /api/schema` は 4 回の SELECT で組み立て(§4.3)。レイアウトはブラウザ側(elkjs) | — |
 | 性能: 再読み込み | 辞書の問い合わせは 6 回で固定(§3.5) | — |
-| 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除。Query の CSV は全行の取得に往復を繰り返すため、全体の時間は `query_timeout_sec` を超えうる(※CR-004により追加) | nginx の中継の待ち時間(既定 120 秒)を、`/api/query/csv` だけ 600 秒にし、応答をバッファしない(`proxy_buffering off`)構成は **P005 の U009** で整備する ★FIXME★ 600 秒は Agent の想定 |
+| 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除。Query の CSV は全行の取得に往復を繰り返すため、全体の時間は `query_timeout_sec` を超えうる(※CR-004により追加) | nginx の中継の待ち時間(既定 120 秒)を、`/api/query/csv` だけ 600 秒にし、応答をバッファしない(`proxy_buffering off`)構成は **P005 の U009** で整備する ★ACCEPTED★(2026-10-09 人間承認)検討: nginx の待ち時間/承認理由: 全行の CSV の作成に足りる/残存リスク: 600 秒を超える CSV は nginx で切れる |
 | 性能: Query の実行 | 501 行だけを取得し(§3.11)、SQL を包まない | — |
 | 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
-| 可用性: バックアップ | SQLite は再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる | ボリュームの扱いは P302 の手順書 |
-| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する) |
+| 可用性: バックアップ | スナップショットは再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる。※CR-005により、保存済み Query は**利用者が作ったデータで、作り直せない**ものになった。アプリは引き続きバックアップ機能を持たない ★ACCEPTED★(2026-10-09 人間承認)検討: アプリにバックアップ・エクスポート機能を持たせるか/承認理由: SQLite ファイルの複写で足りる(手順は P302 7 章)/残存リスク: 運用でバックアップしないと保存済み Query を失いうる | ボリュームの扱いと、SQLite ファイルのバックアップ手順(backend を止めるか `sqlite3 .backup` で WAL を含めて複写する)は **P302** の手順書(※CR-005により追加) |
+| セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-005により: 保存済み Query は保存時に検査せず、実行時に Query と同じ検査を通す。PDB 情報は固定の SELECT だけ。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する) |
 | セキュリティ: 公開範囲 | backend は nginx からのみ呼ばれる前提で CORS を設定しない | ホストに公開するのは web コンテナのポートだけにする構成は **P005・P302** |
 | セキュリティ: TLS | アプリは HTTP のみ。TLS 終端は運用環境のリバースプロキシで行う前提 | **P302**(手順書に前提として記載) |
 | セキュリティ: パスワード | `SecretStr`、ログ・API に出さない、`config.yaml` を Git 管理外 | イメージに含めない(マウント)構成は **P005・P302** |
@@ -477,5 +581,6 @@ P002 §4.2 のテーブルをそのまま作る。加えて次のインデック
 | ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージ(CR-002 で 3 → 2、CR-003 で 2 → 1。※P011(CR-003)矛盾点#1にもとづき修正) | §1.2 |
 | ADR-008 | SQLite へは SQLAlchemy Core でアクセスする | §1.2 |
 | ADR-011 | Oracle へは python-oracledb(Thin)で読み取り専用トランザクション内でのみアクセスする(※CR-004により「任意 SQL を受け付ける機能は作らない」を変更) | §3.1 |
+| ADR-016(※CR-005により追加。P021 で確定) | 保存済み Query はスナップショットと外部キーで結ばず、保存先(スキーマ名 + テーブル名)の文字列で照合する。PDB のひな型は起動時に 1 回だけ登録する | §4.6、§4.7、P002 §4.2 |
 | ADR-015(※P011(CR-004)矛盾点#1にもとづき暫定番号とし、P021 で確定) | 利用者の SELECT は字句の検査と読み取り専用トランザクションの二重で守り、SQL を包まずに実行する。CSV は一時ファイルに書いてから返す(※CR-004により追加) | §3.10、§3.11 |
 | ADR-014 | backend のプロセス内で python-oracledb の非同期プールにより Oracle に直接接続する(MCP を使わない)。※CR-002により追加。旧 ADR-001(MCP サーバを子プロセスとして常駐)は廃止 | §1.1、§3、§4.1 |

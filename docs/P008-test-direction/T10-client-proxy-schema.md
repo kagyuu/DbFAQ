@@ -33,8 +33,8 @@
 
 1. `curl -s -o /dev/null -w '%{http_code}' localhost:5173/api/health` → 200。本文に `"status"`。
 2. `curl -s localhost:5173/api/schema` → `"loaded":false`。
-3. `curl -s -X POST localhost:5173/api/schema/refresh` → 200、`"table_count":7`。
-4. `curl -s localhost:5173/api/schema | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d["tables"]), len(d["relations"]))'` → `7 10`。
+3. `curl -s -X POST localhost:5173/api/schema/refresh` → 200、`"table_count":8`(※P202 F010(CR-004)の P006 §3.2 に合わせて CR-005 の P103 で修正)。
+4. `curl -s localhost:5173/api/schema | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d["tables"]), len(d["relations"]))'` → `8 11`(同上)。
 5. `curl -s -i localhost:5173/api/schema` のヘッダに `access-control-allow-origin` が無い。
 6. 終了後、端末 1・2 のプロセスを止める。
 

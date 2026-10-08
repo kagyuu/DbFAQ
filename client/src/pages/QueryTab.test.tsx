@@ -215,3 +215,49 @@ test('補助関数', () => {
   expect(caretLines('a\n\tSELECT ほげ X', 2, 12)).toEqual(['\tSELECT ほげ X', '\t       　　 ^'])
   expect(toUtf16Index('𠮷a', 1)).toBe(2)
 })
+
+// ※CR-005により追加: 保存済み Query の組み込み(P002 §2.2.8)
+describe('保存済み Query', () => {
+  const SAVED = {
+    id: 5, scope: 'table' as const, owner: 'HR', table: 'EMPLOYEES', name: '部署50', description: '',
+    sql: 'SELECT * FROM HR.EMPLOYEES WHERE DEPARTMENT_ID = 50', is_template: false,
+    created_at: '2026-10-07T12:00:00Z', updated_at: '2026-10-07T12:00:00Z',
+  }
+
+  test('このテーブルの一覧を取り、復元すると入力欄が変わって実行できる。チェックボックスで置き換わらない', async () => {
+    const fetchMock = mockFetch({
+      '/api/schema': { body: HR_VIEW },
+      'GET /api/saved-queries': { body: { items: [SAVED] } },
+      'POST /api/query': { body: RESULT },
+    })
+    renderWithProviders(<Host />)
+    fireEvent.click(await screen.findByRole('button', { name: '復元: 部署50' }))
+    expect(editor().value).toBe(SAVED.sql)
+    expect(fetchMock.mock.calls.some(([u]) => u === '/api/saved-queries?scope=table&owner=HR&table=EMPLOYEES')).toBe(true)
+    // 未編集のひな形ではないので、チェックボックスでは置き換わらない
+    fireEvent.click(await screen.findByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ }))
+    expect(editor().value).toBe(SAVED.sql)
+    fireEvent.click(runButton())
+    await screen.findByRole('table', { name: 'Query の結果' })
+    const call = fetchMock.mock.calls.find(([u]) => u === '/api/query')!
+    expect(JSON.parse(String(call[1]!.body))).toEqual({ sql: SAVED.sql })
+    // タブを切り替えても復元中が残る
+    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    expect(screen.getByTestId('loaded-query')).toHaveTextContent('復元中: 部署50')
+  })
+
+  test('ひな形のままなら確認なしで復元、編集後は確認する', async () => {
+    mockFetch({ '/api/schema': { body: HR_VIEW }, 'GET /api/saved-queries': { body: { items: [SAVED] } } })
+    renderWithProviders(<Host />)
+    fireEvent.click(await screen.findByRole('button', { name: '復元: 部署50' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.change(editor(), { target: { value: 'SELECT 1 FROM DUAL' } })
+    fireEvent.click(screen.getByRole('button', { name: '復元: 部署50' }))
+    expect(screen.getByRole('dialog')).toHaveTextContent('入力欄の SQL を「部署50」で置き換えますか')
+  })
+
+  test('PDB(detail なし)の CSV のファイル名', () => {
+    expect(csvFileName('PDB', new Date(2026, 9, 7, 21, 3, 4))).toBe('PDB_query_20261007-210304.csv')
+  })
+})

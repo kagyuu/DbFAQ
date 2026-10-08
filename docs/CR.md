@@ -10,5 +10,6 @@
 | CR-002 | MCP サーバを廃止し、Oracle へのアクセスを backend(FastAPI)に統合する | 完了 | 中 | [リンク](./P901-cr-direction/CR-002.md) | [リンク](./P903-cr-records/CR-002.md) |
 | CR-003 | 共通部品パッケージ dbfaq_common を dbfaq_api に統合する | 完了 | 低 | [リンク](./P901-cr-direction/CR-003.md) | [リンク](./P903-cr-records/CR-003.md) |
 | CR-004 | テーブル詳細画面に Query タブを追加し、任意の SELECT 文を作成・実行できるようにする(画面は 500 行まで、CSV で全行) | 完了 | 中 | [リンク](./P901-cr-direction/CR-004.md) | [リンク](./P903-cr-records/CR-004.md) |
+| CR-005 | Query の保存・復元(テーブルごと)と、PDB 画面(ドラム缶アイコン)・PDB の Query・運用 Query のひな型 | 完了 | 中 | [リンク](./P901-cr-direction/CR-005.md) | [リンク](./P903-cr-records/CR-005.md) |
 
 状態: 未対応 / 対応中 / 反映確認中 / 完了 / 却下。優先度: 高 / 中 / 低 / N/A(却下のみ)。

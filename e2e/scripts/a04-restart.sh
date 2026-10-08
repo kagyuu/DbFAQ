@@ -12,18 +12,26 @@ wait_health() {
 }
 fetched() { curl -s "$BASE/api/schema" | python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("snapshot") or {}).get("fetched_at"), len(d["tables"]))'; }
 
+# 手順 8(CR-005): 保存済み Query が残り、再起動でひな型が重複しない
+pdb_check() { curl -s "$BASE/api/saved-queries?scope=pdb" | python3 -c 'import json,sys; d=json.load(sys.stdin)["items"]; print(any(q["name"]=="A04-再起動" for q in d), sum(q["is_template"] for q in d))'; }
+SQ_ID=$(curl -s -X POST "$BASE/api/saved-queries" -H 'Content-Type: application/json' \
+  -d '{"scope":"pdb","name":"A04-再起動","description":"","sql":"SELECT 1 FROM DUAL"}' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))')
+
 F0=$(fetched); echo "F0=$F0"
 docker compose restart api > /dev/null 2>&1
 wait_health && echo "OK   restart: api が起動した" || { echo "FAIL restart: api が起動しない"; fail=1; }
 check "restart 後のスナップショット" "$(fetched)" "$F0"
+check "restart 後の保存済み Query・ひな型の数" "$(pdb_check)" "True 17"
 
 docker compose down > /dev/null 2>&1
 docker compose up -d > /dev/null 2>&1
 wait_health && echo "OK   down/up: api が起動した" || { echo "FAIL down/up: api が起動しない"; fail=1; }
 check "down/up 後のスナップショット" "$(fetched)" "$F0"
+check "down/up 後の保存済み Query・ひな型の数" "$(pdb_check)" "True 17"
+[ -n "$SQ_ID" ] && curl -s -X DELETE "$BASE/api/saved-queries/$SQ_ID" > /dev/null
 
 N=$(docker compose exec -T api python -c "import sqlite3; print(sqlite3.connect('/data/dbfaq.sqlite3').execute('select count(*) from schema_migrations').fetchone()[0])")
-check "schema_migrations の件数" "$N" "1"
+check "schema_migrations の件数" "$N" "2"  # 0001・0002(CR-005)
 
 E=$(docker compose logs api 2>&1 | grep -cE 'Traceback|MigrationError')
 check "起動時の例外" "$E" "0"

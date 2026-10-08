@@ -16,6 +16,7 @@
 | U006 | deploy | Dockerfile(api / web)、nginx、compose.yaml、受入テスト(Playwright)の実行環境 | 中(ファイル 7、インフラ) |
 | U007 | oracle-in-backend | ※CR-002により追加。MCP サーバ(U002 の成果物)と MCP ゲートウェイ(U003 の一部)を廃止し、Oracle アクセスを `dbfaq_api/oracle` に移す。health から mcp を除く(backend・frontend の型)。依存・設定・Dockerfile・compose・受入テストのスクリプトから MCP を除く | 中(移設が中心。ファイル 約 30(移動を含む)、ロジックの新規作成は `client.py` のみ) |
 | U009 | query-tab | ※CR-004により追加。backend: 利用者の SQL の検査(`oracle/sql_guard.py`)、SELECT の実行・CSV(`oracle/query.py`)、エラー位置、API 2 本(`routers/query.py`)。frontend: SC-02 の Query タブ(`QueryTab.tsx`)、ひな形の組み立て(`query/template.ts`)、CSV の保存。nginx の CSV の待ち時間。受入テスト A09 と A06 の追加分 | 大(ファイル 新規 約 10・変更 約 12、外部システム連携あり) |
+| U010 | saved-queries-pdb | ※CR-005により追加。backend: マイグレーション 0002、保存済み Query のリポジトリ・API 4 本、PDB のひな型と起動時の登録、PDB 情報の読み取り・API。frontend: 保存済み Query の部品(`SavedQueries`)、`QueryTab` のテーブル/PDB 共用化、SC-01 のドラム缶のアイコン(`PdbIcon`)、SC-03(`PdbPage`・`PdbInfoTab`)。受入テスト A10 | 大(ファイル 新規 約 14・変更 約 14、外部システム連携あり) |
 | U008 | merge-common | ※CR-003により追加。`dbfaq_common`(`config.py`・`logging.py`)を `dbfaq_api`(`config.py`・`log.py`)に移し、import を直す。振る舞いは変えない | 小(移設が中心。import の変更 約 20 ファイル) |
 
 * ※CR-002: U002(mcp-server)は U007 で廃止した(成果物のコードは `dbfaq_api/oracle` に移り、MCP のツール登録・stdio 起動は削除)。U003 の「MCP ゲートウェイ」も U007 で廃止した。U001〜U006 の記述は第 1 リリース時点の記録として残す。
@@ -80,6 +81,16 @@
 | その他 | backend: `dbfaq_api/oracle/sql_guard.py`・`query.py`(新規)、`oracle/errors.py`(`SQL_REJECTED`、エラー位置)、`oracle/values.py`(切り詰めない文字列化)、`oracle/client.py`(`run_query`・`export_csv`)、`errors.py`・`schemas.py`・`services.py`・`main.py`・`routers/query.py`(新規)、`tests/fakes.py`。frontend: `src/query/template.ts`(新規)、`src/pages/QueryTab.tsx`(新規)、`TableDetailPage.tsx`・`urlState.ts`、`src/api/`(型・関数・`ApiError` の `position`) |
 | インフラ | `deploy/nginx.conf` に `location /api/query/csv`(`proxy_read_timeout 600s`、`proxy_buffering off`)を追加(P003 §6)。`e2e/tests/a09-query-tab.spec.ts`(新規)、`e2e/scripts/a06-security.sh`(Query API の拒否を追加)、`e2e/scripts/a05-perf-api.sh`(Query の性能。※P011(CR-004)矛盾点#2にもとづき追加)、`e2e/scripts/run-suite.sh`(A09 を追加) |
 
+### U010 saved-queries-pdb(※CR-005により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | SC-01 にドラム缶のアイコン(P002 §2.1)。SC-02 Query タブに保存済み Query(§2.2.8)。SC-03 PDB(§2.3)。ルーティング `/pdb`(§1.2) |
+| API | `GET/POST /api/saved-queries`、`PUT/DELETE /api/saved-queries/{id}`、`GET /api/pdb`(P002 §3.10〜§3.14)。エラーコード `SAVED_QUERY_NOT_FOUND`・`QUERY_NAME_CONFLICT`(§3.1) |
+| データモデル | `migrations/0002_saved_queries.sql`(`saved_queries`・`query_template_seeds`。P002 §4.2、P003 §5.4) |
+| その他 | backend: `saved_query_repo.py`・`pdb_templates.py`・`oracle/pdb.py`・`routers/saved_queries.py`・`routers/pdb.py`(新規)、`oracle/client.py`(`get_pdb_info`)、`errors.py`・`schemas.py`・`services.py`(`SavedQueryService`・`PdbService`)・`main.py`(ひな型の登録)、`tests/fakes.py`。frontend: `src/components/PdbIcon.tsx`・`src/components/SavedQueries.tsx`・`src/pages/PdbPage.tsx`・`src/pages/PdbInfoTab.tsx`(新規)、`QueryTab.tsx`(テーブル/PDB の共用、保存済み Query の組み込み)、`ErDiagramPage.tsx`(アイコン)、`App.tsx`(`/pdb`)、`urlState.ts`(`parsePdbTab`)、`src/api/`(型・関数・フック) |
+| インフラ | 変更なし(nginx は `/api/` を一括で中継する)。`e2e/tests/a10-saved-queries-pdb.spec.ts`(新規)、`e2e/scripts/run-suite.sh`(A10 を追加)。P302 の手順書に SQLite のバックアップ手順を追加(P003 §6) |
+
 ### U004 frontend-er
 
 | 種別 | 対象 |
@@ -132,14 +143,18 @@ P004 の全要求 ID は上表のいずれかのスプリントに割り当た�
 
 ※CR-004により: REQ-SCREEN-016〜019(Query タブ)、REQ-API-006・007、REQ-ORA-005、REQ-SCREEN-010・REQ-NFR-001・REQ-NFR-004 の CR-004 での変更分は **U009** が担う(U007 と同じく列を増やさず本注記で割り当てる)。
 
+※CR-005により: REQ-SCREEN-020〜027(保存済み Query、PDB のアイコン、SC-03、ひな型)、REQ-API-008〜012、REQ-ORA-006、REQ-ARCH-003・REQ-NFR-001・REQ-NFR-003・REQ-NFR-004 の CR-005 での変更分は **U010** が担う(列を増やさず本注記で割り当てる)。
+
 ※P011矛盾点#5にもとづき `GET /api/schema` 行の U005 列を修正。
 
 ## 4. 依存関係
 
 ```mermaid
 flowchart LR
-  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009
+  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010
 ```
+
+* U010(CR-005)は U009 の後に行う改修スプリント(U009 の Query タブ・実行 API を使う)。backend(マイグレーション・リポジトリ・ひな型 → API → PDB 情報)→ frontend(API クライアント → 保存済み Query の部品 → Query タブの共用化 → アイコン・SC-03)→ 受入テストの順に作る。
 
 * U008(CR-003)は U007 の後に行う改修スプリント。
 * U009(CR-004)は U008 の後に行う改修スプリント。backend(SQL の検査・実行・API)→ frontend(ひな形・Query タブ)→ nginx・受入テストの順に作る。

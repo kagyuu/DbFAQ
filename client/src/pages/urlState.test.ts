@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { parsePage, parseTab } from './urlState'
+import { parsePage, parsePdbTab, parseTab } from './urlState'
 
 test('parseTab', () => {
   expect(parseTab('data')).toBe('data')
@@ -20,4 +20,11 @@ test.each([
   [null, 1],
 ])('parsePage(%s) = %s', (v, expected) => {
   expect(parsePage(v)).toBe(expected)
+})
+
+test('parsePdbTab(CR-005)', () => {
+  expect(parsePdbTab('query')).toBe('query')
+  expect(parsePdbTab('info')).toBe('info')
+  expect(parsePdbTab('data')).toBe('info')
+  expect(parsePdbTab(null)).toBe('info')
 })
