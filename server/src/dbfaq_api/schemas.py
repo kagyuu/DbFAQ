@@ -260,6 +260,54 @@ class PdbInfoResponse(BaseModel):
     elapsed_ms: int
 
 
+# ---- LLM(P002 §3.7・§3.15。※CR-007により追加) -------------------------------------------
+
+MAX_LLM_REQUEST_CHARS = 2_000
+
+
+class LlmSqlRequest(BaseModel):
+    request: str
+    scope: Literal["table", "pdb"]
+    owner: str | None = Field(default=None, min_length=1, max_length=128)
+    table: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("request")
+    @classmethod
+    def _request(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("要求を入力してください")
+        if len(v) > MAX_LLM_REQUEST_CHARS:
+            raise ValueError(f"{MAX_LLM_REQUEST_CHARS} 文字以内で入力してください")
+        return v
+
+
+class LlmGuard(BaseModel):
+    ok: bool
+    message: str | None = None
+
+
+class LlmContextSummary(BaseModel):
+    tables: list[str]
+    sample_rows: int
+    truncated: bool
+
+
+class LlmSqlResponse(BaseModel):
+    sql: str
+    guard: LlmGuard
+    model: str
+    elapsed_ms: int
+    context: LlmContextSummary
+
+
+class LlmHealth(BaseModel):
+    status: str
+    model: str | None = None
+    base_url: str | None = None
+    message: str | None = None
+
+
 class BackendHealth(BaseModel):
     status: str
     version: str
@@ -277,6 +325,7 @@ class HealthResponse(BaseModel):
     backend: BackendHealth
     oracle: OracleHealth
     config: dict[str, object]
+    llm: LlmHealth  # ※CR-007により追加
     checked_at: str
 
 

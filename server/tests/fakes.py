@@ -42,3 +42,29 @@ class FakeOracle:
 
     async def close(self) -> None:
         pass
+
+
+class FakeLlm:
+    """単体テスト用の偽の LLM(dbfaq_api.llm.client.LlmAccess)。※CR-007により追加"""
+
+    model = "fake-model"
+
+    def __init__(self, answer="```sql\nSELECT 1 FROM DUAL\n```", health=None):
+        self.answer = answer
+        self.health_result = health or {"status": "ok", "model": "fake-model", "base_url": "http://llm", "message": None}
+        self.calls: list[tuple[str, str]] = []
+        self.closed = False
+
+    async def health(self):
+        if isinstance(self.health_result, BaseException):
+            raise self.health_result
+        return self.health_result
+
+    async def chat(self, system, user):
+        self.calls.append((system, user))
+        if isinstance(self.answer, BaseException):
+            raise self.answer
+        return self.answer
+
+    async def close(self):
+        self.closed = True

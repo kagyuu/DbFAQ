@@ -98,3 +98,32 @@ def test_password_never_leaks(tmp_path):
     with pytest.raises(ConfigError) as ei:
         load_config(write(tmp_path, MINIMAL.format(pw=secret) + "  port: 0\n"), env={})
     assert secret not in str(ei.value)
+
+
+# ※CR-007により追加: LLM の設定(P003 §2)
+def test_llm_section_absent_is_none(tmp_path):
+    cfg = load_config(write(tmp_path, MINIMAL.format(pw="x")), env={"DBFAQ_LLM_BASE_URL": "http://other:1"})
+    assert cfg.llm is None  # 節が無ければ環境変数でも作らない
+
+
+def test_llm_defaults_and_env_override(tmp_path):
+    path = write(tmp_path, MINIMAL.format(pw="x") + "llm: {}\n")
+    cfg = load_config(path, env={})
+    assert cfg.llm.enabled is True and cfg.llm.provider == "ollama"
+    assert cfg.llm.url == "http://localhost:11434"
+    assert cfg.llm.model == "gemma4:e2b-it-qat"
+    assert (cfg.llm.timeout_sec, cfg.llm.health_timeout_sec, cfg.llm.sample_rows) == (180, 3, 3)
+    assert (cfg.llm.temperature, cfg.llm.seed, cfg.llm.max_context_chars) == (0.0, 42, 12000)
+    cfg2 = load_config(path, env={"DBFAQ_LLM_BASE_URL": "http://host.docker.internal:11435/"})
+    assert cfg2.llm.url == "http://host.docker.internal:11435"
+
+
+@pytest.mark.parametrize(
+    "llm",
+    ["{provider: openai}", "{timeout_sec: 0}", "{timeout_sec: 601}", "{sample_rows: 21}", "{base_url: 'not a url'}",
+     "{max_context_chars: 10}", "{temperature: 3}", "{model: ''}"],
+)
+def test_llm_invalid(tmp_path, llm):
+    with pytest.raises(ConfigError) as ei:
+        load_config(write(tmp_path, MINIMAL.format(pw="x") + f"llm: {llm}\n"), env={})
+    assert "llm." in str(ei.value)

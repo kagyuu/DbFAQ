@@ -64,9 +64,13 @@ DbFAQ/
 │   │       ├── saved_query_repo.py # 保存済み Query の保存・読み出し、ひな型の登録(§4.6・§4.7)※CR-005により追加
 │   │       ├── pdb_templates.py  # PDB の Query のひな型(§4.7)※CR-005により追加
 │   │       ├── snapshot_repo.py  # スナップショットの保存・読み出し
+│   │       ├── llm/              # LLM アクセス(§4.8)※CR-007により追加
+│   │       │   ├── client.py     # OllamaClient(疎通確認・チャット)と LlmAccess プロトコル、LlmFailure
+│   │       │   ├── context.py    # LLM に渡すスキーマの構造・データの例の組み立て
+│   │       │   └── prompt.py     # システムの指示・ユーザーの文の組み立て、応答からの SQL の取り出し
 │   │       ├── schemas.py        # API のレスポンス型(pydantic)
 │   │       ├── services.py       # refresh / 詳細 / rows / health / query / 保存済み Query / PDB の処理
-│   │       └── routers/{schema.py, health.py, query.py, saved_queries.py, pdb.py}  # query.py は ※CR-004、saved_queries.py・pdb.py は ※CR-005により追加
+│   │       └── routers/{schema.py, health.py, query.py, saved_queries.py, pdb.py, llm.py}  # query.py は ※CR-004、saved_queries.py・pdb.py は ※CR-005、llm.py は ※CR-007により追加
 │   └── tests/{unit, integration}/
 ├── client/                       # Vite + React(P002 §6)
 ├── e2e/                          # Playwright(受入テスト)
@@ -102,7 +106,21 @@ oracle:
 app:
   sqlite_path: ./data/dbfaq.sqlite3
   log_level: INFO
+llm:                         # ※CR-007により追加。節ごと省略すると LLM は使わない(status=disabled)
+  enabled: true              # false で LLM を使わない
+  provider: ollama           # いまは ollama だけ
+  base_url: http://localhost:11434
+  model: gemma4:e2b-it-qat
+  timeout_sec: 180           # 1 回の作成で LLM の応答を待つ上限(1〜600)
+  health_timeout_sec: 3      # 疎通確認の上限(1〜30)
+  temperature: 0.0           # 0〜2。0 で毎回ほぼ同じ SQL になる
+  seed: 42                   # 省略可(null)。乱数の種
+  num_ctx: 8192              # 省略可。LLM の文脈長(Ollama の num_ctx)
+  sample_rows: 3             # SC-02 で LLM に渡すデータの例の行数(0〜20。0 で送らない)
+  max_context_chars: 12000   # LLM に渡すスキーマの構造の上限(文字数。1,000〜200,000)
 ```
+
+* ※CR-007により追加: `llm` の既定値は上記のとおり(`base_url`・`model` は開発時の値で、人間の指示)。`timeout_sec`・`sample_rows`・`max_context_chars`・`num_ctx` の既定値は ★ACCEPTED★(2026-10-13 人間承認)検討: 既定値/承認理由: 開発環境の Ollama(CPU)の実測(1 回 17〜100 秒)に合わせた/残存リスク: 環境によって見直しが要る。
 
 * ※CR-002により `app.mcp_call_timeout_sec`(backend が MCP ツールの応答を待つ上限)を廃止した。既存の `config.yaml` に残っていても無視する(pydantic の既定で未知の項目は無視される)。
 
@@ -111,8 +129,8 @@ app:
 | 項目 | 規則 |
 | --- | --- |
 | ファイルの場所 | 環境変数 `DBFAQ_CONFIG`。未設定なら カレントディレクトリの `config.yaml` |
-| 環境変数での上書き | `DBFAQ_ORACLE_HOST`、`DBFAQ_ORACLE_PORT`、`DBFAQ_ORACLE_PASSWORD`、`DBFAQ_SQLITE_PATH` があればファイルの値より優先する(compose でコンテナ用の接続先を差し替えるため) |
-| 型チェック | pydantic モデル `AppConfig`。必須: host, port, service_name, user, password。port は 1〜65535、各タイムアウトは 1〜600、pool_min ≥ 1、pool_max ≥ pool_min |
+| 環境変数での上書き | `DBFAQ_ORACLE_HOST`、`DBFAQ_ORACLE_PORT`、`DBFAQ_ORACLE_PASSWORD`、`DBFAQ_SQLITE_PATH` があればファイルの値より優先する(compose でコンテナ用の接続先を差し替えるため)。※CR-007により `DBFAQ_LLM_BASE_URL` を追加(`llm` 節があるときだけ `llm.base_url` を上書きする) |
+| 型チェック | pydantic モデル `AppConfig`(※CR-007により `llm: LlmConfig | None` を追加。`provider` は `ollama` だけ、`base_url` は http/https の URL)。必須: host, port, service_name, user, password。port は 1〜65535、各タイムアウトは 1〜600、pool_min ≥ 1、pool_max ≥ pool_min |
 | 不正時 | 起動時に例外(どの項目が不正かを表示。パスワードの値は表示しない)で終了する |
 | パスワード | `SecretStr` で持ち、`repr`・ログに出さない |
 
@@ -439,11 +457,18 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 1. `oracle.get_pdb_info()`(§3.12)。全体の `OracleFailure` は §4.1 の表で変換する(`ORACLE_ERROR` → 502、`ORACLE_TIMEOUT` → 504)。
 2. `fetched_at`(現在時刻、ISO 8601 UTC)と `elapsed_ms` を付けて返す。ログにセクション数とエラーのあったセクションの `key`・`ora_code` を INFO で出す。
 
+**`POST /api/llm/sql`**(※CR-007により追加)
+
+1. 本文を pydantic で検証(`request` は前後の空白を除いて 1〜2,000 文字、`scope` と `owner`・`table` の組み合わせは §4.3 の `check_target`)。違反は 422。
+2. `LlmService.generate(...)`(§4.8.4)。`LlmFailure` は `LLM_UNAVAILABLE` → 503、`LLM_TIMEOUT` → 504、`LLM_ERROR` → 502。
+3. ログに `request_chars`・`sql_chars`・`model`・`tables`(構造を渡したテーブル数)・`sample_rows`・`guard_ok`・`elapsed_ms`、失敗時は `code` を INFO で出す。要求の文・SQL・データの例は出さない。
+
 **`GET /api/health`**
 
 1. `oracle.ping()`(§3.8。問い合わせの上限 5 秒)。成功なら oracle=ok。
 2. `OracleFailure`(`ORACLE_ERROR`/`ORACLE_TIMEOUT`)なら oracle=error(message にエラー)。想定外の例外でも、ログに出して oracle=error(message「内部エラーが発生しました」)とする(※P202 F007 にもとづき追加)。
 3. `config` は設定から(パスワードを除く)。常に 200。
+3b. ※CR-007により追加: `llm` は `LlmService.health()`(上限 `llm.health_timeout_sec`)。Oracle の疎通確認と並行して行う(`asyncio.gather`)。最上位の `status` には含めない。
 4. ※CR-002により mcp の状態(MCP_UNAVAILABLE のときの mcp=error)を削除。
 
 ### 4.4 例外ハンドラ
@@ -457,7 +482,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 * 形式: 1 行 1 JSON(`ts`, `level`, `logger`, `msg`, 任意の追加項目)。標準出力へ出す。
 * 出すもの: リクエスト(メソッド、パス、ステータス、所要時間)、refresh の開始・終了(件数、所要時間)、Oracle のエラー(ora_code)。
 * ※CR-002により MCP サーバのログ(標準エラー出力)と「MCP の再接続」を削除。
-* 出さないもの: パスワード、テーブルデータの中身、Query の SQL の本文と結果(※CR-004により追加)、保存済み Query の名前・説明・SQL の本文(※CR-005により追加。id・scope・文字数だけを出す)。
+* 出さないもの: パスワード、テーブルデータの中身、Query の SQL の本文と結果(※CR-004により追加)、保存済み Query の名前・説明・SQL の本文(※CR-005により追加。id・scope・文字数だけを出す)、LLM への要求の文・LLM が作った SQL・LLM に渡したデータの例(※CR-007により追加)。
 
 ### 4.6 保存済み Query のリポジトリ(`saved_query_repo.py`)※CR-005により追加
 
@@ -505,6 +530,45 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 * LOB の実データの合計は、列ごとに `SUM(DBMS_LOB.GETLENGTH(列))` を求めるため列名を動的に埋め込む必要がある。動的 SQL(`EXECUTE IMMEDIATE`・`DBMS_SQL`)は Query の検査で拒否されるため、`DBMS_XMLGEN.GETXMLTYPE` で問い合わせを実行して `XMLQUERY` で値を取り出す ★ACCEPTED★(2026-10-09 人間承認)検討: `DBMS_XMLGEN` による動的な問い合わせ(Query の検査は `DBMS_XMLGEN` を拒否しない)/承認理由: 読み取り専用トランザクションの中なので書き込みはできない/残存リスク: 利用者も同じ方法で動的な SELECT を書ける。実データの単位は BLOB はバイト、CLOB・NCLOB は文字数
 * ※CR-006により: 開発用 Oracle の接続ユーザーを `dbfaq_ro`(`SELECT_CATALOG_ROLE` あり)にしたため、権限の要るひな型も実行して結果を確かめる(T14)。以下は CR-005 時点の記述。権限の要るひな型(01・04〜07・14〜17。16 の V$SESSION_LONGOPS は開発用 Oracle の hr でも読めたが、一般には権限が要るため要とする。※P011(CR-005)矛盾点#1にもとづき修正)は、開発用 Oracle の `hr` では ORA-00942 になるため、結果の正しさを実機で確かめられない。結合テストでは「検査を通り、Oracle が構文エラーではなく権限・存在のエラー(ORA-00942・ORA-01031)か成功を返すこと」を確かめる ★ACCEPTED★(2026-10-09 人間承認)検討: DBA 権限のあるユーザーでの確認/承認理由: 構文は Oracle が受け付けることを確認済み/残存リスク: 実行結果の正しさは未確認(列名の誤りなどは権限のある環境で初めて分かる)。※CR-006により解消: 2026-10-09 に `dbfaq_ro`(`SELECT_CATALOG_ROLE`)で 17 件すべての実行と結果を確認した(T14)
+
+### 4.8 LLM で SQL を作成(`dbfaq_api/llm`)※CR-007により追加
+
+#### 4.8.1 LLM アクセス(`llm/client.py`)
+
+| 項目 | 内容 |
+| --- | --- |
+| インタフェース | `LlmAccess` プロトコル: `health() -> dict`(`status`・`model`・`base_url`・`message`)、`chat(system: str, user: str) -> str`、`close()`。`create_app(llm_access=...)` で偽物を渡せる(単体テスト) |
+| 実装 | `OllamaClient(cfg: LlmConfig)`。`httpx.AsyncClient`(lifespan で作り、終了時に閉じる) |
+| 疎通確認 | `GET {base_url}/api/tags`(上限 `health_timeout_sec`)。`models[].name`(または `model`)が設定の `model` と一致するか、`model` に `:latest` を補ったものと一致すれば `ok`。無ければ `error`(「モデル {model} が LLM にありません」)。接続できなければ `error`(「LLM に接続できません: 理由」)、時間切れは `error`(「LLM の応答がタイムアウトしました」) |
+| チャット | `POST {base_url}/api/chat`、本文 `{"model", "messages": [{"role":"system"}, {"role":"user"}], "stream": false, "options": {"temperature", "seed"?, "num_ctx"?}}`。応答の `message.content` を返す。全体の上限は `timeout_sec`(`asyncio.wait_for` と httpx の読み取りの上限の両方) |
+| エラー | `LlmFailure(code, message)`。接続できない(`httpx.ConnectError` など。**接続の確立は `health_timeout_sec` で打ち切り**、`ConnectTimeout` も「LLM に接続できません」とする)・HTTP 404 で `model ... not found` → `LLM_UNAVAILABLE`。※接続の確立の打ち切りは P102 で追加: 開発環境(WSL の mirrored モード)では待ち受けの無いアドレスへの接続が拒否されずに止まり、`timeout_sec`(180 秒)まで待った(2026-10-13 に T17 で発見)。時間切れ → `LLM_TIMEOUT`。その他の HTTP エラー(本文の `error` を message に)・応答の形の誤り → `LLM_ERROR` |
+| `llm` が無い・`enabled=false` | `OllamaClient` を作らず、`health()` は `disabled`、作成は `LLM_UNAVAILABLE`(「LLM は設定されていません」) |
+
+#### 4.8.2 LLM に渡す情報(`llm/context.py`)
+
+依頼者が LLM から得た回答(必須: スキーマの構造・具体的な要求、補足: データの例・データベースの種類)に従って組み立てる。
+
+| 項目 | SC-02(`scope=table`) | SC-03(`scope=pdb`) |
+| --- | --- | --- |
+| データベースの種類 | `Oracle Database {スナップショットの oracle_version}`、対象スキーマ名、「スキーマ名の無い名前は対象スキーマになる」(P003 §3.1) | 同左 |
+| 構造を渡すテーブル | このテーブル、このテーブルが参照するテーブル、このテーブルを参照するテーブル(スナップショットにあるものだけ。重複なし。この順) | スナップショットの全テーブル(名前の順) |
+| テーブルごとの内容 | `Table OWNER.TABLE -- コメント (about N rows)`、列ごとに `  名前 型表記 [NOT NULL] -- コメント`、`  PRIMARY KEY (列, …)`、`  FOREIGN KEY (列, …) REFERENCES OWNER.TABLE(列, …)`(複合も 1 行) | 同左(列のコメントは省く。`GET /api/schema` の内容で足りるため) |
+| データの例 | このテーブルの先頭 `sample_rows` 行(`OracleClient.get_table_rows`。読み取り専用)。値は §3.7 の表示用文字列を 40 文字で切る。BLOB・RAW・LONG RAW・BFILE の列は省く。取得に失敗したら渡さない(作成は続ける) | 渡さない |
+| 辞書ビュー | - | PDB の運用でよく使うビューと主な列: DBA_DATA_FILES、DBA_FREE_SPACE、DBA_TABLESPACES、DBA_TEMP_FREE_SPACE、DBA_SEGMENTS、DBA_TS_QUOTAS、DBA_USERS、DBA_OBJECTS、DBA_INDEXES、DBA_LOBS、V$SESSION、V$SESSION_LONGOPS、V$SQL(固定の文) |
+| 長さの上限 | 構造の文字数が `max_context_chars` を超えるときは、先頭のテーブル(このテーブル)を残し、超える分のテーブルを省いて `truncated=true` | 超える分のテーブルを省いて `truncated=true` |
+
+#### 4.8.3 プロンプトと SQL の取り出し(`llm/prompt.py`)
+
+* システムの指示(英語の固定文): Oracle SQL の専門家として、与えたテーブルと列だけを使って利用者の要求に答える SELECT(または WITH)を 1 つだけ書く。規則: 文は 1 つ、末尾にセミコロンを付けない、INSERT・UPDATE・DELETE・MERGE・DDL・PL/SQL・FOR UPDATE を使わない、テーブルはスキーマ名で修飾する、行数の制限は `FETCH FIRST n ROWS ONLY`、日付は Oracle の関数(EXTRACT・TO_CHAR・TRUNC など)、列には読みやすい別名を付ける、答えは SQL だけを 1 つの ```sql のコードブロックで ★ACCEPTED★(2026-10-13 人間承認)検討: 指示の文と言語/承認理由: 開発用の Ollama で英語の指示と日本語の要求で正しい SQL が返った(T16・A11)/残存リスク: モデルを変えると精度が変わりうる
+* ユーザーの文: `# Database` / `# Tables` / `# Sample rows`(あれば)/ `# Dictionary views`(PDB)/ `# Request`(利用者の要求そのまま)の順の Markdown。
+* SQL の取り出し: 応答の最初の ``` のコードブロック(言語名は問わない)の中身。無ければ応答の全文。前後の空白を除き、末尾のセミコロンと空白を繰り返し除く。空なら `LLM_ERROR`(「LLM の応答から SQL を取り出せませんでした」)。
+* 検査: 取り出した SQL を Query の検査(§3.10 の `check_select`)にかける。通れば `guard.ok=true`、拒否なら `guard.ok=false`・`message` に理由(SQL はそのまま返す)。**実行はしない**。
+
+#### 4.8.4 `LlmService`(`services.py`)と状態
+
+* `generate(request, scope, owner, table)`: 保存先の検査(§4.3 の `check_target`)→ `scope=table` はテーブルの実在確認(`SchemaService` と同じ。404)→ 構造の組み立て(SQLite)→ データの例(Oracle)→ チャット → 取り出し → 検査。
+* `health()`: `LlmAccess.health()`。想定外の例外は `error`(「内部エラーが発生しました」)にして `GET /api/health` を 200 のままにする。
+* LLM の HTTP クライアントは api プロセスに 1 つ(lifespan)。同時の作成は並行して LLM に送る(Ollama 側で順番に処理される) ★ACCEPTED★(2026-10-13 人間承認)検討: 同時の作成の数の制限/承認理由: 利用者 10 名程度/残存リスク: 同時に作ると Ollama 側で順番待ちになり、遅い人は `timeout_sec` を超えうる
 
 ## 5. SQLite とマイグレーション
 
@@ -556,6 +620,9 @@ P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABL
 | 性能: 再読み込み | 辞書の問い合わせは 6 回で固定(§3.5) | — |
 | 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除。Query の CSV は全行の取得に往復を繰り返すため、全体の時間は `query_timeout_sec` を超えうる(※CR-004により追加) | nginx の中継の待ち時間(既定 120 秒)を、`/api/query/csv` だけ 600 秒にし、応答をバッファしない(`proxy_buffering off`)構成は **P005 の U009** で整備する ★ACCEPTED★(2026-10-09 人間承認)検討: nginx の待ち時間/承認理由: 全行の CSV の作成に足りる/残存リスク: 600 秒を超える CSV は nginx で切れる |
 | 性能: Query の実行 | 501 行だけを取得し(§3.11)、SQL を包まない | — |
+| 性能: LLM で SQL を作成(※CR-007) | LLM の応答の上限 `llm.timeout_sec`(既定 180 秒)。疎通確認は `health_timeout_sec`(既定 3 秒)で `GET /api/health` を遅らせない | nginx の中継の待ち時間(既定 120 秒)を `/api/llm/` だけ 300 秒にする構成は **P005 の U012** で整備する ★ACCEPTED★(2026-10-13 人間承認)検討: nginx の待ち時間/承認理由: `timeout_sec` の既定 180 秒より長い/残存リスク: `timeout_sec` を 300 秒以上にするときは nginx も変える |
+| 可用性: LLM(※CR-007) | LLM に届かなくても起動・他の機能に影響しない(`status` は Oracle だけで決める) | compose の api コンテナから LLM に届く構成(`DBFAQ_LLM_BASE_URL`、既定 `http://host.docker.internal:11434`)は **P005 の U012** と **P302**。LLM 側(Ollama)をコンテナから届くように待ち受けさせるのは運用側の作業。開発環境(WSL の mirrored モード、Ollama は Windows 側)では、WSL の socat で 11435 番から `127.0.0.1:11434` へ中継し(起動・停止は `deploy/dev/llm-relay.sh`)、Git 管理外の `.env` に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435` を書く(CR-007 の備考) ★ACCEPTED★(2026-10-13 人間承認)検討: 中継を compose に含めるか/承認理由: WSL2 + Windows の Ollama という特定の環境だけの回避策/残存リスク: WSL を再起動したら中継を起動し直す必要がある(README・P302 7 章の手順) |
+| セキュリティ: LLM(※CR-007) | LLM に送るのはスキーマの構造・データの例(`sample_rows`、0 で送らない)・要求の文。LLM の SQL は自動では実行せず、実行時は §3.10 の検査・読み取り専用トランザクション・読み取り専用ユーザー(ADR-017)で守る。要求の文・SQL はログに出さない | LLM の接続先を社内の信頼できるものにするのは運用側(P302 の手順書) |
 | 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |
 | 可用性: バックアップ | スナップショットは再読み込みで作り直せる派生データなので、アプリはバックアップ機能を持たない ★ACCEPTED★(2026-09-24 人間承認)検討: バックアップ機能/承認理由: 再読み込みで作り直せる派生データ/残存リスク: ボリュームを失うと、再読み込みするまで ER 図が空になる。※CR-005により、保存済み Query は**利用者が作ったデータで、作り直せない**ものになった。アプリは引き続きバックアップ機能を持たない ★ACCEPTED★(2026-10-09 人間承認)検討: アプリにバックアップ・エクスポート機能を持たせるか/承認理由: SQLite ファイルの複写で足りる(手順は P302 7 章)/残存リスク: 運用でバックアップしないと保存済み Query を失いうる | ボリュームの扱いと、SQLite ファイルのバックアップ手順(backend を止めるか `sqlite3 .backup` で WAL を含めて複写する)は **P302** の手順書(※CR-005により追加) |
 | セキュリティ: 読み取りのみ | 読み取り専用トランザクション、識別子の検証とクォート。※CR-005により: 保存済み Query は保存時に検査せず、実行時に Query と同じ検査を通す。PDB 情報は固定の SELECT だけ。※CR-004により「任意 SQL を実行する機能を持たない」を変更: Query の SQL は字句の検査(§3.10)を通したうえで読み取り専用トランザクションで実行する | 読み取り専用ユーザーの作成手順は P302 の手順書(Query タブがあるため、推奨の重要度が上がった旨を記載する)。※CR-006により、推奨ユーザー `dbfaq_ro`(`CREATE SESSION`、`SELECT_CATALOG_ROLE`、対象スキーマの表への `READ`)を作る理由・SQL・`config.yaml` への登録を README.md と P302 7 章に載せる。`config.example.yaml` の `oracle.user` の例を `dbfaq_ro` にする |
@@ -584,6 +651,7 @@ P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABL
 | ADR-007 | Python は 1 つの uv プロジェクトに 1 パッケージ(CR-002 で 3 → 2、CR-003 で 2 → 1。※P011(CR-003)矛盾点#1にもとづき修正) | §1.2 |
 | ADR-008 | SQLite へは SQLAlchemy Core でアクセスする | §1.2 |
 | ADR-011 | Oracle へは python-oracledb(Thin)で読み取り専用トランザクション内でのみアクセスする(※CR-004により「任意 SQL を受け付ける機能は作らない」を変更) | §3.1 |
+| ADR-018(※CR-007により追加。P021 で確定) | LLM は Ollama の API で使い、スキーマの構造・データの例・要求を渡して SELECT を 1 つ作らせる。作った SQL は検査するが自動では実行しない | §4.8、§6 |
 | ADR-017(※CR-006により追加。P021 で確定) | 接続ごとにカレントスキーマを対象スキーマにする。推奨の接続ユーザーは読み取り専用ユーザー(`dbfaq_ro`) | §3.1、§3.12、§4.7 |
 | ADR-016(※CR-005により追加。P021 で確定。※CR-006により未変更のひな型の更新を追加) | 保存済み Query はスナップショットと外部キーで結ばず、保存先(スキーマ名 + テーブル名)の文字列で照合する。PDB のひな型は起動時に 1 回だけ登録する | §4.6、§4.7、P002 §4.2 |
 | ADR-015(※P011(CR-004)矛盾点#1にもとづき暫定番号とし、P021 で確定) | 利用者の SELECT は字句の検査と読み取り専用トランザクションの二重で守り、SQL を包まずに実行する。CSV は一時ファイルに書いてから返す(※CR-004により追加) | §3.10、§3.11 |

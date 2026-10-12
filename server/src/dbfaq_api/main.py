@@ -17,13 +17,14 @@ from . import __version__
 from .config import AppConfig, load_config
 from .db import create_sqlite_engine
 from .errors import INTERNAL_ERROR, VALIDATION_ERROR, ApiError
+from .llm.client import LlmAccess, create_llm
 from .log import setup_logging
 from .migrate import apply_all
 from .oracle.client import OracleAccess, OracleClient
 from .pdb_templates import PDB_TEMPLATES
-from .routers import health, pdb, query, saved_queries, schema
+from .routers import health, llm, pdb, query, saved_queries, schema
 from .saved_query_repo import SavedQueryRepository
-from .services import PdbService, QueryService, SavedQueryService, SchemaService
+from .services import LlmService, PdbService, QueryService, SavedQueryService, SchemaService
 from .snapshot_repo import SnapshotRepository
 
 logger = logging.getLogger("dbfaq_api")
@@ -37,6 +38,7 @@ def create_app(
     config: AppConfig | None = None,
     oracle: OracleAccess | None = None,
     now: Callable[[], dt.datetime] | None = None,
+    llm_access: LlmAccess | None = None,
 ) -> FastAPI:
     config = config if config is not None else load_config()
     now = now or _utc_now
@@ -65,7 +67,11 @@ def create_app(
         # 接続プールは最初の Oracle アクセスで作る(Oracle に届かなくても backend は起動する)
         ora = oracle if oracle is not None else OracleClient(config.oracle)
         app.state.now = now
-        app.state.service = SchemaService(SnapshotRepository(engine), ora, config, asyncio.Lock())
+        # LLM の HTTP クライアントは api プロセスに 1 つ(P003 §4.8.4。※CR-007により追加)
+        lla = llm_access if llm_access is not None else create_llm(config.llm)
+        snapshots = SnapshotRepository(engine)
+        app.state.service = SchemaService(snapshots, ora, config, asyncio.Lock(), lla)
+        app.state.llm_service = LlmService(snapshots, ora, lla, config)
         app.state.query_service = QueryService(ora)
         app.state.saved_query_service = SavedQueryService(saved_repo)
         app.state.pdb_service = PdbService(ora)
@@ -73,6 +79,7 @@ def create_app(
             yield
         finally:
             await ora.close()
+            await lla.close()
             engine.dispose()
 
     app = FastAPI(title="DbFAQ", version=__version__, lifespan=lifespan)
@@ -113,4 +120,5 @@ def create_app(
     app.include_router(query.router)
     app.include_router(saved_queries.router)
     app.include_router(pdb.router)
+    app.include_router(llm.router)
     return app

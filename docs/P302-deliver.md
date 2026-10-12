@@ -2,21 +2,22 @@
 
 ## 1. 概要
 
-* アプリケーション: DbFAQ v0.5.0(第 1 リリース + CR-001〜CR-006)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を表示する。Query タブ(CR-004)では、スキーマ情報からひな形(外部キーで JOIN)を作って任意の SELECT 文を実行し、先頭 500 行を表で、全行を CSV で得る。CR-005 で、Query の SQL を名前と説明付きでテーブルごとに保存・復元できるようにし(テーブルが無くなっても残り、同名のテーブルが戻れば再び使える)、ER 図の画面のドラム缶のアイコンから開く PDB 画面(PDB 情報と、テーブルに属さない Query。運用 Query のひな型 17 件)を追加した。CR-006 で、推奨の接続ユーザーを読み取り専用ユーザー `dbfaq_ro` にし(開発・テストもこのユーザー)、PDB 画面とひな型を対象スキーマ(`oracle.schema`)基準にした。README に `dbfaq_ro` を作る理由・作り方・`config.yaml` への登録を載せた。
-* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003、2026-10-04 に CR-004、2026-10-07 に CR-005、2026-10-09 に CR-006 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
+* アプリケーション: DbFAQ v0.6.0(第 1 リリース + CR-001〜CR-007)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を表示する。Query タブ(CR-004)では、スキーマ情報からひな形(外部キーで JOIN)を作って任意の SELECT 文を実行し、先頭 500 行を表で、全行を CSV で得る。CR-005 で、Query の SQL を名前と説明付きでテーブルごとに保存・復元できるようにし(テーブルが無くなっても残り、同名のテーブルが戻れば再び使える)、ER 図の画面のドラム缶のアイコンから開く PDB 画面(PDB 情報と、テーブルに属さない Query。運用 Query のひな型 17 件)を追加した。CR-006 で、推奨の接続ユーザーを読み取り専用ユーザー `dbfaq_ro` にし(開発・テストもこのユーザー)、PDB 画面とひな型を対象スキーマ(`oracle.schema`)基準にした。README に `dbfaq_ro` を作る理由・作り方・`config.yaml` への登録を載せた。CR-007 で、Query タブで自然言語の要求から LLM(Ollama)に SELECT 文を作らせる機能(作るだけで自動では実行しない)と、ヘッダの LLM の状態の丸を追加した。
+* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003、2026-10-04 に CR-004、2026-10-07 に CR-005、2026-10-09 に CR-006、2026-10-13 に CR-007 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
 * 結果: 単体テスト 182 件(Python 128、クライアント 54)、結合テスト T01〜T04・T06〜T12(T05 は CR-002 で廃止)、受け入れ結合テスト A01〜A08 がすべて合格(CR-002 の P205: docs/test-records/20260927-0244-test-record.md。CR-003 後も再実行して合格: docs/test-records/20260927-2358-test-record.md、20260928-0001-test-record.md)。
 * CR-004 後の結果: 単体テスト 292 件(Python 203、クライアント 89)、結合テスト T01〜T04・T06〜T13、受け入れ結合テスト A01〜A09 がすべて合格(P205: docs/test-records/20261004-2110-test-record.md。HR のベースラインは 8 表。P202 F010)。
 * CR-005 後の結果: 単体テスト 389 件(Python 278、クライアント 111)、結合テスト T01〜T04・T06〜T15、受け入れ結合テスト A01〜A10 がすべて合格(P103: docs/test-records/20261007-0100-test-record.md、P205: docs/test-records/20261007-0130-test-record.md)。
 * CR-006 後の結果: 単体テスト 397 件(Python 286、クライアント 111)、結合テスト T01〜T04・T06〜T15、受け入れ結合テスト A01〜A10 が、接続ユーザー `dbfaq_ro` ですべて合格(P103: docs/test-records/20261009-0047-test-record.md、P201: docs/test-records/20261009-0051-test-record.md)。
-* リリース判定: **OK**(11 章。出荷影響「要対応」0 件。CR-006 の ★FIXME★ 3 件は 2026-10-09 に依頼者が受け入れ、未解消 0 件)。
+* CR-007 後の結果: 単体テスト 468 件(Python 345、クライアント 123)、結合テスト T01〜T04・T06〜T17(T16 は実 Ollama)、受け入れ結合テスト A01〜A11 がすべて合格(P103: docs/test-records/20261013-0130-test-record.md、P201: docs/test-records/20261013-0137-test-record.md)。
+* リリース判定: **OK**(11 章。出荷影響「要対応」0 件。CR-007 の ★FIXME★ 12 件は 2026-10-13 に依頼者が受け入れ、未解消 0 件)。
 
 ## 2. 参照した成果物
 
 * 仕様: docs/P001-requirement.md、P002-frontend-spec.md、P003-backend-spec.md、P004-traceability-matrix.md、P005-impl-plan.md、P006-test-plan.md
-* 指示: docs/P007-impl-direction.md(U001〜U011)、P008-test-direction.md(T01〜T15。T05 は廃止)、P009-acceptance-direction.md(A01〜A10)
+* 指示: docs/P007-impl-direction.md(U001〜U012)、P008-test-direction.md(T01〜T17。T05 は廃止)、P009-acceptance-direction.md(A01〜A11)
 * レビュー・修正: docs/P010-design-review.md、P011-impact-analysis.md、P201-review-report.md、P202-fix-plan.md(fixed/F001〜F012)、P202-fix-plan/P202-fix-resolved.md、P202-fix-plan/P202-fix-unresolved.md(未解決なし)、P204-impact-analysis.md
-* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)、20260924-2352-test-record.md(CR-001 の P201)、20260927-0233-test-record.md(CR-002 の P103)、20260927-0238-test-record.md(CR-002 の P201 1 回目)、20260927-0244-test-record.md(CR-002 の P205)、20260927-2358-test-record.md(CR-003 の P103)、20260928-0001-test-record.md(CR-003 の P201)、20261004-1430・1440・2110(CR-004)、20261007-0100(CR-005 の P103)・20261007-0115(CR-005 の P201 1 回目)・20261007-0130(CR-005 の P205)、20261009-0047(CR-006 の P103)・20261009-0051(CR-006 の P201)
-* 技術: docs/ADR.md(ADR-002〜017)、docs/ADR_master.md(廃止した ADR-001)、docs/ArchitectureHandbook.md、./INDEX.md、server/INDEX.md、client/INDEX.md
+* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)、20260924-2352-test-record.md(CR-001 の P201)、20260927-0233-test-record.md(CR-002 の P103)、20260927-0238-test-record.md(CR-002 の P201 1 回目)、20260927-0244-test-record.md(CR-002 の P205)、20260927-2358-test-record.md(CR-003 の P103)、20260928-0001-test-record.md(CR-003 の P201)、20261004-1430・1440・2110(CR-004)、20261007-0100(CR-005 の P103)・20261007-0115(CR-005 の P201 1 回目)・20261007-0130(CR-005 の P205)、20261009-0047(CR-006 の P103)・20261009-0051(CR-006 の P201)、20261013-0130(CR-007 の P103)・20261013-0137(CR-007 の P201)
+* 技術: docs/ADR.md(ADR-002〜018)、docs/ADR_master.md(廃止した ADR-001)、docs/ArchitectureHandbook.md、./INDEX.md、server/INDEX.md、client/INDEX.md
 * 配布資産: compose.yaml、deploy/api.Dockerfile、deploy/web.Dockerfile、deploy/nginx.conf、config.example.yaml、.dockerignore、server/pyproject.toml、client/package.json、README.md、docs/BUILD_HISTORY.md
 * 存在しないもの: docs/P000-concept-analysis.md(要求はプロンプトで受領)、.env.example(設定は config.yaml。compose の上書き用の環境変数は 7 章に記載)、(CR は docs/CR.md。CR-001・CR-002 完了、CR-003 は P904 で完了にする)
 
@@ -89,6 +90,13 @@
 | REQ-API-012 | REQ-API-012 | GET /api/pdb(CR-005) | P006 §2.1「PDB 情報」 | T14、T11・T12(中継)、U010-T3 | test_t14、test_pdb_api.py | PASS | 同上 | OK | - |
 | REQ-ORA-006 | REQ-ORA-006 | PDB の情報を決まった SELECT で項目ごとに読む(CR-005) | 同上 | T14、U010-T2 | test_t14、test_pdb.py | PASS | 同上 | OK | - |
 | REQ-DOC-001 | REQ-DOC-001 | README に読み取り専用ユーザー dbfaq_ro を作る理由・作成の SQL・config.yaml への登録(CR-006) | - | - | README.md「Oracle に読み取り専用ユーザー dbfaq_ro を作る」(作成の SQL は依頼者が開発用 Oracle で実行済みのもの) | 確認済み | README.md | OK | - |
+| REQ-SCREEN-028 | REQ-SCREEN-028 | ヘッダの LLM の状態の丸(CR-007) | P006 §2.1「frontend の LLM」 | A11 手順 1・5、U012-T5 | a11、LlmStatus.test.tsx | PASS | docs/test-records/20261013-0137-test-record.md | OK | - |
+| REQ-SCREEN-029 | REQ-SCREEN-029 | SC-02 で自然言語から LLM で SELECT を作り入力欄に入れる(自動で実行しない)(CR-007) | P006 §2.1「frontend の LLM」「LLM の操作全体」 | A11 手順 2〜4、T16、U012-T3〜T5 | a11、test_t16、LlmSqlPanel.test.tsx、test_llm_api.py | PASS | 同上 | OK | - |
+| REQ-SCREEN-030 | REQ-SCREEN-030 | LLM が使えないときは作成のボタンを押せない(CR-007) | 同上 | A11 手順 5、U012-T5 | a11、LlmSqlPanel.test.tsx | PASS | 同上 | OK | - |
+| REQ-SCREEN-031 | REQ-SCREEN-031 | SC-03 でも LLM で SQL を作れる(CR-007) | 同上 | T16 手順 6、U012-T3〜T5 | test_t16、LlmSqlPanel.test.tsx、test_llm_api.py | PASS | docs/test-records/20261013-0130-test-record.md | OK | - |
+| REQ-API-013 | REQ-API-013 | POST /api/llm/sql(CR-007) | P006 §2.1「POST /api/llm/sql・health の llm」 | T16、T17、T12(nginx 経由)、U012-T4 | test_t16、test_t17、test_llm_api.py | PASS | 同上 | OK | - |
+| REQ-LLM-001 | REQ-LLM-001 | LLM の設定(config.yaml の llm、DBFAQ_LLM_BASE_URL)(CR-007) | P006 §2.1「LLM の設定」「LLM アクセス」 | T17、U012-T1・T2 | test_config.py、test_client.py、test_t17 | PASS | 同上 | OK | - |
+| REQ-LLM-002 | REQ-LLM-002 | LLM に渡す情報・SQL の取り出し・検査(CR-007) | P006 §2.1「LLM に渡す情報とプロンプト」「SQL の取り出しと検査」 | T16、U012-T3 | test_context.py、test_prompt.py、test_t16 | PASS | 同上 | OK | - |
 | REQ-ARCH-003 | REQ-ARCH-003 | スキーマ情報と保存済み Query(CR-005)を SQLite に保存し再起動後も保持 | P006 §2.3 | A04(手順 8 は CR-005)、U003-T1・T2、U010-T1 | a04-restart.sh、test_migrate.py、test_saved_query_repo.py | PASS | docs/test-records/20261007-0130-test-record.md | OK | - |
 | REQ-ARCH-004 | REQ-ARCH-004 | 接続パラメータを設定ファイル(Git 管理外)に保持 | P006 §2.1 | U001-T2、T12、A06 手順 5 | test_config.py、a06-security.sh | PASS | 同上 | OK | - |
 | REQ-ARCH-005 | REQ-ARCH-005 | Python は uv で管理 | - | - | 全 Python テストを `uv run` で実行 | PASS | 同上 | OK | - |
@@ -112,20 +120,21 @@
 
 | 対象 | バージョンの定義 | 実行時の確認方法 |
 |---|---|---|
-| backend | `server/pyproject.toml` の `project.version = "0.5.0"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
-| フロントエンド | `client/package.json` の `version = "0.5.0"` | 画面には表示しない(10 章) |
+| backend | `server/pyproject.toml` の `project.version = "0.6.0"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
+| フロントエンド | `client/package.json` の `version = "0.6.0"` | 画面には表示しない(10 章) |
 | E2E | `e2e/package.json` の `version = "0.1.0"` | - |
 
-* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B016)。CR-006 は API の形を変えないが、`GET /api/pdb` の内容(概要の項目名、表領域の割り当て・セグメントの使用量が対象スキーマの分になる)と、Query のスキーマ名の無い表名の解釈(カレントスキーマを対象スキーマにする)が変わるため、MINOR を上げて **0.5.0** にした(backend・frontend)。CR-005 は API(保存済み Query の 4 本と `GET /api/pdb`、エラーコード `SAVED_QUERY_NOT_FOUND`・`QUERY_NAME_CONFLICT`)とデータモデル(SQLite の `saved_queries`・`query_template_seeds`。マイグレーション 0002)を追加した。既存の API・テーブルは変えていない後方互換の機能追加のため MINOR を上げて **0.4.0** にした(backend・frontend)。CR-004 は API を追加した(`POST /api/query`・`POST /api/query/csv`、エラーの任意項目 `position`、エラーコード `SQL_REJECTED`。既存の API は変えていない。`docs/P903-cr-records/CR-004.md` で「API契約変更」に分類)後方互換の機能追加のため MINOR を上げて **0.3.0** にした(backend・frontend)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
+* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B019)。CR-007 は API(`POST /api/llm/sql`、health の `llm`、エラーコード 3 つ)と画面を後方互換で追加したため MINOR を上げて **0.6.0** にした(backend・frontend)。CR-006 は API の形を変えないが、`GET /api/pdb` の内容(概要の項目名、表領域の割り当て・セグメントの使用量が対象スキーマの分になる)と、Query のスキーマ名の無い表名の解釈(カレントスキーマを対象スキーマにする)が変わるため、MINOR を上げて **0.5.0** にした(backend・frontend)。CR-005 は API(保存済み Query の 4 本と `GET /api/pdb`、エラーコード `SAVED_QUERY_NOT_FOUND`・`QUERY_NAME_CONFLICT`)とデータモデル(SQLite の `saved_queries`・`query_template_seeds`。マイグレーション 0002)を追加した。既存の API・テーブルは変えていない後方互換の機能追加のため MINOR を上げて **0.4.0** にした(backend・frontend)。CR-004 は API を追加した(`POST /api/query`・`POST /api/query/csv`、エラーの任意項目 `position`、エラーコード `SQL_REJECTED`。既存の API は変えていない。`docs/P903-cr-records/CR-004.md` で「API契約変更」に分類)後方互換の機能追加のため MINOR を上げて **0.3.0** にした(backend・frontend)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
 
 ## 6. 配布資産一覧
 
 | 資産 | 内容 | 状態 |
 |---|---|---|
-| `compose.yaml` | web(8088 公開)・api(非公開、host-gateway、config.yaml を読み取り専用マウント、ボリューム `dbfaq-data:/data`、healthcheck)、両方 `restart: unless-stopped` | 整備済み・起動確認済み |
+| `compose.yaml` | web(8088 公開)・api(非公開、host-gateway、LLM の接続先 `DBFAQ_LLM_BASE_URL`(CR-007)、config.yaml を読み取り専用マウント、ボリューム `dbfaq-data:/data`、healthcheck)、両方 `restart: unless-stopped` | 整備済み・起動確認済み |
 | `deploy/api.Dockerfile` | python:3.12-slim + uv、非 root(uid 10001)、uvicorn 1 ワーカー。CR-002 後はイメージに `dbfaq_mcp`・`fastmcp` が無い | 整備済み・ビルド確認済み |
 | `deploy/web.Dockerfile`、`deploy/nginx.conf` | node:22 でビルド → nginx:1.27、`/api/` 中継(120 秒。CR-004 で `/api/query/csv` だけ 600 秒・バッファなし)、SPA フォールバック | 整備済み・ビルド確認済み |
-| `config.example.yaml` | 設定ファイルのひな型(CR-002 で `app.mcp_call_timeout_sec` を削除。古い `config.yaml` に残っていても無視される) | 整備済み |
+| `deploy/dev/llm-relay.sh` | WSL2 上の Docker でホスト Windows の Ollama を使う場合の socat の中継(CR-007。`start`・`stop`・`status`。docker0 の IP の 11435 番 → `127.0.0.1:11434`) | 整備済み・動作確認済み(LAN からは届かないことも確認) |
+| `config.example.yaml` | 設定ファイルのひな型(CR-007 で `llm` 節を追加。CR-002 で `app.mcp_call_timeout_sec` を削除。古い `config.yaml` に残っていても無視される) | 整備済み |
 | `.dockerignore` | config.yaml・data・node_modules 等を除外 | 整備済み(イメージにパスワードが入らないことを A06 で確認) |
 | `README.md` | 概要と最短の起動手順 | 整備済み |
 | マイグレーション | api の起動時に自動適用(`schema_migrations` による差分適用)。CR-005 で 0002(保存済み Query)を追加。起動時に PDB のひな型を 1 回だけ登録する | 整備済み・再起動耐性を A04 で確認(0001 だけ適用済みの既存のボリュームに 0002 だけが適用されることも確認。docs/test-records/20261007-0100-test-record.md) |
@@ -136,8 +145,15 @@
 
 1. 前提ソフトウェア: Docker Engine と Docker Compose v2。Oracle(19c 以降を想定。検証は 23.26)に TCP で到達できること。
 2. 接続ユーザーを作る(※CR-006により追加): Oracle の PDB に読み取り専用ユーザー `dbfaq_ro` を作る(`CREATE SESSION`、`SELECT_CATALOG_ROLE`、対象スキーマの表への `READ`)。理由と SQL は README.md「Oracle に読み取り専用ユーザー dbfaq_ro を作る」。
-3. 設定ファイルを作る: `cp config.example.yaml config.yaml` として、`oracle.host`・`port`・`service_name`・`user`(`dbfaq_ro`)・`password`・`schema`(対象スキーマ)を記入する(`config.yaml` は Git 管理外。ファイルの権限はサーバの運用者だけが読めるようにする)。
-4. 環境変数(任意): `DBFAQ_PORT`(公開ポート。既定 8088)、`DBFAQ_ORACLE_HOST`(コンテナから見た Oracle のホスト。既定 `host.docker.internal` = Docker ホスト。Oracle が別サーバならそのホスト名)。`DBFAQ_ORACLE_PASSWORD` でパスワードを上書きすることもできる。
+3. LLM を使う場合(※CR-007): Ollama を用意してモデル(既定 `gemma4:e2b-it-qat`)を入れ、コンテナから届くようにする(Ollama を `OLLAMA_HOST=0.0.0.0:11434` で待ち受けさせ、`DBFAQ_LLM_BASE_URL` で接続先を指定する)。LLM を使わない場合は `config.yaml` の `llm` 節を消す。詳しくは README.md「LLM(Ollama)を設定する」。
+   * **WSL2 上の Docker で、ホスト Windows の Ollama を使う場合**(※2026-10-13 に依頼者の指示で追記): コンテナから Windows の Ollama には直接届かない(WSL2 の mirrored モードでは、コンテナから `host.docker.internal`・`172.17.0.1`・ホストの IP の 11434 番に接続しても WSL2 自身に届くため。`OLLAMA_HOST=0.0.0.0:11434` でも変わらない)。WSL2 で socat による中継を立てる:
+     1. Windows で Ollama を動かし、モデルを入れる。WSL2 で `curl http://localhost:11434/api/version` が返ることを確かめる。
+     2. WSL2 に socat を入れる: `sudo apt install socat`
+     3. 中継を起動する(リポジトリのルートで。WSL2 を再起動したら再実行): `deploy/dev/llm-relay.sh start`(`172.17.0.1:11435` → `127.0.0.1:11434`。`status`・`stop` もある)。スクリプトを使わない場合は `socat TCP-LISTEN:11435,bind=172.17.0.1,fork,reuseaddr TCP:127.0.0.1:11434` を動かしたままにする。中継は docker0 の IP だけで待ち受けるので LAN からは届かない(`LLM_RELAY_BIND`・`LLM_RELAY_PORT` で変更可)。11434 番は Windows と WSL2 で共有されるため、WSL2 側は 11435 番を使う。
+     4. リポジトリのルートの `.env`(Git 管理外)に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435` を書く(docker compose が読み込み、`config.yaml` の `llm.base_url` より優先される)。
+     5. `docker compose up -d --build`(起動済みなら `docker compose up -d --force-recreate api`)の後、`curl -s http://localhost:8088/api/health` の `llm.status` が `ok`、画面のヘッダの LLM の丸が緑になることを確かめる。
+3b. 設定ファイルを作る: `cp config.example.yaml config.yaml` として、`oracle.host`・`port`・`service_name`・`user`(`dbfaq_ro`)・`password`・`schema`(対象スキーマ)を記入する(`config.yaml` は Git 管理外。ファイルの権限はサーバの運用者だけが読めるようにする)。
+4. 環境変数(任意): `DBFAQ_LLM_BASE_URL`(※CR-007。コンテナから見た LLM(Ollama)の接続先。既定 `http://host.docker.internal:11434`。`.env` に書いてもよい)、`DBFAQ_PORT`(公開ポート。既定 8088)、`DBFAQ_ORACLE_HOST`(コンテナから見た Oracle のホスト。既定 `host.docker.internal` = Docker ホスト。Oracle が別サーバならそのホスト名)。`DBFAQ_ORACLE_PASSWORD` でパスワードを上書きすることもできる。
 5. ビルドと起動: `docker compose up -d --build`
 6. ヘルスチェック: `curl http://localhost:8088/api/health` → `"status":"ok"`(`oracle.status` が `error` なら `message` と `docker compose logs api` を確認)。`docker compose ps` で api が `healthy`。
 7. 初期データ: SQLite のマイグレーションは起動時に自動適用される。スキーマ情報はブラウザで [Oracle から読み込む] を押して取り込む(または `curl -X POST http://localhost:8088/api/schema/refresh`)。
@@ -165,13 +181,13 @@
 
 | 種類 | コマンド | 合格条件 |
 |---|---|---|
-| Python 単体 | `cd server && uv run python -m pytest tests/unit -q`(この開発環境では `.venv` のシバン行の問題で `uv run pytest` が起動しない。`docs/ArchitectureHandbook.md` §9) | 286 passed |
-| クライアント単体 | `cd client && npm ci && npm test` | 111 passed |
+| Python 単体 | `cd server && uv run python -m pytest tests/unit -q`(この開発環境では `.venv` のシバン行の問題で `uv run pytest` が起動しない。`docs/ArchitectureHandbook.md` §9) | 345 passed |
+| クライアント単体 | `cd client && npm ci && npm test` | 123 passed |
 | クライアントのビルド | `cd client && npm run build` | 成功 |
-| 結合 T01〜T04・T06〜T09・T13〜T15(実 Oracle。T15 は Oracle に接続しない) | `cd server && DBFAQ_CONFIG=../config.yaml uv run python -m pytest tests/integration -v` | 43 passed(接続ユーザーは `dbfaq_ro`。HR は 8 表のベースライン(P006 §3.2)。`config.yaml` の Oracle に接続できること。T09 は 127.0.0.1 の空きポートで TCP 中継を立てる) |
+| 結合 T01〜T04・T06〜T09・T13〜T15(実 Oracle。T15 は Oracle に接続しない) | `cd server && DBFAQ_CONFIG=../config.yaml uv run python -m pytest tests/integration -v` | 47 passed(接続ユーザーは `dbfaq_ro`。T16・T17 は `config.yaml` の `llm`(開発用の Ollama)を使い、T16 は 5 分ほどかかる。HR は 8 表のベースライン(P006 §3.2)。`config.yaml` の Oracle に接続できること。T09 は 127.0.0.1 の空きポートで TCP 中継を立てる) |
 | 結合 T10・T11 | backend(`cd server && DBFAQ_CONFIG=../config.yaml uv run python -m uvicorn --factory dbfaq_api.main:create_app --port 8000`。この開発環境では `uv run uvicorn` が起動しない)と `cd client && npm run dev -- --port 5173 --strictPort` を起動し、`docs/P008-test-direction/T10-*.md`・`T11-*.md` の curl を実行 | 各手順が期待どおり |
 | 結合 T12 | `docs/P008-test-direction/T12-compose-stack.md` の手順 | 各手順が期待どおり |
-| 受け入れ結合 A01〜A10 | `cd e2e && npm ci && npx playwright install chromium` の後、`bash e2e/scripts/run-suite.sh`(A01〜A06・A08〜A10)を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
+| 受け入れ結合 A01〜A11 | `cd e2e && npm ci && npx playwright install chromium` と `deploy/dev/llm-relay.sh start`(開発環境。`.env` に `DBFAQ_LLM_BASE_URL`)の後、`bash e2e/scripts/run-suite.sh`(A01〜A06・A08〜A11)を 2 回実行して出力を比較 | すべて PASS で 2 回の出力が同一 |
 
 * テスト結果の格納先: `docs/test-records/`、Playwright の失敗時の証跡は `e2e/test-results/`・`e2e/playwright-report/`。
 * 接続ユーザー(※CR-006): 開発・テストは `config.yaml` の `oracle.user` を `dbfaq_ro`(README の権限)、`oracle.schema` を `HR` にして実行する。テスト用 DB の準備(上の 1〜4)は `hr` や管理ユーザーで行う。
@@ -186,6 +202,7 @@
 * 2026-09-27 に CR-002(MCP の廃止と backend への統合)として: P103 で T01〜T04・T06〜T12 PASS(docs/test-records/20260927-0233-test-record.md)。P201 1 回目で A03 FAIL(ホスト名を解決できないとき health が 500)と T08 の所見(Oracle に届かない間プールの close が約 2 分戻らない)を見つけ、F007・F008 で修正(docs/test-records/20260927-0238-test-record.md)。P205 で単体 + 結合の pytest を 2 回続けて 144 passed、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260927-0244-test-record.md)。版数を 0.2.0 に上げた後にも `run-suite.sh` を 1 回実行し全 PASS、`/api/health` の `backend.version` が 0.2.0(B007)。
 * 2026-09-27〜28 に CR-003(`dbfaq_common` を `dbfaq_api` に統合)として: 単体 + 結合の pytest を 2 回続けて 144 passed、T10〜T12 PASS(docs/test-records/20260927-2358-test-record.md)、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260928-0001-test-record.md)。版数を 0.2.1 に上げた後にも単体 128 + 54 passed、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.2.1(B009)。
 * 2026-10-04 に CR-004(Query タブ)として: P103 で T02〜T04・T07・T09〜T11・T13 PASS、T01・T06・T08・T12 FAIL(docs/test-records/20261004-1430-test-record.md)。P201 1 回目で A01・A03・A05 FAIL、A06 は偽の PASS(docs/test-records/20261004-1440-test-record.md)。原因は開発用 Oracle の HR に 2026-09-29 に表 `EMPLOYEE_FIGURE` が追加されたことと、チェックサムのスクリプトが LOB の表に対応せず失敗を検出しなかったこと。F009(チェックサムの修正)・F010(依頼者の判断で 8 表を新しいベースラインに)の後、P205 で単体 + 結合の pytest を 2 回続けて 225 passed、A01〜A06・A08・A09 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261004-2110-test-record.md)。版数を 0.3.0 に上げた後にも単体 203 + 89 passed、クライアントのビルド成功、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.3.0(B011)。
+* 2026-10-13 に CR-007(LLM で SQL を作成)として: P103 で単体 + 結合の pytest を 2 回続けて 392 passed(T16 は実 Ollama で作った SQL を実行)、T10〜T12 PASS(docs/test-records/20261013-0130-test-record.md)。P201 で A01〜A06・A08〜A11 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261013-0137-test-record.md)。版数を 0.6.0 に上げた後の確認は B019。開発環境では compose の api から Windows の Ollama に届かず、依頼者が導入した socat の中継で解決した(CR-007 の備考)。
 * 2026-10-09 に CR-006(読み取り専用ユーザー `dbfaq_ro`、対象スキーマ基準、README)として: 接続ユーザーを `dbfaq_ro` にして、P103 で単体 + 結合の pytest を 2 回続けて 329 passed、T10〜T12 PASS(docs/test-records/20261009-0047-test-record.md)。P201 で A01〜A06・A08〜A10 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261009-0051-test-record.md)。CR-005 のひな型が登録済みのボリュームで起動し、未変更のひな型 9 件が新しい版に更新されることを確認した。版数を 0.5.0 に上げた後の確認は B016。
 * 2026-10-07 に CR-005(保存済み Query、PDB 画面、ひな型)として: P103 で単体 + 結合の pytest を 2 回続けて 320 passed、T10〜T12 PASS(docs/test-records/20261007-0100-test-record.md)。P201 1 回目で A10 FAIL(テストのロケータ `/実行/` がひな型名にも一致。docs/test-records/20261007-0115-test-record.md)。F011 の後、P205 で A01〜A06・A08〜A10 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261007-0130-test-record.md)。版数を 0.4.0 に上げた後、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.4.0、単体 Python 278 passed、クライアントのビルド成功(B013)。このときクライアント単体の ER 図のテスト 1 件が並列実行の負荷で時々失敗する(10 回中 2 回)ことが分かり、テストの待ち時間を直して(F012)15 回続けて 111 passed(B014)。
 
@@ -214,6 +231,7 @@
 * Query タブ(CR-004、ADR-015): 列名・別名に `UPDATE` などの語を引用符なしで使った SELECT も「実行できない SQL」として拒否される(誤検知。引用符で囲めば通る)。`(SELECT ...)` のように括弧で始まる問い合わせも拒否される。CSV は全行を api コンテナの一時ファイルに書いてから返すため、行数に上限が無く、巨大な結果ではディスクと時間を消費する(★ACCEPTED★ #63)。Query の SQL・結果・入力内容は保存しない(画面を再読み込みすると初期のひな形に戻る)。
 * 保存済み Query(CR-005、ADR-016): 保存先はスキーマ名とテーブル名の文字列で照合する。テーブルを改名すると保存済み Query は旧名に残る。無くなったテーブルの保存済み Query を画面で一覧・付け替えする機能は無い(★ACCEPTED★ #80)。登録済みのひな型は、後の版で SQL を直しても反映されない。
 * PDB(CR-005・CR-006): 推奨の `dbfaq_ro`(`SELECT_CATALOG_ROLE`)では PDB 情報の全セクションとひな型 17 件が動く(CR-006 で確認。★ACCEPTED★ #82 は解消)。`SELECT_CATALOG_ROLE` の無い接続ユーザーでは、DBA_* ・V$ を使うセクション・ひな型が「権限が無いため取得できません」/ORA-00942 になる(ALL_* を使うひな型 09〜13 は動く)。`SELECT_CATALOG_ROLE` は PDB 内の全スキーマの辞書情報(表名・列名・セッションなど)を読める点に注意(データは `READ` を与えた表しか読めない。ADR-017)。全スキーマの LOB のひな型 04 は、接続ユーザーが読める表だけを対象にする。LOB の実データの合計(ひな型 03・04)は全行の LOB の長さを読むため、大きな表では `query_timeout_sec` を超えうる。
+* LLM(CR-007、ADR-018): LLM の SQL は誤りうる(存在しない列など)。自動では実行せず、利用者が確かめる。テーブルの Query タブではデータの例(先頭 3 行)が LLM に送られる(`sample_rows: 0` で止められる)。開発環境の Ollama(CPU)では 1 回の作成に 60〜100 秒かかり、既定の上限 180 秒に対する余裕は大きくない(重いときは `timeout_sec` と nginx の `/api/llm/` の 300 秒を見直す)。同時の作成の数は制限しない(Ollama 側で順番に処理される)。
 * 開発・テストで使った接続ユーザー hr は書き込み権限を持つ。本番は読み取り専用ユーザーを推奨(7 章)。
 * フロントエンドのバージョンは画面に表示していない(backend のバージョンは `/api/health` で確認できる)。
 * ヘッドレスのブラウザ環境によっては ER 図の 🔑・🔗 が絵文字フォントの不足で表示されない(Windows・macOS の通常のブラウザでは表示される)。
@@ -222,7 +240,7 @@
 
 * ヘッダの Oracle 状態表示(60 秒ごとの health 取得)、データタブのページ番号の URL 保持、関数索引の式の表示。CR-004: Query タブの入力内容をタブの切り替えで保持、[エラー位置へ移動]、Ctrl+Enter での実行、CSV 応答の `X-Row-Count` ヘッダ。CR-005: 保存済み Query の一覧のひな型の印・更新日時、[名前を付けて保存] の名前の初期値「 のコピー」。いずれも実装・テスト済み。要求書に追加するか、削るかを人間が判断する(CR の起票候補)。
 
-### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件、CR-004・CR-005 の各 12 件、CR-006 の 3 件はすべて解消済み。未解消 0 件)
+### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件、CR-004・CR-005 の各 12 件、CR-006 の 3 件、CR-007 の 12 件はすべて解消済み。未解消 0 件)
 
 **未解消の★FIXME★: 0件。** 2026-09-24 に人間が下表の 58 件をすべて確認し、Agent の想定をそのまま受け入れた。各箇所の ★FIXME★ は ★ACCEPTED★ に書き換え、検討内容・承認理由・残存リスクを同じ行に記載した。同じ判断で `server/src/dbfaq_mcp/snapshot.py` の `iso_utc` の注記(#50 と同じ論点)も ★ACCEPTED★ にした。#57 は指示文中の手順の説明であり、印ではないため書き換えていない。
 
@@ -359,14 +377,45 @@
 
 * 補足: CR-005 の ★ACCEPTED★ #82(DBA 権限のあるユーザーでの未確認)は、CR-006 で `dbfaq_ro` により全件を確認し、解消した(各箇所に注記)。
 
+#### CR-007 で付いた ★FIXME★(12 件。2026-10-13 に解消。未解消 0 件)
+
+**未解消の★FIXME★: 0件。** 2026-10-13 に依頼者が下表の 12 件をすべて受け入れ、各箇所の ★FIXME★ を ★ACCEPTED★(検討・承認理由・残存リスク付き)に書き換えた。以下は当時の一覧。`docs/` 配下を `grep -rn "★FIXME★"` で検索し、CR-007 で付けたものを同じ論点ごとに 1 件にまとめた。暫定の ADR 番号(「ADR-018 見込み ★FIXME★」)は P021 で ADR-018 に確定して外した。
+
+| # | 所在(ファイル・章節) | 想定で補った内容 | CR起票候補か |
+| --- | --- | --- | --- |
+| 88 | `docs/P001-requirement.md` §2 | 対応する LLM を Ollama の API に限った(`provider: ollama` だけ) | OpenAI 互換などを加える場合は CR(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 89 | `docs/P001-requirement.md` §3.3 | LLM の HTTP の呼び出しに httpx を使う | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 90 | `docs/P001-requirement.md` §6、`docs/P002-frontend-spec.md` §2.2.9 | 要求の文の上限を 2,000 文字にした | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 91 | `docs/P001-requirement.md` §8.1、`docs/P003-backend-spec.md` §2.1 | 性能の目標(LLM の処理時間 + 1 秒)と既定値(`timeout_sec` 180 秒、`sample_rows` 3、`max_context_chars` 12,000、`num_ctx` 8,192) | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 92 | `docs/P001-requirement.md` §8.3 | テーブルの Query タブではデータの例(先頭 3 行)を既定で LLM に送る(業務データが LLM に渡る) | 既定で送らない場合は CR(`sample_rows: 0` で止めることはできる)(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 93 | `docs/P002-frontend-spec.md` §3.7 | health の最上位の `status` に LLM を含めない(compose の healthcheck に影響させない) | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 94 | `docs/P003-backend-spec.md` §4.8.3 | LLM への指示の文(英語、SELECT 1 つ・セミコロンなし・```sql など) | 指示を変える場合は CR(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 95 | `docs/P003-backend-spec.md` §4.8.4 | 同時の作成の数を制限しない | 制限する場合は CR(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 96 | `docs/P003-backend-spec.md` §6 | nginx の `/api/llm/` の待ち時間を 300 秒にした | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 97 | `docs/P003-backend-spec.md` §6 | 開発環境の socat の中継をスクリプト(`deploy/dev/llm-relay.sh`)にし、compose に含めない | compose に含める場合は CR(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 98 | `docs/P006-test-plan.md` §3.1 | LLM のテストの判定は「検査に通る SELECT が返る・実行できる・行数の性質」とし、SQL の文字列は比べない | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 99 | `docs/P901-cr-direction/CR-007.md` 優先度の判断理由 | 優先度の指定が無く、ルーブリック(影響度 高 × 緊急度 低)で「中」と仮置き | -(2026-10-13 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+
 ### 10.6 その他
 
-* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002・CR-003 の変更(B005〜B009)はコミット ac666af に含まれる。CR-004 の変更(B010・B011)はコミット 805fd6b に含まれる。CR-005 の変更(B012〜B014)はコミット 6767764 に含まれる。CR-006 の変更(B015・B016)は CR-006 のコミット(このファイルの次のコミット)に含まれる。コミットとリモートへのプッシュは人間の判断で行う。
+* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002・CR-003 の変更(B005〜B009)はコミット ac666af に含まれる。CR-004 の変更(B010・B011)はコミット 805fd6b に含まれる。CR-005 の変更(B012〜B014)はコミット 6767764 に含まれる。CR-006 の変更(B015・B016)はコミット 9b268aa に含まれる。CR-007 の変更(B017〜B019)は CR-007 のコミット(このファイルの次のコミット)に含まれる。コミットとリモートへのプッシュは人間の判断で行う。
 * CR-002 で廃止した MCP サーバを Claude Desktop などから単体で使っていた場合、その使い方はできなくなった(P001 §3.1 の旧 ★ACCEPTED★。依頼者の指示「MCP の部分は廃止」による)。
 * `e2e/scripts/run-suite.sh` はボリュームを消すため、運用環境では実行しない。
 * 所見(F011 の関連): A09 は [実行] ボタンを正規表現 `/実行/` で探している。いまは HR.EMPLOYEES の保存済み Query に「実行」を含む名前が無いため合格するが、そのような名前で保存すると A09 が失敗しうる(A10 は F011 で完全一致に直した)。A09 は失敗していないため直していない。
 
 ## 11. リリース判定
+
+**OK**(CR-007。2026-10-13 に ★FIXME★ 12 件の受け入れにより保留から変更)
+
+根拠(CR-007 後):
+
+* テスト: 単体・結合(実 Ollama の T16 を含む)・受け入れ結合がすべて合格(9 章)。スイートの再実行性(A07)も確認した。P202〜P205 は不要だった。
+* 出荷影響「要対応」: **0 件**。CR-007 で追加した要求(REQ-SCREEN-028〜031、REQ-API-013、REQ-LLM-001・002)はすべて OK(4 章)。
+* 未解消の ★FIXME★: **0 件**(10.5)。#88〜#99 は 2026-10-13 に依頼者が受け入れ、★ACCEPTED★ に書き換えた。
+* 設計判断: ADR-018(LLM は Ollama の API、構造・データの例・要求から SELECT を作り、検査するが実行しない)を追加した。2026-10-13 に依頼者が承認した(関連する ★FIXME★ の受け入れ)。
+* WSL2 上の Docker でホスト Windows の Ollama を使う場合は、socat の中継(`deploy/dev/llm-relay.sh start`)と `.env` が要る。手順を README の「起動(Docker Compose)」と本書 7 章の 3 に載せた(依頼者の指示。2026-10-13)。中継は docker0 の IP だけで待ち受け、LAN からは届かない。
+
+以下は CR-006 時点の根拠(履歴):
 
 **OK**(CR-006。2026-10-09 に ★FIXME★ 3 件の受け入れにより保留から変更)
 

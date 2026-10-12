@@ -9,7 +9,7 @@
 
 ```
 +----------------------------------------------------------------------------+
-| DbFAQ   スキーマ: HR   取得日時: 2026-09-23 10:15:02   [ER 図]   ●Oracle   |  ← 共通ヘッダ (高さ 48px)
+| DbFAQ   スキーマ: HR   取得日時: 2026-09-23 10:15:02   [ER 図]  ●Oracle ●LLM |  ← 共通ヘッダ (高さ 48px)。LLM は ※CR-007
 +----------------------------------------------------------------------------+
 |                                                                            |
 |                       各画面の本体 (ヘッダ以外の全面)                        |
@@ -24,6 +24,7 @@
 | 取得日時 | `snapshot.fetched_at` をブラウザのローカル時刻で `YYYY-MM-DD HH:mm:ss` 表示。未取得なら非表示 |
 | [ER 図] リンク | SC-01 へ |
 | Oracle 状態 | `GET /api/health` の `oracle.status` を色付きの丸で表示(ok=緑、error=赤、確認中=灰)。マウスを乗せると DB バージョン・接続先(host:port/service、user)またはエラーメッセージを表示する。画面を開いたとき 1 回取得し、以降は 60 秒ごとに再取得する ★ACCEPTED★(2026-09-24 人間承認)60 秒間隔はAgentの想定。検討: 要求書に無い表示(P302 10.4)/承認理由: Oracle に届かないことにすぐ気づける/残存リスク: 状態の反映は最大 60 秒遅れる |
+| LLM 状態(※CR-007により追加) | Oracle 状態の右に「LLM」と丸を並べる。`GET /api/health` の `llm.status` を色付きの丸で表示(ok=緑、error=赤、disabled(設定なし)=灰、確認中=灰)。マウスを乗せると、ok はモデル名と接続先、error はエラーメッセージと接続先、disabled は「LLM は設定されていません」を表示する。取得の間隔は Oracle 状態と同じ(同じ `GET /api/health` を使う)。LLM で SQL を作ったときに `LLM_UNAVAILABLE` が返ったら、すぐに取り直す |
 
 ### 1.2 ルーティング
 
@@ -197,7 +198,7 @@
 
 #### 2.2.6 Query タブ(※CR-004により追加)
 
-利用者が SELECT 文を書いて Oracle で実行し、結果を表で見る。ひな形はスキーマ情報(SQLite のスナップショット)から画面側で作る(Oracle にはアクセスしない)。結果は保存しない。SQL は名前と説明を付けてテーブルごとに保存・復元できる(※CR-005により追加。§2.2.8)。
+利用者が SELECT 文を書いて Oracle で実行し、結果を表で見る。ひな形はスキーマ情報(SQLite のスナップショット)から画面側で作る(Oracle にはアクセスしない)。結果は保存しない。SQL は名前と説明を付けてテーブルごとに保存・復元できる(※CR-005により追加。§2.2.8)。自然言語の要求から LLM に SQL を作らせることもできる(※CR-007により追加。§2.2.9)。
 
 ```
 | JOIN するテーブル(外部キー):                                                     |
@@ -287,6 +288,28 @@ Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`SavedQueries`)�
 * 一覧は Query タブ(SC-02)・Query タブ(SC-03)を開いたときに取得する(TanStack Query のキー `['saved-queries', scope, owner, table]`。保存・変更・削除の成功時にそのキーを無効化する)。
 * テーブルがスナップショットから無くなったテーブルの保存済み Query は、そのテーブルの SC-02 を開けない(`TABLE_NOT_FOUND`)ため画面からは見えないが、SQLite には残る。同じスキーマ名・テーブル名のテーブルがスナップショットに戻れば、そのテーブルの Query タブに再び出る(保存先の照合はスキーマ名とテーブル名の文字列の完全一致。大文字小文字を区別する) ★ACCEPTED★(2026-10-09 人間承認)検討: 無くなったテーブルの保存済み Query の一覧・付け替え機能/承認理由: 要求は「残す」「同名で復活したら使える」まで(P001 §10 の将来スコープ)/残存リスク: テーブルを改名すると旧名の Query は画面から見えない
 
+#### 2.2.9 LLM で SQL を作成(※CR-007により追加)
+
+Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`LlmSqlPanel`)。保存済み Query の一覧(§2.2.8)と入力欄の間に置く。
+
+```
+| 自然言語で SQL を作成(LLM)                                                        |
+| +-------------------------------------------------------------------------------+ |
+| | 給与の高い社員を上位 5 人、姓と部署名と給与                                     | |
+| +-------------------------------------------------------------------------------+ |
+| [LLM で SQL を作成]   LLM(gemma4:e2b-it-qat)が作成しました(16.6 秒)。内容を確かめてから実行してください |
+```
+
+| 要素 | 振る舞い |
+| --- | --- |
+| 要求の入力欄 | 複数行(2〜6 行)。プレースホルダ「作りたい SQL を文章で書いてください(例: 給与の高い社員を上位 5 人、姓と部署名と給与)」。前後の空白を除いて 1〜2,000 文字 ★ACCEPTED★(2026-10-13 人間承認)検討・承認理由・残存リスクは P001 §6 Query タブと同じ |
+| [LLM で SQL を作成] | 次のすべてを満たすときだけ押せる: ヘッダの LLM の状態(`GET /api/health` の `llm.status`)が `ok`、要求が 1〜2,000 文字、作成中でない。LLM の状態が `ok` でないときは、ボタンの下に「LLM が使えないため作成できません(ヘッダの LLM の状態を確認してください)」と表示する(人間の指示: LLM が機能していない時はボタンを無効化) |
+| 作成 | `POST /api/llm/sql` に要求と保存先(SC-02 は `scope=table`・`owner`・`table`、SC-03 は `scope=pdb`)を送る。作成中はボタンにスピナーを出し、「作成中… LLM の応答には数十秒かかることがあります」と表示する。作成中も入力欄の編集・実行はできる |
+| 結果の反映 | 成功したら、入力欄が空白だけでなく、かつ最後のひな形・復元・保存・LLM の作成の後に編集されている場合は、確認ダイアログ「入力欄の SQL を LLM が作成した SQL で置き換えますか? 編集中の内容は失われます」([置き換える] / [キャンセル])を出す。置き換えたら(またはキャンセルしても)結果の情報を表示する。**自動では実行しない** |
+| 結果の情報 | 「LLM(モデル名)が作成しました(N.N 秒)。内容を確かめてから実行してください」。`guard.ok=false` のときは、赤字で「Query の検査で実行できない SQL です: 理由」を加える(入力欄には入れる)。`context.truncated=true` のときは「スキーマの情報が長いため、一部のテーブルを省いて LLM に渡しました」を加える |
+| エラー | 部品の中に赤字で表示する(入力欄は変えない): `LLM_UNAVAILABLE` は「LLM を使えません: message」(ヘッダの LLM の状態を取り直す)、`LLM_TIMEOUT` は「LLM の応答がタイムアウトしました」、`LLM_ERROR` は「LLM の応答から SQL を作れませんでした: message」、その他は §1.3 の形 |
+| 状態の保持 | 要求の文・結果の情報・エラーは Query タブの状態(§2.2.1)の一部として保つ(タブを切り替えても保つ。別のテーブル・再読み込みで消える) |
+
 ### 2.3 SC-03 PDB(※CR-005により追加)
 
 #### 2.3.1 レイアウト
@@ -341,6 +364,7 @@ Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`SavedQueries`)�
 | 要素 | SC-03 での振る舞い |
 | --- | --- |
 | JOIN するテーブル・[ひな形を作成] | 表示しない |
+| LLM で SQL を作成(※CR-007により追加) | §2.2.9 と同じ。保存先は `scope=pdb`。LLM には対象スキーマのテーブルの構造と、PDB の運用で使う辞書ビュー・動的パフォーマンスビューの名前を渡す(P003 §4.8) |
 | 入力欄の初期値 | 空(プレースホルダ「SELECT 文を入力するか、保存済み Query(ひな型)を復元してください」) |
 | 保存済み Query | 保存先は PDB(`scope=pdb`)。最初からひな型(P003 §4.7)が登録されている。※CR-006により、スキーマ単位のひな型は対象スキーマ(`oracle.schema`)の情報を返す |
 | CSV のファイル名 | `PDB_query_{YYYYMMDD-HHmmss}.csv` |
@@ -368,6 +392,9 @@ Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`SavedQueries`)�
 | `SQL_REJECTED` | 422 | Query の SQL が検査(§3.8)で拒否された。`message` に理由。※CR-004により追加 |
 | `SAVED_QUERY_NOT_FOUND` | 404 | 指定の保存済み Query が無い(削除済みなど)。※CR-005により追加 |
 | `QUERY_NAME_CONFLICT` | 409 | 同じ保存先に同じ名前の保存済み Query がある。※CR-005により追加 |
+| `LLM_UNAVAILABLE` | 503 | LLM を使えない(設定が無い・無効、接続できない、モデルが無い)。※CR-007により追加 |
+| `LLM_TIMEOUT` | 504 | LLM の応答が `llm.timeout_sec` を超えた。※CR-007により追加 |
+| `LLM_ERROR` | 502 | LLM がエラーを返した、または応答から SQL を取り出せなかった。※CR-007により追加 |
 | `ORACLE_ERROR` | 502 | Oracle がエラーを返した(接続拒否・認証失敗・ORA-00942 など)。`ora_code` 付き(取れた場合)。Query の実行では `position` 付き(取れた場合)|
 | `ORACLE_TIMEOUT` | 504 | Oracle の処理がタイムアウトした |
 | `INTERNAL_ERROR` | 500 | 上記以外の想定外のエラー。`message` は「内部エラーが発生しました」固定(詳細はログのみ) |
@@ -531,6 +558,7 @@ VARCHAR2 などの文字列も 1,000 文字を超えたら切り詰める。
   "backend": { "status": "ok", "version": "0.1.0" },
   "oracle": { "status": "ok", "version": "23.26.3.0.0", "user": "HR", "message": null },
   "config": { "host": "localhost", "port": 1521, "service_name": "FREEPDB1", "user": "hr", "schema": "HR", "query_timeout_sec": 30 },
+  "llm": { "status": "ok", "model": "gemma4:e2b-it-qat", "base_url": "http://localhost:11434", "message": null },
   "checked_at": "2026-09-23T01:20:00Z"
 }
 ```
@@ -538,6 +566,7 @@ VARCHAR2 などの文字列も 1,000 文字を超えたら切り詰める。
 * `status` は `oracle.status` が `ok` なら `ok`、それ以外は `degraded`。`oracle.status` は `ok` / `error`。`error` のとき `message` にエラー内容(`ORA-xxxxx: ...` など)。
 * ※CR-002により `mcp`(MCP サーバの状態)を削除し、`status` を `oracle` だけで決めるように変更。
 * `config` にパスワードは含めない。
+* ※CR-007により追加: `llm` は LLM の状態。`status` は `ok`(接続でき、設定のモデルがある)/ `error`(接続できない、時間切れ、モデルが無い。`message` に理由)/ `disabled`(`config.yaml` に `llm` が無い、または `llm.enabled=false`。`message` は「LLM は設定されていません」)。`model`・`base_url` は設定の値(`disabled` のときは null)。最上位の `status` は従来どおり `oracle` だけで決める(LLM が使えなくても `degraded` にしない。compose の healthcheck に影響させないため) ★ACCEPTED★(2026-10-13 人間承認)検討: 最上位の `status` に LLM を含めるか/承認理由: LLM の停止で compose の healthcheck を失敗させない/残存リスク: 最上位の `status` だけを見る外部の監視では LLM の停止に気づかない(`llm.status` を見る)
 
 ### 3.8 `POST /api/query`(※CR-004により追加)
 
@@ -687,6 +716,44 @@ Query を保存する。SQL は検査しない(実行するときに §3.8 の�
 
 * セルの値は §3.6 の表示用文字列。`truncated` は §3.5 と同じ。`error` の形は §3.1 の `error` と同じ(`code` は `ORACLE_ERROR`)。
 * エラー(全体): 502 `ORACLE_ERROR`(接続できないなど)/ 504 `ORACLE_TIMEOUT`(いずれかのセクションがタイムアウトしたら全体を 504 にする)/ 500。
+
+### 3.15 `POST /api/llm/sql`(※CR-007により追加)
+
+自然言語の要求から、LLM に SELECT 文を作らせる。**実行はしない**。要求の文・作った SQL は保存しない。
+
+* リクエスト(`application/json`):
+
+```json
+{ "request": "給与の高い社員を上位 5 人、姓と部署名と給与", "scope": "table", "owner": "HR", "table": "EMPLOYEES" }
+```
+
+| 名前 | 型 | 制約 |
+| --- | --- | --- |
+| `request` | 文字列 | 必須。前後の空白を除いて 1〜2,000 文字 |
+| `scope` | 文字列 | 必須。`table` または `pdb` |
+| `owner`・`table` | 文字列 | `scope=table` のとき必須(1〜128 文字)。`scope=pdb` のときは指定しない(§3.10 と同じ) |
+
+* 200:
+
+```json
+{
+  "sql": "SELECT e.LAST_NAME, d.DEPARTMENT_NAME, e.SALARY\nFROM HR.EMPLOYEES e\nJOIN HR.DEPARTMENTS d ON e.DEPARTMENT_ID = d.DEPARTMENT_ID\nORDER BY e.SALARY DESC\nFETCH FIRST 5 ROWS ONLY",
+  "guard": { "ok": true, "message": null },
+  "model": "gemma4:e2b-it-qat",
+  "elapsed_ms": 16600,
+  "context": { "tables": ["HR.EMPLOYEES", "HR.DEPARTMENTS", "HR.JOBS", "HR.JOB_HISTORY", "HR.EMPLOYEE_FIGURE"], "sample_rows": 3, "truncated": false }
+}
+```
+
+| 項目 | 内容 |
+| --- | --- |
+| `sql` | LLM の応答から取り出した SQL(末尾のセミコロンと空白を除く)。P003 §4.8 |
+| `guard` | Query の検査(§3.8、P003 §3.10)の結果。`ok=false` のとき `message` に拒否の理由。`ok=false` でも 200 で返す(利用者が直せるように) |
+| `model` | 使ったモデル |
+| `elapsed_ms` | LLM の応答にかかった時間 |
+| `context` | LLM に渡した情報の要約: 構造を渡したテーブル(`owner.table`)、データの例の行数(PDB は 0)、長さの上限で一部を省いたか |
+
+* エラー: 422 `VALIDATION_ERROR` / 404 `SCHEMA_NOT_LOADED`(`scope=table` でスキーマ情報が無い)/ 404 `TABLE_NOT_FOUND` / 503 `LLM_UNAVAILABLE` / 504 `LLM_TIMEOUT` / 502 `LLM_ERROR` / 500。データの例の取得(Oracle)に失敗しても、データの例なしで作成を続ける(エラーにしない)。
 
 ## 4. データモデル(SQLite)
 
@@ -927,6 +994,30 @@ sequenceDiagram
   BE-->>FE: 200 sections
 ```
 
+### 5.6 LLM で SQL を作成(SC-02・SC-03。※CR-007により追加)
+
+```mermaid
+sequenceDiagram
+  actor U as 運用担当者
+  participant FE as frontend
+  participant BE as backend
+  participant S as SQLite
+  participant O as Oracle
+  participant L as LLM (Ollama)
+  FE->>BE: GET /api/health(60 秒ごと)
+  BE->>L: GET /api/tags(モデルの有無)
+  BE-->>FE: llm.status
+  U->>FE: 要求を入力 → [LLM で SQL を作成](llm.status=ok のときだけ押せる)
+  FE->>BE: POST /api/llm/sql {request, scope, owner, table}
+  BE->>S: テーブルと外部キーでつながるテーブルの構造
+  BE->>O: データの例(先頭 N 行。読み取り専用)
+  BE->>L: POST /api/chat(システムの指示 + 構造 + データの例 + 要求)
+  L-->>BE: 応答(```sql ... ```)
+  BE->>BE: SQL を取り出し、Query の検査にかける(実行しない)
+  BE-->>FE: 200 {sql, guard, model, elapsed_ms, context}
+  FE->>U: 入力欄に SQL(編集中なら確認)。実行は利用者が [実行]
+```
+
 ※CR-002により §5.1・§5.2 のシーケンス図から MCP サーバを削除(backend が Oracle に直接問い合わせる)。
 
 ## 6. フロントエンドの構成
@@ -934,7 +1025,7 @@ sequenceDiagram
 | 項目 | 内容 |
 | --- | --- |
 | 配置 | `client/`(Vite + React + TypeScript) |
-| 主要な部品 | `AppShell`(共通ヘッダ)、`ErDiagramPage`(SC-01)、`TableNode`(ER 図のノード)、`TableSearch`、`TableDetailPage`(SC-02)、`SchemaTab`、`DataTab`、`QueryTab`(※CR-004により追加。※CR-005によりテーブル・PDB の両方で使えるようにする)、`PdbIcon`(ドラム缶のアイコン)・`PdbPage`(SC-03)・`PdbInfoTab`・`SavedQueries`(保存済み Query の一覧とダイアログ)(※CR-005により追加) |
+| 主要な部品 | `AppShell`(共通ヘッダ)、`ErDiagramPage`(SC-01)、`TableNode`(ER 図のノード)、`TableSearch`、`TableDetailPage`(SC-02)、`SchemaTab`、`DataTab`、`QueryTab`(※CR-004により追加。※CR-005によりテーブル・PDB の両方で使えるようにする)、`PdbIcon`(ドラム缶のアイコン)・`PdbPage`(SC-03)・`PdbInfoTab`・`SavedQueries`(保存済み Query の一覧とダイアログ)(※CR-005により追加)、`LlmStatus`(ヘッダの LLM の丸)・`LlmSqlPanel`(LLM で SQL を作成)(※CR-007により追加) |
 | ひな形の組み立て | `src/query/template.ts`(§2.2.7 の純粋関数。※CR-004により追加)。単体テストできるようにする |
 | API クライアント | `src/api/`。§3 の型を TypeScript の型として定義する。`fetch` を使い、エラー形式を `ApiError` クラスに変換する |
 | ER 図の組み立て | `src/er/buildGraph.ts`(API の結果 → React Flow のノード・エッジ)と `src/er/layout.ts`(elkjs でのレイアウト)を純粋関数・非同期関数として分け、単体テストできるようにする |

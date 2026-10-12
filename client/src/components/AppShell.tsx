@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useSchema } from '../api/hooks'
 import { formatLocalDateTime } from '../format'
+import LlmStatus from './LlmStatus'
 import OracleStatus from './OracleStatus'
 
 export const HEADER_HEIGHT = 48
@@ -31,6 +32,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <Group ml="auto" gap={6}>
             <Text size="sm">Oracle</Text>
             <OracleStatus />
+            <Text size="sm" ml="xs">LLM</Text>
+            <LlmStatus />
           </Group>
         </Group>
       </MantineAppShell.Header>

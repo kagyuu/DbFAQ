@@ -135,7 +135,16 @@ export interface Health {
     schema: string
     query_timeout_sec: number
   }
+  /** LLM の状態(P002 §3.7。※CR-007により追加) */
+  llm: LlmHealth
   checked_at: string
+}
+
+export interface LlmHealth {
+  status: 'ok' | 'error' | 'disabled'
+  model: string | null
+  base_url: string | null
+  message: string | null
 }
 
 /** Query の SQL のエラー位置(P002 §3.1。offset・column はコードポイント単位、line・column は 1 始まり) */
@@ -195,4 +204,13 @@ export interface PdbInfo {
   sections: PdbSection[]
   fetched_at: string
   elapsed_ms: number
+}
+
+/** POST /api/llm/sql(P002 §3.15。※CR-007により追加) */
+export interface LlmSqlResult {
+  sql: string
+  guard: { ok: boolean; message: string | null }
+  model: string
+  elapsed_ms: number
+  context: { tables: string[]; sample_rows: number; truncated: boolean }
 }

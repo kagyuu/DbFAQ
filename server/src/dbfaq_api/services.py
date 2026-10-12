@@ -14,6 +14,9 @@ from . import __version__
 from .config import AppConfig
 from .errors import (
     INTERNAL_ERROR,
+    LLM_ERROR,
+    LLM_TIMEOUT,
+    LLM_UNAVAILABLE,
     ORACLE_ERROR,
     ORACLE_TIMEOUT,
     QUERY_NAME_CONFLICT,
@@ -25,9 +28,14 @@ from .errors import (
     VALIDATION_ERROR,
     ApiError,
 )
+from .llm import client as llm_client
+from .llm.client import LlmAccess, LlmFailure
+from .llm.context import build_pdb_context, build_table_context
+from .llm.prompt import SYSTEM_PROMPT, build_user_prompt, extract_sql
 from .oracle import errors as oracle_errors
 from .oracle.client import OracleAccess
 from .oracle.errors import OracleFailure
+from .oracle.sql_guard import check_select
 from .saved_query_repo import NameConflict, SavedQueryRepository
 from .snapshot_repo import SnapshotRepository
 
@@ -52,11 +60,19 @@ def _to_api_error(e: OracleFailure, context: str, owner: str = "") -> ApiError:
 
 
 class SchemaService:
-    def __init__(self, repo: SnapshotRepository, oracle: OracleAccess, config: AppConfig, refresh_lock: asyncio.Lock):
+    def __init__(
+        self,
+        repo: SnapshotRepository,
+        oracle: OracleAccess,
+        config: AppConfig,
+        refresh_lock: asyncio.Lock,
+        llm: LlmAccess | None = None,
+    ):
         self.repo = repo
         self.oracle = oracle
         self.config = config
         self.refresh_lock = refresh_lock
+        self.llm = llm if llm is not None else llm_client.DisabledLlm()
 
     @property
     def owner(self) -> str:
@@ -108,8 +124,7 @@ class SchemaService:
             raise _to_api_error(e, "rows", owner=owner) from e
         return {"owner": owner, "table": table, **result}
 
-    async def health(self, now: dt.datetime) -> dict[str, Any]:
-        o = self.config.oracle
+    async def _oracle_health(self) -> dict[str, Any]:
         oracle: dict[str, Any] = {"status": "ok", "version": None, "user": None, "message": None}
         try:
             pong = await self.oracle.ping()
@@ -119,6 +134,19 @@ class SchemaService:
         except Exception:  # health は常に 200 で返す(P003 §4.3)
             logger.exception("unexpected error in health check")
             oracle.update(status="error", message="内部エラーが発生しました")
+        return oracle
+
+    async def _llm_health(self) -> dict[str, Any]:
+        try:
+            return await self.llm.health()
+        except Exception:  # health は常に 200 で返す(P003 §4.8.4。※CR-007により追加)
+            logger.exception("unexpected error in llm health check")
+            return {"status": "error", "model": self.llm.model, "base_url": None, "message": "内部エラーが発生しました"}
+
+    async def health(self, now: dt.datetime) -> dict[str, Any]:
+        o = self.config.oracle
+        # Oracle と LLM の疎通確認は並行して行う。最上位の status は Oracle だけで決める(※CR-007)
+        oracle, llm = await asyncio.gather(self._oracle_health(), self._llm_health())
         return {
             "status": "ok" if oracle["status"] == "ok" else "degraded",
             "backend": {"status": "ok", "version": __version__},
@@ -131,6 +159,7 @@ class SchemaService:
                 "schema": o.target_schema,
                 "query_timeout_sec": o.query_timeout_sec,
             },
+            "llm": llm,
             "checked_at": now.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
@@ -240,3 +269,93 @@ class PdbService:
             "fetched_at": now.astimezone(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "elapsed_ms": elapsed_ms,
         }
+
+
+_LLM_ERRORS = {
+    llm_client.LLM_UNAVAILABLE: LLM_UNAVAILABLE,
+    llm_client.LLM_TIMEOUT: LLM_TIMEOUT,
+    llm_client.LLM_ERROR: LLM_ERROR,
+}
+
+
+class LlmService:
+    """自然言語の要求から LLM で SELECT を作る(P003 §4.8.4、ADR-018)。作った SQL は検査するが実行しない。
+
+    要求の文・SQL・データの例はログに出さない。※CR-007により追加
+    """
+
+    def __init__(self, repo: SnapshotRepository, oracle: OracleAccess, llm: LlmAccess, config: AppConfig):
+        self.repo = repo
+        self.oracle = oracle
+        self.llm = llm
+        self.config = config
+
+    async def _table_context(self, owner: str, table: str) -> Any:
+        exists = await run_in_threadpool(self.repo.table_exists, owner, table)
+        if exists is None:
+            raise ApiError(SCHEMA_NOT_LOADED, "スキーマ情報がまだ読み込まれていません")
+        main = await run_in_threadpool(self.repo.get_table_detail, owner, table) if exists else None
+        if main is None:
+            raise ApiError(TABLE_NOT_FOUND, f"テーブルが見つかりません: {owner}.{table}")
+        keys = [(fk["ref_owner"], fk["ref_table"]) for fk in main["foreign_keys"] if fk.get("ref_in_snapshot")]
+        keys += [(r["from_owner"], r["from_table"]) for r in main["referenced_by"]]
+        related = []
+        for o, t in dict.fromkeys(keys):
+            if (o, t) != (owner, table):
+                d = await run_in_threadpool(self.repo.get_table_detail, o, t)
+                if d is not None:
+                    related.append(d)
+        summary = await run_in_threadpool(self.repo.get_summary, owner)
+        cfg = self.config.llm
+        samples = None
+        if cfg.sample_rows > 0:
+            try:
+                samples = await self.oracle.get_table_rows(owner, table, 0, cfg.sample_rows)
+            except OracleFailure as e:  # データの例なしで作成を続ける(P002 §3.15)
+                logger.info("llm sample rows unavailable", extra={"code": e.code, "ora_code": e.ora_code})
+        return build_table_context(
+            main, related, summary["oracle_version"] if summary else None, samples, cfg.sample_rows, cfg.max_context_chars
+        )
+
+    async def _pdb_context(self) -> Any:
+        owner = self.config.oracle.target_schema
+        view = await run_in_threadpool(self.repo.get_er_view, owner)
+        version = view["snapshot"]["oracle_version"] if view.get("snapshot") else None
+        return build_pdb_context(view, version, owner, self.config.llm.max_context_chars)
+
+    async def generate(self, request: str, scope: str, owner: str | None, table: str | None) -> dict[str, Any]:
+        check_target(scope, owner, table)
+        cfg = self.config.llm
+        if cfg is None or not cfg.enabled:
+            raise ApiError(LLM_UNAVAILABLE, llm_client.NOT_CONFIGURED)
+        context = await (self._table_context(owner, table) if scope == "table" else self._pdb_context())
+        started = time.perf_counter()
+        try:
+            answer = await self.llm.chat(SYSTEM_PROMPT, build_user_prompt(context.text, request))
+        except LlmFailure as e:
+            logger.info("llm sql failed", extra={"code": e.code, "request_chars": len(request), "scope": scope})
+            raise ApiError(_LLM_ERRORS.get(e.code, LLM_ERROR), e.message) from e
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        sql = extract_sql(answer)
+        if not sql:
+            logger.info("llm sql failed", extra={"code": LLM_ERROR, "request_chars": len(request), "scope": scope})
+            raise ApiError(LLM_ERROR, "LLM の応答から SQL を取り出せませんでした")
+        guard = {"ok": True, "message": None}
+        try:
+            check_select(sql)
+        except OracleFailure as e:
+            guard = {"ok": False, "message": e.message}
+        logger.info(
+            "llm sql",
+            extra={
+                "scope": scope,
+                "request_chars": len(request),
+                "sql_chars": len(sql),
+                "model": self.llm.model,
+                "tables": len(context.tables),
+                "sample_rows": context.sample_rows,
+                "guard_ok": guard["ok"],
+                "elapsed_ms": elapsed_ms,
+            },
+        )
+        return {"sql": sql, "guard": guard, "model": self.llm.model, "elapsed_ms": elapsed_ms, "context": context.summary()}

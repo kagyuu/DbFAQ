@@ -18,6 +18,9 @@
 | B014 | 0.4.0 | 2026-10-07 01:55 JST | 805fd6b + 未コミットの作業ツリー(B013 + F012) | `npx vitest run`(15 回) | クライアント 111 を 15 回 | PASS | CR-005 の P302(F012 の確認)。F012 はテストコードだけの変更のため、受け入れ結合は B013 の結果を引き継ぐ |
 | B015 | 0.4.0 | 2026-10-09 00:40〜00:51 JST | 6767764 + 未コミットの作業ツリー(CR-006 の U011) | `docker compose up -d --build`、`bash e2e/scripts/run-suite.sh`(2 回) | 単体 286 + 111、単体 + 結合 329 を 2 回、T10〜T12、A01〜A06・A08〜A10 を 2 回(A07) | PASS | CR-006 の P103・P201。接続ユーザー `dbfaq_ro`。docs/test-records/20261009-0047-test-record.md、20261009-0051-test-record.md |
 | B016 | 0.5.0 | 2026-10-09 01:00 JST | 6767764 + 未コミットの作業ツリー(B015 + 版数 0.5.0) | `bash e2e/scripts/run-suite.sh`(compose を再構築) | 単体 Python 286、クライアント 111、クライアントのビルド、A01〜A06・A08〜A10 を 1 回 | PASS | CR-006 の P302。`/api/health` の backend.version が 0.5.0、oracle.user が DBFAQ_RO |
+| B017 | 0.5.0 | 2026-10-13 00:40〜01:30 JST | 9b268aa + 未コミットの作業ツリー(CR-007 の U012) | `uv sync`、`npm run build`、`docker compose up -d --build` | 単体 343 + 123、単体 + 結合 392 を 2 回(T16 は実 Ollama)、T10〜T12 | PASS | CR-007 の P103。docs/test-records/20261013-0130-test-record.md |
+| B018 | 0.5.0 | 2026-10-13 01:30〜01:37 JST | 同上 | `bash e2e/scripts/run-suite.sh`(2 回。`deploy/dev/llm-relay.sh` と `.env`) | A01〜A06・A08〜A11 を 2 回(A07) | PASS | CR-007 の P201。docs/test-records/20261013-0137-test-record.md |
+| B019 | 0.6.0 | 2026-10-13 01:45 JST | 9b268aa + 未コミットの作業ツリー(B018 + 版数 0.6.0) | `bash e2e/scripts/run-suite.sh`(compose を再構築) | 単体 Python 345、クライアント 123、クライアントのビルド、A01〜A06・A08〜A11 を 1 回 | PASS | CR-007 の P302。`/api/health` の backend.version が 0.6.0、llm.status が ok |
 
 * コミット: B001〜B003 の作業ツリーは、人間が 9579d85(Initial Version、2026-09-24 01:03)としてコミットした。B004 の変更(★FIXME★ の受け入れと CR-001)は、9579d85 の次のコミット「★FIXME★ の受け入れと CR-001(要対応 2 件のテスト追加)」に含まれる。
-* B005〜B007(CR-002)と B008・B009(CR-003)はコミット ac666af に含まれる。B010・B011(CR-004)はコミット 805fd6b に含まれる。B012〜B014(CR-005)はコミット 6767764 に含まれる。B015・B016(CR-006)は CR-006 のコミットに含まれる。
+* B005〜B007(CR-002)と B008・B009(CR-003)はコミット ac666af に含まれる。B010・B011(CR-004)はコミット 805fd6b に含まれる。B012〜B014(CR-005)はコミット 6767764 に含まれる。B015・B016(CR-006)はコミット 9b268aa に含まれる。B017〜B019(CR-007)は CR-007 のコミットに含まれる。

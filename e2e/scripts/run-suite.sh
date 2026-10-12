@@ -1,5 +1,5 @@
 #!/bin/bash
-# A07: 受入テストのスイート全体(A01〜A06、A08〜A10)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
+# A07: 受入テストのスイート全体(A01〜A06、A08〜A11)を順に実行し、各テストの PASS/FAIL を 1 行ずつ出力する
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -14,6 +14,14 @@ bash e2e/scripts/reset-and-up.sh > "$LOG/reset.log" 2>&1; res RESET $?
 (cd e2e && npx playwright test tests/a09-query-tab.spec.ts > "$LOG/a09.log" 2>&1); res A09 $?
 # ※CR-005により追加
 (cd e2e && npx playwright test tests/a10-saved-queries-pdb.spec.ts > "$LOG/a10.log" 2>&1); res A10 $?
+# ※CR-007により追加: 前半は LLM に届く構成、後半は api を LLM に届かない設定で作り直す(A03 と同じ形)
+(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g available > "$LOG/a11.log" 2>&1); a11=$?
+DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434 docker compose up -d --no-deps --force-recreate api > "$LOG/a11-up.log" 2>&1
+wait_ok
+(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g unreachable >> "$LOG/a11.log" 2>&1); a11b=$?
+docker compose up -d --no-deps --force-recreate api >> "$LOG/a11-up.log" 2>&1
+wait_ok
+res A11 $((a11 + a11b))
 
 DBFAQ_ORACLE_HOST=oracle-unreachable.invalid docker compose up -d --no-deps --force-recreate api > "$LOG/a03-up.log" 2>&1
 for i in $(seq 1 60); do curl -sf "http://localhost:${DBFAQ_PORT:-8088}/api/health" > /dev/null && break; sleep 1; done

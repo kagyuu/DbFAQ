@@ -5,10 +5,10 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, SecretStr, ValidationError, model_validator
 
 DEFAULT_CONFIG_PATH = "config.yaml"
 
@@ -19,6 +19,8 @@ _ENV_OVERRIDES = {
     "DBFAQ_ORACLE_PASSWORD": ("oracle", "password"),
     "DBFAQ_SQLITE_PATH": ("app", "sqlite_path"),
 }
+# llm 節があるときだけ上書きする(節が無ければ LLM は使わない。※CR-007により追加)
+_LLM_ENV_OVERRIDES = {"DBFAQ_LLM_BASE_URL": "base_url"}
 
 
 class ConfigError(Exception):
@@ -59,9 +61,31 @@ class AppSection(BaseModel):
     log_level: str = "INFO"
 
 
+class LlmConfig(BaseModel):
+    """LLM(Ollama)の設定(docs/P003-backend-spec.md §2.1)。※CR-007により追加"""
+
+    enabled: bool = True
+    provider: Literal["ollama"] = "ollama"
+    base_url: AnyHttpUrl = AnyHttpUrl("http://localhost:11434")
+    model: str = Field("gemma4:e2b-it-qat", min_length=1)
+    timeout_sec: int = Field(180, ge=1, le=600)
+    health_timeout_sec: int = Field(3, ge=1, le=30)
+    temperature: float = Field(0.0, ge=0, le=2)
+    seed: int | None = 42
+    num_ctx: int | None = Field(8192, ge=512)
+    sample_rows: int = Field(3, ge=0, le=20)
+    max_context_chars: int = Field(12000, ge=1000, le=200_000)
+
+    @property
+    def url(self) -> str:
+        """末尾の / を除いた base_url"""
+        return str(self.base_url).rstrip("/")
+
+
 class AppConfig(BaseModel):
     oracle: OracleConfig
     app: AppSection = AppSection()
+    llm: LlmConfig | None = None
 
 
 def config_file_path(env: Mapping[str, str] | None = None) -> str:
@@ -97,6 +121,10 @@ def load_config(path: str | None = None, env: Mapping[str, str] | None = None) -
             sec = data.setdefault(section, {})
             if isinstance(sec, dict):
                 sec[key] = value
+    for var, key in _LLM_ENV_OVERRIDES.items():
+        value = env.get(var)
+        if value and isinstance(data.get("llm"), dict):
+            data["llm"][key] = value
     try:
         return AppConfig.model_validate(data)
     except ValidationError as e:

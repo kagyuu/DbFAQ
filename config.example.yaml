@@ -13,3 +13,15 @@ oracle:
 app:
   sqlite_path: ./data/dbfaq.sqlite3
   log_level: INFO
+llm:                         # 自然言語から SQL を作る LLM(Ollama)。節ごと消すと LLM は使わない
+  enabled: true
+  provider: ollama           # いまは ollama だけ
+  base_url: http://localhost:11434   # compose では環境変数 DBFAQ_LLM_BASE_URL で上書きする
+  model: gemma4:e2b-it-qat
+  timeout_sec: 180           # 1 回の作成で LLM の応答を待つ上限
+  health_timeout_sec: 3      # 疎通確認の上限
+  temperature: 0.0
+  seed: 42
+  num_ctx: 8192
+  sample_rows: 3             # LLM に渡すデータの例の行数(0 で送らない)
+  max_context_chars: 12000   # LLM に渡すスキーマの構造の上限(文字数)

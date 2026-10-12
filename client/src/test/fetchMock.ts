@@ -26,6 +26,7 @@ export const HEALTH_OK = {
   backend: { status: 'ok', version: '0.1.0' },
   oracle: { status: 'ok', version: '23.26.3.0.0', user: 'HR', message: null },
   config: { host: 'localhost', port: 1521, service_name: 'FREEPDB1', user: 'hr', schema: 'HR', query_timeout_sec: 30 },
+  llm: { status: 'ok', model: 'gemma4:e2b-it-qat', base_url: 'http://localhost:11434', message: null }, // ※CR-007
   checked_at: '2026-09-23T01:20:00Z',
 }
 

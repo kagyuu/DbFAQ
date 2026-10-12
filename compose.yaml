@@ -10,6 +10,8 @@ services:
     # ports は書かない(ホストに公開しない)
     environment:
       DBFAQ_ORACLE_HOST: ${DBFAQ_ORACLE_HOST:-host.docker.internal}
+      # LLM(Ollama)の接続先(config.yaml の llm 節があるときだけ使う。CR-007)。開発環境では .env で 11435 番(socat の中継)にする
+      DBFAQ_LLM_BASE_URL: ${DBFAQ_LLM_BASE_URL:-http://host.docker.internal:11434}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

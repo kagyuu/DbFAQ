@@ -3,6 +3,7 @@ import type {
   ErrorPosition,
   ErView,
   Health,
+  LlmSqlResult,
   PdbInfo,
   QueryResult,
   RefreshResult,
@@ -117,3 +118,8 @@ export const updateSavedQuery = (id: number, input: SavedQueryInput) =>
   request<SavedQuery>(`/saved-queries/${id}`, json('PUT', input))
 export const deleteSavedQuery = (id: number) => request<void>(`/saved-queries/${id}`, { method: 'DELETE' })
 export const getPdbInfo = () => request<PdbInfo>('/pdb')
+
+// ---- LLM(P002 §3.15。※CR-007により追加) ----
+
+export const generateSql = (target: SavedQueryTarget, text: string) =>
+  request<LlmSqlResult>('/llm/sql', json('POST', { ...target, request: text }))

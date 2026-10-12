@@ -11,11 +11,13 @@
 - src/format.ts — 日時のローカル表示
 - src/api/ — backend API
   - types.ts — レスポンスの型
-  - client.ts — `fetch` のラッパと `ApiError`(エラー位置 `position` を含む)、Query の `runQuery`・`fetchQueryCsv`、保存済み Query・PDB の関数(CR-005)
+  - client.ts — `fetch` のラッパと `ApiError`(エラー位置 `position` を含む)、Query の `runQuery`・`fetchQueryCsv`、保存済み Query・PDB の関数(CR-005)、LLM の `generateSql`(CR-007)
   - hooks.ts — TanStack Query のフック(保存済み Query の `useSavedQueries`・`savedQueriesKey`、`usePdbInfo` は CR-005)
 - src/components/ — 共通部品
-  - AppShell.tsx — 共通ヘッダ(スキーマ名、取得日時、ER 図リンク、Oracle 状態)
+  - AppShell.tsx — 共通ヘッダ(スキーマ名、取得日時、ER 図リンク、Oracle 状態、LLM 状態(CR-007))
   - OracleStatus.tsx — Oracle 状態の丸(`/api/health` を 60 秒ごとに取得)
+  - LlmStatus.tsx — LLM 状態の丸(Oracle の丸の並び)と `useLlmAvailable`。CR-007 で追加
+  - LlmSqlPanel.tsx — 自然言語から LLM で SQL を作成(ボタンの無効化、置き換えの確認、結果・エラー)。SC-02・SC-03 で共用。CR-007 で追加
   - ResultTable.tsx — データタブと Query タブの結果の表(`(null)`、切り詰めのツールチップ)。CR-004 で DataTab から切り出し
   - SavedQueries.tsx — 保存済み Query の一覧・保存・復元・上書き保存・変更・削除とダイアログ(SC-02・SC-03 で共用)。CR-005 で追加
   - PdbIcon.tsx — SC-01 のドラム缶のアイコン(`/pdb` へ)、ドラム缶の絵、PDB 名。CR-005 で追加

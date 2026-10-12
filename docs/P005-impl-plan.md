@@ -18,6 +18,7 @@
 | U009 | query-tab | ※CR-004により追加。backend: 利用者の SQL の検査(`oracle/sql_guard.py`)、SELECT の実行・CSV(`oracle/query.py`)、エラー位置、API 2 本(`routers/query.py`)。frontend: SC-02 の Query タブ(`QueryTab.tsx`)、ひな形の組み立て(`query/template.ts`)、CSV の保存。nginx の CSV の待ち時間。受入テスト A09 と A06 の追加分 | 大(ファイル 新規 約 10・変更 約 12、外部システム連携あり) |
 | U010 | saved-queries-pdb | ※CR-005により追加。backend: マイグレーション 0002、保存済み Query のリポジトリ・API 4 本、PDB のひな型と起動時の登録、PDB 情報の読み取り・API。frontend: 保存済み Query の部品(`SavedQueries`)、`QueryTab` のテーブル/PDB 共用化、SC-01 のドラム缶のアイコン(`PdbIcon`)、SC-03(`PdbPage`・`PdbInfoTab`)。受入テスト A10 | 大(ファイル 新規 約 14・変更 約 14、外部システム連携あり) |
 | U011 | readonly-user | ※CR-006により追加。backend: 接続のカレントスキーマを対象スキーマに(`oracle/db.py`)、PDB 情報の SQL(`oracle/pdb.py`)、ひな型を対象スキーマ基準に直し以前の版を残す(`pdb_templates.py`)、未変更のひな型の更新(`saved_query_repo.py`)。テストの接続ユーザーを `dbfaq_ro` に(T03・T14・T15・A10)。`config.example.yaml`、README.md | 中(ファイル 変更 約 12、外部システム連携あり) |
+| U012 | llm-sql | ※CR-007により追加。backend: `llm` の設定・環境変数、`llm/`(OllamaClient、構造とデータの例、プロンプト、SQL の取り出し)、`LlmService`、`POST /api/llm/sql`、health の `llm`。frontend: ヘッダの LLM の丸(`LlmStatus`)、`LlmSqlPanel`(SC-02・SC-03)。nginx の `/api/llm/`、compose の `DBFAQ_LLM_BASE_URL`。受入テスト A11 | 大(ファイル 新規 約 12・変更 約 14、外部システム連携あり) |
 | U008 | merge-common | ※CR-003により追加。`dbfaq_common`(`config.py`・`logging.py`)を `dbfaq_api`(`config.py`・`log.py`)に移し、import を直す。振る舞いは変えない | 小(移設が中心。import の変更 約 20 ファイル) |
 
 * ※CR-002: U002(mcp-server)は U007 で廃止した(成果物のコードは `dbfaq_api/oracle` に移り、MCP のツール登録・stdio 起動は削除)。U003 の「MCP ゲートウェイ」も U007 で廃止した。U001〜U006 の記述は第 1 リリース時点の記録として残す。
@@ -102,6 +103,16 @@
 | その他 | backend: `oracle/db.py`(`current_schema`)、`oracle/pdb.py`、`pdb_templates.py`(`previous`)、`saved_query_repo.py`(`seed_templates` の更新)。テスト: `tests/unit/oracle/test_db.py` か既存の偽の接続(`current_schema`)、`test_pdb.py`、`test_pdb_templates.py`、`test_saved_query_repo.py`、`tests/integration/test_t03_readonly.py`・`test_t14_pdb.py`・`test_t15_saved_queries.py`。`config.example.yaml`、README.md |
 | インフラ | 変更なし。`e2e/tests/a10-saved-queries-pdb.spec.ts`(手順 10〜13 の期待値) |
 
+### U012 llm-sql(※CR-007により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | 共通ヘッダの LLM の丸(P002 §1.1)、SC-02・SC-03 の `LlmSqlPanel`(§2.2.9・§2.3.3) |
+| API | `POST /api/llm/sql`(§3.15)、`GET /api/health` の `llm`(§3.7)、エラーコード `LLM_UNAVAILABLE`・`LLM_TIMEOUT`・`LLM_ERROR`(§3.1) |
+| データモデル | 変更なし |
+| その他 | backend: `config.py`(`LlmConfig`、`DBFAQ_LLM_BASE_URL`)、`llm/client.py`・`context.py`・`prompt.py`(新規)、`services.py`(`LlmService`、health)、`schemas.py`・`errors.py`・`main.py`・`routers/llm.py`(新規)、`pyproject.toml`(httpx を実行時の依存に)、`tests/fakes.py`(`FakeLlm`)。frontend: `src/components/LlmStatus.tsx`・`LlmSqlPanel.tsx`(新規)、`AppShell.tsx`、`QueryTab.tsx`、`src/api/` |
+| インフラ | `deploy/nginx.conf`(`location /api/llm/` 300 秒)、`compose.yaml`(`DBFAQ_LLM_BASE_URL`)、`config.example.yaml`(`llm` 節)、`deploy/dev/llm-relay.sh`(開発環境の socat の中継。新規)。`e2e/tests/a11-llm-sql.spec.ts`(新規)、`e2e/scripts/run-suite.sh`(A11) |
+
 ### U004 frontend-er
 
 | 種別 | 対象 |
@@ -158,14 +169,18 @@ P004 の全要求 ID は上表のいずれかのスプリントに割り当た�
 
 ※CR-006により: REQ-SCREEN-025・027、REQ-ORA-006、REQ-NFR-004 の CR-006 での変更分と REQ-DOC-001 は **U011** が担う。
 
+※CR-007により: REQ-SCREEN-028〜031、REQ-API-013、REQ-LLM-001・002 と、REQ-API-005・REQ-ARCH-007・REQ-NFR-001・003・004 の CR-007 での変更分は **U012** が担う。
+
 ※P011矛盾点#5にもとづき `GET /api/schema` 行の U005 列を修正。
 
 ## 4. 依存関係
 
 ```mermaid
 flowchart LR
-  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011
+  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011 --> U012
 ```
+
+* U012(CR-007)は U011 の後に行う改修スプリント。backend(設定 → LLM アクセス → 構造・プロンプト・取り出し → サービス・API・health)→ frontend(API → ヘッダの丸 → LlmSqlPanel)→ nginx・compose・受入テストの順。
 
 * U011(CR-006)は U010 の後に行う改修スプリント。backend(カレントスキーマ → PDB 情報 → ひな型と更新)→ テストの期待値 → README・設定のひな型の順。
 

@@ -4,6 +4,7 @@ import { ApiError, fetchQueryCsv, runQuery } from '../api/client'
 import { useSchema } from '../api/hooks'
 import type { QueryResult, SavedQuery, SavedQueryTarget, TableDetail } from '../api/types'
 import ResultTable from '../components/ResultTable'
+import LlmSqlPanel, { initialLlmState, type LlmPanelState } from '../components/LlmSqlPanel'
 import SavedQueries, { type LoadedQuery } from '../components/SavedQueries'
 import { buildSelectTemplate, candidateLabel, listJoinCandidates } from '../query/template'
 
@@ -21,8 +22,10 @@ export interface QueryState {
   running: 'run' | 'csv' | null
   /** 復元中の保存済み Query(※CR-005により追加) */
   loaded?: LoadedQuery | null
-  /** 最後にひな形・復元・保存した SQL(これと sql が違えば編集中。※CR-005により追加) */
+  /** 最後にひな形・復元・保存・LLM の作成をした SQL(これと sql が違えば編集中。※CR-005により追加) */
   baseline?: string
+  /** LLM で SQL を作成する部品の状態(※CR-007により追加) */
+  llm?: LlmPanelState
   result?: QueryResult
   error?: { kind: 'run' | 'csv'; error: ApiError; sql: string }
 }
@@ -106,6 +109,17 @@ export default function QueryTab({ detail, state, setState }: Props) {
   const restore = (q: SavedQuery) => update({ sql: q.sql, baseline: q.sql, loaded: loadedOf(q) })
   const saved = (q: SavedQuery, sqlChanged: boolean) =>
     update(sqlChanged ? { loaded: loadedOf(q), baseline: q.sql } : { loaded: loadedOf(q) })
+  // LLM で SQL を作成(P002 §2.2.9。※CR-007により追加)
+  const updateLlm = useCallback(
+    (fn: (prev: LlmPanelState) => LlmPanelState) =>
+      setState((prev) => {
+        const cur = prev ?? initial
+        return { ...cur, llm: fn(cur.llm ?? initialLlmState) }
+      }),
+    [setState, initial],
+  )
+  const applyLlmSql = (sql: string) => update({ sql, baseline: sql })
+
   const unload = useCallback(
     () => setState((prev) => ({ ...(prev ?? initial), loaded: null })),
     [setState, initial],
@@ -206,6 +220,8 @@ export default function QueryTab({ detail, state, setState }: Props) {
         onSaved={saved}
         onUnload={unload}
       />
+
+      <LlmSqlPanel target={target} state={s.llm ?? initialLlmState} update={updateLlm} dirty={dirty} onApply={applyLlmSql} />
 
       <Textarea
         ref={editor}

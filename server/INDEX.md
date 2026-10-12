@@ -6,14 +6,15 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
 - uv.lock / .python-version — ロックファイルと Python のバージョン
 - src/dbfaq_api/ — backend(FastAPI。`uvicorn --factory dbfaq_api.main:create_app`)
   - main.py — アプリの組み立て(lifespan でマイグレーション・PDB のひな型の登録(CR-005)と `OracleClient` の作成・終了)、例外ハンドラ、アクセスログ
-  - config.py — `config.yaml` の読み込み(環境変数での上書き、パスワードは SecretStr)。CR-003 で `dbfaq_common` から移設
+  - config.py — `config.yaml` の読み込み(環境変数での上書き、パスワードは SecretStr。`llm` 節と `DBFAQ_LLM_BASE_URL` は CR-007)。CR-003 で `dbfaq_common` から移設
   - log.py — 1 行 1 JSON のログ、`mask_secret`。CR-003 で `dbfaq_common/logging.py` から移設
   - routers/schema.py — `/api/schema`、`/api/schema/refresh`、`/api/schema/tables/{owner}/{table}`、`.../rows`
   - routers/health.py — `/api/health`
   - routers/query.py — `/api/query`(先頭 500 行)、`/api/query/csv`(全行の CSV)。CR-004 で追加
   - routers/saved_queries.py — `/api/saved-queries`(一覧・保存)、`/api/saved-queries/{id}`(更新・削除)。CR-005 で追加
   - routers/pdb.py — `/api/pdb`(PDB の情報)。CR-005 で追加
-  - services.py — API の内部処理(`SchemaService`、Query の `QueryService`、保存済み Query の `SavedQueryService`・PDB の `PdbService`(CR-005))、`OracleFailure` → API エラーの変換
+  - routers/llm.py — `/api/llm/sql`(自然言語から LLM で SELECT を作成。実行はしない)。CR-007 で追加
+  - services.py — API の内部処理(`SchemaService`、Query の `QueryService`、保存済み Query の `SavedQueryService`・PDB の `PdbService`(CR-005)、LLM の `LlmService` と health の `llm`(CR-007))、`OracleFailure` → API エラーの変換
   - oracle/ — Oracle アクセス(CR-002 で `dbfaq_mcp` から移設)
     - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認・SELECT の実行・CSV の入口)と `OracleAccess` プロトコル
     - db.py — 非同期接続プールと読み取り専用トランザクション(`run_readonly`。CR-006 で接続のカレントスキーマを対象スキーマに)
@@ -28,6 +29,10 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
     - identifiers.py — 識別子の検証とクォート
     - errors.py — `OracleFailure` とエラーコード、Oracle エラーの変換、エラー位置(UTF-8 のバイト位置 → 行・文字)
   - snapshot_repo.py — SQLite へのスナップショットの保存・読み出し(SQLAlchemy Core)
+  - llm/ — LLM(Ollama)アクセス(CR-007、ADR-018)
+    - client.py — `OllamaClient`(`/api/tags` の疎通確認、`/api/chat`)、`DisabledLlm`、`LlmFailure`、`create_llm`
+    - context.py — LLM に渡すデータベースの種類・スキーマの構造・データの例・辞書ビューの組み立て
+    - prompt.py — システムの指示、ユーザーの文、応答からの SQL の取り出し
   - db.py — SQLite エンジン(foreign_keys、WAL、busy_timeout)
   - migrate.py — 管理テーブル付きの差分マイグレーション
   - migrations/0001_init.sql — 初期スキーマ
@@ -46,5 +51,5 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
 - scripts/a08_concurrent_load.py — 受入テスト A08(同時利用者 10 名の負荷)。CR-001 で追加
 - tests/ — テスト
   - fakes.py — backend 用の偽の Oracle アクセス(`FakeOracle`)
-  - unit/ — 単体テスト(Oracle 不要)。`oracle/`(Oracle アクセス。偽のプールを使う)、`api/`(backend)、`test_config.py`・`test_logging.py`・`test_compose.py`
-  - integration/ — 結合テスト T01〜T04・T06〜T09・T13〜T15(T13 は CR-004 の Query、T14(PDB 情報・ひな型)・T15(保存済み Query と refresh。Oracle に接続しない)は CR-005。実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ
+  - unit/ — 単体テスト(Oracle 不要)。`oracle/`(Oracle アクセス。偽のプールを使う)、`api/`(backend)、`llm/`(LLM アクセス・構造・プロンプト。httpx の MockTransport。CR-007)、`test_config.py`・`test_logging.py`・`test_compose.py`
+  - integration/ — 結合テスト T01〜T04・T06〜T09・T13〜T17(T16(実 Ollama で SQL の作成、マーカー `llm`)・T17(LLM に届かないとき)は CR-007。T13 は CR-004 の Query、T14(PDB 情報・ひな型)・T15(保存済み Query と refresh。Oracle に接続しない)は CR-005。実 Oracle HR。T09 はテスト内の TCP 中継で通信断を作る)。`conftest.py` に共通フィクスチャ
