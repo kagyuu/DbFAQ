@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 // A11: LLM で SQL を作成するシナリオ(docs/P009-acceptance-direction/A11-llm-sql-scenario.md)。※CR-007により追加
 // 前提: A01 がスナップショットを作っている。available は api から LLM に届く構成、unreachable は api を
 // DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434 で作り直した構成で実行する(run-suite.sh)
-test.setTimeout(360_000)
+test.setTimeout(900_000) // ※CR-009: LLM の性能は求めない。時間がかかっても作成されることだけを判定する
 
 test('available: ヘッダの LLM の丸 → 要求から SQL を作成 → 実行', async ({ page }) => {
   // 1
@@ -17,14 +17,25 @@ test('available: ヘッダの LLM の丸 → 要求から SQL を作成 → 実�
   await expect(page.getByText('自然言語で SQL を作成(LLM)')).toBeVisible()
   const gen = page.getByRole('button', { name: 'LLM で SQL を作成' })
   await expect(gen).toBeDisabled()
+  const exchangeButton = page.getByRole('button', { name: 'LLM とのやりとり' })
+  await expect(exchangeButton).toBeDisabled() // ※CR-008: まだ作成していない
   // 3
   await page.getByRole('textbox', { name: 'LLM への要求' }).fill('給与の高い社員を上位5人、姓と部署名と給与を表示')
   await expect(gen).toBeEnabled({ timeout: 30_000 })
   await gen.click()
-  await expect(page.getByTestId('llm-result')).toContainText('LLM(gemma4:e2b-it-qat)が作成しました', { timeout: 300_000 })
+  await expect(page.getByTestId('llm-result')).toContainText('LLM(gemma4:e2b-it-qat)が作成しました', { timeout: 660_000 })
   await expect(page.getByRole('textbox', { name: 'SELECT 文' })).toHaveValue(/^\s*(SELECT|WITH)\b/i)
   await expect(page.getByTestId('llm-guard-error')).toHaveCount(0)
   await expect(page.getByRole('table', { name: 'Query の結果' })).toHaveCount(0) // 自動で実行しない
+  // 3b(※CR-008): LLM とのやりとり
+  await exchangeButton.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByTestId('llm-exchange-system')).toContainText('Oracle SQL')
+  await expect(dialog.getByTestId('llm-exchange-user')).toContainText('Table HR.EMPLOYEES')
+  await expect(dialog.getByTestId('llm-exchange-user')).toContainText('給与の高い社員を上位5人')
+  await expect(dialog.getByTestId('llm-exchange-reply')).toContainText('```')
+  await dialog.getByRole('button', { name: '閉じる' }).click()
+  await expect(dialog).toHaveCount(0)
   // 4
   await page.getByRole('button', { name: '実行 (Ctrl+Enter)' }).click()
   await expect(page.getByTestId('query-row-count')).toHaveText(/^[1-5] 行$/, { timeout: 60_000 })

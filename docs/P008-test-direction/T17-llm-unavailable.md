@@ -29,8 +29,9 @@
 ## 【実行手順】
 
 1. (A): `GET /api/health` → 200、`llm.status=error`、`message` に「LLM に接続できません」、最上位の `status` は `ok`(Oracle は使える)。`POST /api/llm/sql` → 503 `LLM_UNAVAILABLE`。`POST /api/query` は 200。
+1b. ※CR-008により追加: (A) の `POST /api/llm/sql` の 503 の `error.exchange` があり、`user` に要求の文を含み、`reply` が null。
 2. (B): `llm.status=error`、`message` に「モデル no-such-model:latest が LLM にありません」。`POST /api/llm/sql` → 503 `LLM_UNAVAILABLE`。
-3. (C): `llm.status=disabled`、`model`・`base_url` が null。`POST /api/llm/sql` → 503 `LLM_UNAVAILABLE`(「LLM は設定されていません」)。
+3. (C): `llm.status=disabled`、`model`・`base_url` が null。`POST /api/llm/sql` → 503 `LLM_UNAVAILABLE`(「LLM は設定されていません」)。※CR-008により: この 503 には `error.exchange` が無い。
 4. `GET /api/health` の所要時間が、(A) で `health_timeout_sec`(3 秒)+ 1 秒以内。
 5. 2 回続けて実行して同じ結果になる。
 

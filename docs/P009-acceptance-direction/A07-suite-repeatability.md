@@ -26,7 +26,7 @@
 
 ## 【事前準備】
 
-* `e2e/scripts/run-suite.sh` を作る(新規): `reset-and-up.sh` → A01・A02(playwright)→ A03(api の作り直しを含む)→ A04(スクリプト)→ A05(スクリプト + playwright)→ A08(スクリプト)→ A06(スクリプト)を順に実行し(※CR-004により A02 の後に A09(playwright)を追加。※CR-005により A09 の後に A10(playwright)を追加。※CR-007により A10 の後に A11(playwright。後半は api を作り直す)を追加。※CR-001により A08 を追加。A08 も読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く)、各テストの PASS/FAIL を 1 行ずつ出力する。
+* `e2e/scripts/run-suite.sh` を作る(新規): `reset-and-up.sh` → A01・A02(playwright)→ A03(api の作り直しを含む)→ A04(スクリプト)→ A05(スクリプト + playwright)→ A08(スクリプト)→ A06(スクリプト)を順に実行し(※CR-004により A02 の後に A09(playwright)を追加。※CR-005により A09 の後に A10(playwright)を追加。※CR-007により A11(playwright。後半は api を作り直す)を追加。※P202 F013(CR-008)により A11 は A08 の後、A06 の前に置く。※CR-001により A08 を追加。A08 も読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く)、各テストの PASS/FAIL を 1 行ずつ出力する。
 
 ## 【実行手順】
 

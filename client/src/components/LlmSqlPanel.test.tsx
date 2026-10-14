@@ -16,6 +16,7 @@ const GENERATED = {
   model: 'gemma4:e2b-it-qat',
   elapsed_ms: 16600,
   context: { tables: ['HR.EMPLOYEES', 'HR.DEPARTMENTS'], sample_rows: 3, truncated: false },
+  exchange: { system: 'You are an expert in Oracle SQL.', user: '# Database\nOracle\n\n# Request\n給与の高い社員を上位5人\n', reply: '```sql\nSELECT 1\n```' },
 }
 
 function Host({ pdb = false }: { pdb?: boolean }) {
@@ -125,5 +126,61 @@ describe('LLM で SQL を作成(※CR-007)', () => {
     await screen.findByTestId('llm-result')
     const post = fetchMock.mock.calls.find((c) => c[0] === '/api/llm/sql')!
     expect(JSON.parse(String(post[1]!.body))).toEqual({ scope: 'pdb', request: 'USERS 表領域' })
+  })
+})
+
+
+// ※CR-008により追加: LLM とのやりとり(P002 §2.2.9)
+describe('LLM とのやりとり(※CR-008)', () => {
+  const exchangeButton = () => screen.getByRole('button', { name: 'LLM とのやりとり' })
+
+  test('作成するまで押せず、作成後はリクエストとリプライを表示してコピーできる', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    mockFetch(routes())
+    renderWithProviders(<Host />)
+    expect(exchangeButton()).toBeDisabled()
+    fireEvent.change(requestBox(), { target: { value: '給与の高い社員を上位5人' } })
+    await vi.waitFor(() => expect(genButton()).toBeEnabled())
+    fireEvent.click(genButton())
+    await screen.findByTestId('llm-result')
+    expect(exchangeButton()).toBeEnabled()
+    fireEvent.click(exchangeButton())
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('モデル: gemma4:e2b-it-qat / 16.6 秒')).toBeInTheDocument()
+    expect(within(dialog).getByTestId('llm-exchange-system')).toHaveTextContent('You are an expert in Oracle SQL.')
+    expect(within(dialog).getByTestId('llm-exchange-user')).toHaveTextContent('# Request 給与の高い社員を上位5人')
+    expect(within(dialog).getByTestId('llm-exchange-reply')).toHaveTextContent('SELECT 1')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'コピー: リプライ' }))
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('```sql\nSELECT 1\n```'))
+    fireEvent.click(within(dialog).getByRole('button', { name: '閉じる' }))
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  test('エラーのときも表示でき、リプライが無いことが分かる', async () => {
+    mockFetch(routes(undefined, {
+      status: 504,
+      body: { error: { code: 'LLM_TIMEOUT', message: 'timeout', exchange: { system: 'S', user: 'U', reply: null } } },
+    }))
+    renderWithProviders(<Host />)
+    fireEvent.change(requestBox(), { target: { value: 'x' } })
+    await vi.waitFor(() => expect(genButton()).toBeEnabled())
+    fireEvent.click(genButton())
+    await screen.findByTestId('llm-error')
+    fireEvent.click(exchangeButton())
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByTestId('llm-exchange-user')).toHaveTextContent('U')
+    expect(within(dialog).getByTestId('llm-exchange-reply')).toHaveTextContent('リプライはありません(LLM から応答が返りませんでした)')
+    expect(within(dialog).queryByRole('button', { name: 'コピー: リプライ' })).toBeNull()
+  })
+
+  test('exchange の無いエラー(設定なしなど)では押せない', async () => {
+    mockFetch(routes(undefined, { status: 503, body: { error: { code: 'LLM_UNAVAILABLE', message: 'LLM は設定されていません' } } }))
+    renderWithProviders(<Host />)
+    fireEvent.change(requestBox(), { target: { value: 'x' } })
+    await vi.waitFor(() => expect(genButton()).toBeEnabled())
+    fireEvent.click(genButton())
+    await screen.findByTestId('llm-error')
+    expect(exchangeButton()).toBeDisabled()
   })
 })

@@ -329,17 +329,21 @@ class LlmService:
         if cfg is None or not cfg.enabled:
             raise ApiError(LLM_UNAVAILABLE, llm_client.NOT_CONFIGURED)
         context = await (self._table_context(owner, table) if scope == "table" else self._pdb_context())
+        user = build_user_prompt(context.text, request)
+        # LLM とのやりとり。画面にだけ返し、ログには出さない(※CR-008により追加)
+        exchange: dict[str, Any] = {"system": SYSTEM_PROMPT, "user": user, "reply": None}
         started = time.perf_counter()
         try:
-            answer = await self.llm.chat(SYSTEM_PROMPT, build_user_prompt(context.text, request))
+            answer = await self.llm.chat(SYSTEM_PROMPT, user)
         except LlmFailure as e:
             logger.info("llm sql failed", extra={"code": e.code, "request_chars": len(request), "scope": scope})
-            raise ApiError(_LLM_ERRORS.get(e.code, LLM_ERROR), e.message) from e
+            raise ApiError(_LLM_ERRORS.get(e.code, LLM_ERROR), e.message, extra={"exchange": exchange}) from e
         elapsed_ms = int((time.perf_counter() - started) * 1000)
+        exchange["reply"] = answer
         sql = extract_sql(answer)
         if not sql:
             logger.info("llm sql failed", extra={"code": LLM_ERROR, "request_chars": len(request), "scope": scope})
-            raise ApiError(LLM_ERROR, "LLM の応答から SQL を取り出せませんでした")
+            raise ApiError(LLM_ERROR, "LLM の応答から SQL を取り出せませんでした", extra={"exchange": exchange})
         guard = {"ok": True, "message": None}
         try:
             check_select(sql)
@@ -358,4 +362,11 @@ class LlmService:
                 "elapsed_ms": elapsed_ms,
             },
         )
-        return {"sql": sql, "guard": guard, "model": self.llm.model, "elapsed_ms": elapsed_ms, "context": context.summary()}
+        return {
+            "sql": sql,
+            "guard": guard,
+            "model": self.llm.model,
+            "elapsed_ms": elapsed_ms,
+            "context": context.summary(),
+            "exchange": exchange,
+        }

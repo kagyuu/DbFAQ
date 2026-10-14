@@ -155,7 +155,7 @@ export interface ErrorPosition {
 }
 
 export interface ApiErrorBody {
-  error: { code: string; message: string; ora_code?: string; position?: ErrorPosition }
+  error: { code: string; message: string; ora_code?: string; position?: ErrorPosition; exchange?: LlmExchange }
 }
 
 /** POST /api/query の結果(P002 §3.8) */
@@ -213,4 +213,13 @@ export interface LlmSqlResult {
   model: string
   elapsed_ms: number
   context: { tables: string[]; sample_rows: number; truncated: boolean }
+  /** LLM に送ったリクエストと LLM のリプライ(※CR-008により追加) */
+  exchange: LlmExchange
+}
+
+/** LLM とのやりとり(P002 §3.15。※CR-008により追加) */
+export interface LlmExchange {
+  system: string
+  user: string
+  reply: string | null
 }

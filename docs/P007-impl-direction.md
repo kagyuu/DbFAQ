@@ -15,7 +15,9 @@
 - [x] U009 [query-tab](./P007-impl-direction/U009-query-tab.md) — SC-02 の Query タブ(SQL の検査、SELECT の実行・エラー位置・CSV、API 2 本、ひな形、nginx、受入テスト A09)※CR-004により追加
 - [x] U010 [saved-queries-pdb](./P007-impl-direction/U010-saved-queries-pdb.md) — 保存済み Query(テーブルごと・PDB)、SC-01 のドラム缶のアイコン、SC-03 PDB 画面、PDB のひな型、API 5 本、受入テスト A10 ※CR-005により追加
 - [x] U011 [readonly-user](./P007-impl-direction/U011-readonly-user.md) — 読み取り専用ユーザー dbfaq_ro を前提に PDB 情報・ひな型を対象スキーマ基準に、未変更のひな型の更新、README ※CR-006により追加(※CR-007 の P007 で完了の更新漏れを修正)
-- [ ] U012 [llm-sql](./P007-impl-direction/U012-llm-sql.md) — 自然言語から LLM(Ollama)で SELECT を作る、ヘッダの LLM の丸、POST /api/llm/sql、受入テスト A11 ※CR-007により追加
+- [x] U012 [llm-sql](./P007-impl-direction/U012-llm-sql.md) — 自然言語から LLM(Ollama)で SELECT を作る、ヘッダの LLM の丸、POST /api/llm/sql、受入テスト A11 ※CR-007により追加(※CR-008 の P007 で完了の更新漏れを修正)
+- [x] U013 [llm-exchange](./P007-impl-direction/U013-llm-exchange.md) — LLM へのリクエストとリプライを表示するボタン、API の exchange ※CR-008により追加
+- [ ] U014 [llm-no-perf](./P007-impl-direction/U014-llm-no-perf.md) — LLM の性能を求めない: 待ち時間の既定 600 秒・nginx 660 秒、T16・A11 を時間で判定しない ※CR-009により追加
 
 ## 未解決事項
 

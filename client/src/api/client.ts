@@ -3,6 +3,7 @@ import type {
   ErrorPosition,
   ErView,
   Health,
+  LlmExchange,
   LlmSqlResult,
   PdbInfo,
   QueryResult,
@@ -19,14 +20,17 @@ export class ApiError extends Error {
   status: number
   oraCode?: string
   position?: ErrorPosition
+  /** LLM のエラーのときの LLM とのやりとり(※CR-008により追加) */
+  exchange?: LlmExchange
 
-  constructor(code: string, status: number, message: string, oraCode?: string, position?: ErrorPosition) {
+  constructor(code: string, status: number, message: string, oraCode?: string, position?: ErrorPosition, exchange?: LlmExchange) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.status = status
     this.oraCode = oraCode
     this.position = position
+    this.exchange = exchange
   }
 
   /** 画面に出す文言。ORA コードがあれば先頭に [ORA-xxxxx] を付ける(P002 §1.3) */
@@ -51,7 +55,7 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
     }
     if (body?.error?.code) {
       const e = body.error
-      throw new ApiError(e.code, res.status, e.message, e.ora_code ?? undefined, e.position ?? undefined)
+      throw new ApiError(e.code, res.status, e.message, e.ora_code ?? undefined, e.position ?? undefined, e.exchange ?? undefined)
     }
     throw new ApiError('INTERNAL_ERROR', res.status, `サーバでエラーが発生しました (HTTP ${res.status})`)
   }

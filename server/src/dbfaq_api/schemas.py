@@ -293,12 +293,21 @@ class LlmContextSummary(BaseModel):
     truncated: bool
 
 
+class LlmExchange(BaseModel):
+    """LLM に送ったリクエストと LLM のリプライ(P002 §3.15。※CR-008により追加)"""
+
+    system: str
+    user: str
+    reply: str | None
+
+
 class LlmSqlResponse(BaseModel):
     sql: str
     guard: LlmGuard
     model: str
     elapsed_ms: int
     context: LlmContextSummary
+    exchange: LlmExchange  # ※CR-008により追加
 
 
 class LlmHealth(BaseModel):
@@ -340,6 +349,7 @@ class ErrorBody(BaseModel):
     message: str
     ora_code: str | None = None
     position: ErrorPosition | None = None
+    exchange: LlmExchange | None = None  # ※CR-008により追加(LLM のエラー)
 
 
 class ErrorResponse(BaseModel):

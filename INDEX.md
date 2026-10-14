@@ -1,6 +1,6 @@
 # DbFAQ INDEX
 
-Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図とテーブル詳細(スキーマ情報・データ・Query のタブ。Query は CR-004)を見る運用者向けツール(v0.6.0)。CR-005 で Query の保存・復元(テーブルごと・PDB)と、ER 図のドラム缶のアイコンから開く PDB 画面(PDB 情報・Query・運用 Query のひな型)を追加。CR-006 で推奨の接続ユーザーを読み取り専用ユーザー dbfaq_ro にし(作り方は README)、PDB 画面とひな型を対象スキーマ基準にした。CR-007 で Query タブに自然言語から LLM(Ollama)で SQL を作る機能と、ヘッダの LLM の状態を追加した。
+Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図とテーブル詳細(スキーマ情報・データ・Query のタブ。Query は CR-004)を見る運用者向けツール(v0.7.1)。CR-005 で Query の保存・復元(テーブルごと・PDB)と、ER 図のドラム缶のアイコンから開く PDB 画面(PDB 情報・Query・運用 Query のひな型)を追加。CR-006 で推奨の接続ユーザーを読み取り専用ユーザー dbfaq_ro にし(作り方は README)、PDB 画面とひな型を対象スキーマ基準にした。CR-007 で Query タブに自然言語から LLM(Ollama)で SQL を作る機能と、ヘッダの LLM の状態を追加した。CR-008 で LLM へのリクエストとリプライの表示を追加した。
 
 ## ソースツリー
 
@@ -19,24 +19,24 @@ Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保
 - [docs/P002-frontend-spec.md](./docs/P002-frontend-spec.md) — ユーザインタフェース設計(画面、API の外部仕様、SQLite のデータモデル)
 - [docs/P003-backend-spec.md](./docs/P003-backend-spec.md) — システム詳細設計(Oracle アクセス、backend の内部処理、マイグレーション、設定)
 - [docs/P004-traceability-matrix.md](./docs/P004-traceability-matrix.md) — 要求トレーサビリティマトリクス
-- [docs/P005-impl-plan.md](./docs/P005-impl-plan.md) — 実装計画(スプリント U001〜U006、CR-002 の U007、CR-003 の U008、CR-004 の U009、CR-005 の U010、CR-006 の U011、CR-007 の U012)
+- [docs/P005-impl-plan.md](./docs/P005-impl-plan.md) — 実装計画(スプリント U001〜U006、CR-002 の U007、CR-003 の U008、CR-004 の U009、CR-005 の U010、CR-006 の U011、CR-007 の U012、CR-008 の U013、CR-009 の U014)
 - [docs/P006-test-plan.md](./docs/P006-test-plan.md) — テスト計画
 - [docs/P007-impl-direction.md](./docs/P007-impl-direction.md) — プログラム実装定義(目次)
 - [docs/P008-test-direction.md](./docs/P008-test-direction.md) — 結合テスト定義 T01〜T17(T16・T17 は CR-007。目次。T13 は CR-004、T14・T15 は CR-005)
 - [docs/P009-acceptance-direction.md](./docs/P009-acceptance-direction.md) — 受け入れ結合テスト定義 A01〜A11(A11 は CR-007。目次。A09 は CR-004、A10 は CR-005)
-- [docs/P010-design-review.md](./docs/P010-design-review.md) — 設計書横断レビュー(第 1 リリースは 3 回目で矛盾 0 件。CR-001〜CR-007 の再レビューを含む)
+- [docs/P010-design-review.md](./docs/P010-design-review.md) — 設計書横断レビュー(第 1 リリースは 3 回目で矛盾 0 件。CR-001〜CR-009 の再レビューを含む)
 - [docs/P011-impact-analysis.md](./docs/P011-impact-analysis.md) — 設計の矛盾点の影響分析
 - [docs/ADR.md](./docs/ADR.md) — 設計判断(ADR-002〜018。ADR-018 は CR-007 の LLM。ADR-017 は CR-006 の読み取り専用ユーザーとカレントスキーマ。ADR-001 は CR-002 で廃止。ADR-015 は CR-004 の Query の SQL、ADR-016 は CR-005 の保存済み Query)
 - [docs/ADR_master.md](./docs/ADR_master.md) — 廃止された設計判断(ADR-001)
 - [docs/ArchitectureHandbook.md](./docs/ArchitectureHandbook.md) — 技術的な要点のハンドブック
 - [docs/P101-impl-context.md](./docs/P101-impl-context.md) — 実装コンテキスト(確定したコマンド一覧を含む)
-- [docs/P201-review-report.md](./docs/P201-review-report.md) — 実装横断レビュー(最新: CR-007 の 1 回目で全件 PASS)
-- [docs/P202-fix-plan.md](./docs/P202-fix-plan.md) — 修正計画 F001〜F012(すべて解決。F007・F008 は CR-002、F009・F010 は CR-004、F011・F012 は CR-005)
+- [docs/P201-review-report.md](./docs/P201-review-report.md) — 実装横断レビュー(最新: CR-009 の 1 回目で全件 PASS)
+- [docs/P202-fix-plan.md](./docs/P202-fix-plan.md) — 修正計画 F001〜F013(すべて解決。F007・F008 は CR-002、F009・F010 は CR-004、F011・F012 は CR-005、F013 は CR-008)
 - [docs/P204-impact-analysis.md](./docs/P204-impact-analysis.md) — 修正の影響分析
 - [docs/test-records/](./docs/test-records/) — テスト実行記録
 - [docs/P302-deliver.md](./docs/P302-deliver.md) — 納品物まとめ・起動手順・リリース判定
 - [docs/BUILD_HISTORY.md](./docs/BUILD_HISTORY.md) — ビルド履歴
 - [docs/CR.md](./docs/CR.md) — 変更要求(CR)の状態の台帳
-- [docs/P901-cr-direction/](./docs/P901-cr-direction/) — 変更要求書(CR-001: 要対応 2 件のテスト追加、CR-002: MCP の廃止と backend への統合、CR-003: dbfaq_common の dbfaq_api への統合、CR-004: Query タブ、CR-005: Query の保存・復元と PDB 画面、CR-006: 読み取り専用ユーザー dbfaq_ro と対象スキーマ基準、CR-007: LLM で SQL を作成)
+- [docs/P901-cr-direction/](./docs/P901-cr-direction/) — 変更要求書(CR-001: 要対応 2 件のテスト追加、CR-002: MCP の廃止と backend への統合、CR-003: dbfaq_common の dbfaq_api への統合、CR-004: Query タブ、CR-005: Query の保存・復元と PDB 画面、CR-006: 読み取り専用ユーザー dbfaq_ro と対象スキーマ基準、CR-007: LLM で SQL を作成、CR-008: LLM とのやりとりの表示、CR-009: LLM の性能を求めない)
 - [docs/P903-cr-records/](./docs/P903-cr-records/) — CR の対処記録(スコープ決定・反映確認・ADR 判定)
 - [docs/P001-requirement-old/](./docs/P001-requirement-old/) — CR 対応前の要件定義の原本(無効)

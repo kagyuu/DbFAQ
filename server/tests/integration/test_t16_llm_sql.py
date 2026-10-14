@@ -20,7 +20,7 @@ async def client(tmp_path, base_config):
     app = create_app(config)
     async with (
         app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=300) as c,
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=660) as c,  # CR-009: 時間では判定しない
     ):
         yield c
 
@@ -45,6 +45,11 @@ async def test_llm_sql_end_to_end(client, base_config):
     assert _is_select(body["sql"])
     assert body["context"]["tables"][0] == "HR.EMPLOYEES" and "HR.DEPARTMENTS" in body["context"]["tables"]
     assert body["context"]["sample_rows"] == 3 and body["elapsed_ms"] > 0
+    # 3b(※CR-008): LLM とのやりとり
+    ex = body["exchange"]
+    assert "exactly one Oracle SQL query" in ex["system"]
+    assert ex["user"].startswith("# Database") and "# Request\n給与の高い社員を上位5人" in ex["user"]
+    assert ex["reply"] and body["sql"].split()[0].upper() in ex["reply"].upper()
     q = await client.post("/api/query", json={"sql": body["sql"]})
     assert q.status_code == 200, (body["sql"], q.text)
     assert 1 <= q.json()["row_count"] <= 5

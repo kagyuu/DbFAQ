@@ -297,17 +297,18 @@ Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`LlmSqlPanel`)�
 | +-------------------------------------------------------------------------------+ |
 | | 給与の高い社員を上位 5 人、姓と部署名と給与                                     | |
 | +-------------------------------------------------------------------------------+ |
-| [LLM で SQL を作成]   LLM(gemma4:e2b-it-qat)が作成しました(16.6 秒)。内容を確かめてから実行してください |
+| [LLM で SQL を作成] [LLM とのやりとり]  LLM(gemma4:e2b-it-qat)が作成しました(16.6 秒)。内容を確かめて… |  ← [LLM とのやりとり] は ※CR-008
 ```
 
 | 要素 | 振る舞い |
 | --- | --- |
 | 要求の入力欄 | 複数行(2〜6 行)。プレースホルダ「作りたい SQL を文章で書いてください(例: 給与の高い社員を上位 5 人、姓と部署名と給与)」。前後の空白を除いて 1〜2,000 文字 ★ACCEPTED★(2026-10-13 人間承認)検討・承認理由・残存リスクは P001 §6 Query タブと同じ |
 | [LLM で SQL を作成] | 次のすべてを満たすときだけ押せる: ヘッダの LLM の状態(`GET /api/health` の `llm.status`)が `ok`、要求が 1〜2,000 文字、作成中でない。LLM の状態が `ok` でないときは、ボタンの下に「LLM が使えないため作成できません(ヘッダの LLM の状態を確認してください)」と表示する(人間の指示: LLM が機能していない時はボタンを無効化) |
-| 作成 | `POST /api/llm/sql` に要求と保存先(SC-02 は `scope=table`・`owner`・`table`、SC-03 は `scope=pdb`)を送る。作成中はボタンにスピナーを出し、「作成中… LLM の応答には数十秒かかることがあります」と表示する。作成中も入力欄の編集・実行はできる |
+| 作成 | `POST /api/llm/sql` に要求と保存先(SC-02 は `scope=table`・`owner`・`table`、SC-03 は `scope=pdb`)を送る。作成中はボタンにスピナーを出し、「作成中… LLM の応答には時間がかかります(数分かかることもあります)」と表示する(※CR-009により「数十秒かかることがあります」から変更)。作成中も入力欄の編集・実行はできる |
 | 結果の反映 | 成功したら、入力欄が空白だけでなく、かつ最後のひな形・復元・保存・LLM の作成の後に編集されている場合は、確認ダイアログ「入力欄の SQL を LLM が作成した SQL で置き換えますか? 編集中の内容は失われます」([置き換える] / [キャンセル])を出す。置き換えたら(またはキャンセルしても)結果の情報を表示する。**自動では実行しない** |
 | 結果の情報 | 「LLM(モデル名)が作成しました(N.N 秒)。内容を確かめてから実行してください」。`guard.ok=false` のときは、赤字で「Query の検査で実行できない SQL です: 理由」を加える(入力欄には入れる)。`context.truncated=true` のときは「スキーマの情報が長いため、一部のテーブルを省いて LLM に渡しました」を加える |
 | エラー | 部品の中に赤字で表示する(入力欄は変えない): `LLM_UNAVAILABLE` は「LLM を使えません: message」(ヘッダの LLM の状態を取り直す)、`LLM_TIMEOUT` は「LLM の応答がタイムアウトしました」、`LLM_ERROR` は「LLM の応答から SQL を作れませんでした: message」、その他は §1.3 の形 |
+| [LLM とのやりとり](※CR-008により追加) | 直近の作成の応答(成功の `exchange`、またはエラーの `error.exchange`)があるときだけ押せる。作成中は押せない。押すとダイアログ「LLM とのやりとり」(大きめ。縦スクロール)を出し、上から次を表示する: 見出しにモデル名とかかった時間(成功のとき)、「リクエスト: システムの指示」(`exchange.system`)、「リクエスト: ユーザーの文」(`exchange.user`。スキーマの構造・データの例・要求)、「リプライ」(`exchange.reply`。`null` のときは「リプライはありません(LLM から応答が返りませんでした)」)。各部分は等幅の表示で、[コピー] ボタン(押すと「コピーしました」)を付ける。[閉じる] で閉じる ★ACCEPTED★(2026-10-14 人間承認)検討: ダイアログの構成(3 つに分けてそれぞれコピー)/承認理由: 依頼者が受け入れた/残存リスク: 特になし |
 | 状態の保持 | 要求の文・結果の情報・エラーは Query タブの状態(§2.2.1)の一部として保つ(タブを切り替えても保つ。別のテーブル・再読み込みで消える) |
 
 ### 2.3 SC-03 PDB(※CR-005により追加)
@@ -402,6 +403,8 @@ Query タブ(SC-02)と SC-03 の Query タブに共通の部品(`LlmSqlPanel`)�
 `ora_code` は `ORACLE_ERROR` のときのみ(取得できれば)含める。パスワードは `message` に決して含めない。
 
 ※CR-004により追加: `POST /api/query`・`POST /api/query/csv` の `ORACLE_ERROR` は、Oracle がエラー位置を返した場合に `position` を含める。
+
+※CR-008により追加: `POST /api/llm/sql` の LLM のエラーは、LLM とのやりとり `exchange`(§3.15)を含めることがある。
 
 ```json
 { "error": { "code": "ORACLE_ERROR", "message": "ORA-00904: \"BAR\": invalid identifier", "ora_code": "ORA-00904",
@@ -741,7 +744,8 @@ Query を保存する。SQL は検査しない(実行するときに §3.8 の�
   "guard": { "ok": true, "message": null },
   "model": "gemma4:e2b-it-qat",
   "elapsed_ms": 16600,
-  "context": { "tables": ["HR.EMPLOYEES", "HR.DEPARTMENTS", "HR.JOBS", "HR.JOB_HISTORY", "HR.EMPLOYEE_FIGURE"], "sample_rows": 3, "truncated": false }
+  "context": { "tables": ["HR.EMPLOYEES", "HR.DEPARTMENTS", "HR.JOBS", "HR.JOB_HISTORY", "HR.EMPLOYEE_FIGURE"], "sample_rows": 3, "truncated": false },
+  "exchange": { "system": "You are an expert in Oracle SQL. …", "user": "# Database\nOracle Database 23.26.3.0.0. …\n\n# Request\n給与の高い社員を上位 5 人、姓と部署名と給与\n", "reply": "```sql\nSELECT e.LAST_NAME, …\n```" }
 }
 ```
 
@@ -752,8 +756,9 @@ Query を保存する。SQL は検査しない(実行するときに §3.8 の�
 | `model` | 使ったモデル |
 | `elapsed_ms` | LLM の応答にかかった時間 |
 | `context` | LLM に渡した情報の要約: 構造を渡したテーブル(`owner.table`)、データの例の行数(PDB は 0)、長さの上限で一部を省いたか |
+| `exchange` | ※CR-008により追加。LLM に送ったリクエストと LLM のリプライ: `system`(システムの指示)、`user`(ユーザーの文。スキーマの構造・データの例・要求)、`reply`(応答の全文。SQL を取り出す前)。保存しない |
 
-* エラー: 422 `VALIDATION_ERROR` / 404 `SCHEMA_NOT_LOADED`(`scope=table` でスキーマ情報が無い)/ 404 `TABLE_NOT_FOUND` / 503 `LLM_UNAVAILABLE` / 504 `LLM_TIMEOUT` / 502 `LLM_ERROR` / 500。データの例の取得(Oracle)に失敗しても、データの例なしで作成を続ける(エラーにしない)。
+* エラー: 422 `VALIDATION_ERROR` / 404 `SCHEMA_NOT_LOADED`(`scope=table` でスキーマ情報が無い)/ 404 `TABLE_NOT_FOUND` / 503 `LLM_UNAVAILABLE` / 504 `LLM_TIMEOUT` / 502 `LLM_ERROR` / 500。※CR-008により: LLM にリクエストを送った後のエラー(`LLM_UNAVAILABLE`・`LLM_TIMEOUT`・`LLM_ERROR`)は、`error.exchange`(形は上の `exchange` と同じ。リプライが無いときは `reply: null`)を含める。LLM の設定が無いときの `LLM_UNAVAILABLE` と、検証・404 のエラーは含めない。データの例の取得(Oracle)に失敗しても、データの例なしで作成を続ける(エラーにしない)。
 
 ## 4. データモデル(SQLite)
 

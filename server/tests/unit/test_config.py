@@ -112,7 +112,7 @@ def test_llm_defaults_and_env_override(tmp_path):
     assert cfg.llm.enabled is True and cfg.llm.provider == "ollama"
     assert cfg.llm.url == "http://localhost:11434"
     assert cfg.llm.model == "gemma4:e2b-it-qat"
-    assert (cfg.llm.timeout_sec, cfg.llm.health_timeout_sec, cfg.llm.sample_rows) == (180, 3, 3)
+    assert (cfg.llm.timeout_sec, cfg.llm.health_timeout_sec, cfg.llm.sample_rows) == (600, 3, 3)  # CR-009 で 600
     assert (cfg.llm.temperature, cfg.llm.seed, cfg.llm.max_context_chars) == (0.0, 42, 12000)
     cfg2 = load_config(path, env={"DBFAQ_LLM_BASE_URL": "http://host.docker.internal:11435/"})
     assert cfg2.llm.url == "http://host.docker.internal:11435"

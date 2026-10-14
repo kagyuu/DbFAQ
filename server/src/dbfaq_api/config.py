@@ -68,7 +68,7 @@ class LlmConfig(BaseModel):
     provider: Literal["ollama"] = "ollama"
     base_url: AnyHttpUrl = AnyHttpUrl("http://localhost:11434")
     model: str = Field("gemma4:e2b-it-qat", min_length=1)
-    timeout_sec: int = Field(180, ge=1, le=600)
+    timeout_sec: int = Field(600, ge=1, le=600)  # ※CR-009: 性能を求めず、時間がかかっても打ち切らない(上限)
     health_timeout_sec: int = Field(3, ge=1, le=30)
     temperature: float = Field(0.0, ge=0, le=2)
     seed: int | None = 42

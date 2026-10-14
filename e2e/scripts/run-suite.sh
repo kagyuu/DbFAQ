@@ -14,14 +14,6 @@ bash e2e/scripts/reset-and-up.sh > "$LOG/reset.log" 2>&1; res RESET $?
 (cd e2e && npx playwright test tests/a09-query-tab.spec.ts > "$LOG/a09.log" 2>&1); res A09 $?
 # ※CR-005により追加
 (cd e2e && npx playwright test tests/a10-saved-queries-pdb.spec.ts > "$LOG/a10.log" 2>&1); res A10 $?
-# ※CR-007により追加: 前半は LLM に届く構成、後半は api を LLM に届かない設定で作り直す(A03 と同じ形)
-(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g available > "$LOG/a11.log" 2>&1); a11=$?
-DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434 docker compose up -d --no-deps --force-recreate api > "$LOG/a11-up.log" 2>&1
-wait_ok
-(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g unreachable >> "$LOG/a11.log" 2>&1); a11b=$?
-docker compose up -d --no-deps --force-recreate api >> "$LOG/a11-up.log" 2>&1
-wait_ok
-res A11 $((a11 + a11b))
 
 DBFAQ_ORACLE_HOST=oracle-unreachable.invalid docker compose up -d --no-deps --force-recreate api > "$LOG/a03-up.log" 2>&1
 for i in $(seq 1 60); do curl -sf "http://localhost:${DBFAQ_PORT:-8088}/api/health" > /dev/null && break; sleep 1; done
@@ -45,5 +37,15 @@ res A05 $a05
 # ※CR-001 により追加。読み取りのみであることを A06 のチェックサムで確かめるため A06 の前に置く
 bash e2e/scripts/a08-concurrency.sh > "$LOG/a08.log" 2>&1; res A08 $?
 
+# ※CR-007により追加: 前半は LLM に届く構成、後半は api を LLM に届かない設定で作り直す(A03 と同じ形)
+# ※P202 F013(CR-008): LLM の生成の直後は同じマシンの CPU が混み、性能の測定(A05・A08)が遅くなるため、
+# A05・A08 の後に置く。A06(HR のチェックサム)の前に置き、A11 でもデータが変わらないことを確かめる
+(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g available > "$LOG/a11.log" 2>&1); a11=$?
+DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434 docker compose up -d --no-deps --force-recreate api > "$LOG/a11-up.log" 2>&1
+wait_ok
+(cd e2e && npx playwright test tests/a11-llm-sql.spec.ts -g unreachable >> "$LOG/a11.log" 2>&1); a11b=$?
+docker compose up -d --no-deps --force-recreate api >> "$LOG/a11-up.log" 2>&1
+wait_ok
+res A11 $((a11 + a11b))
 bash e2e/scripts/a06-security.sh > "$LOG/a06.log" 2>&1; res A06 $?
 echo "logs: $LOG" >&2

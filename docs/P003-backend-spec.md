@@ -111,7 +111,7 @@ llm:                         # ※CR-007により追加。節ごと省略する�
   provider: ollama           # いまは ollama だけ
   base_url: http://localhost:11434
   model: gemma4:e2b-it-qat
-  timeout_sec: 180           # 1 回の作成で LLM の応答を待つ上限(1〜600)
+  timeout_sec: 600           # 1 回の作成で LLM の応答を待つ上限(1〜600。※CR-009により既定を 180 から 600 に)
   health_timeout_sec: 3      # 疎通確認の上限(1〜30)
   temperature: 0.0           # 0〜2。0 で毎回ほぼ同じ SQL になる
   seed: 42                   # 省略可(null)。乱数の種
@@ -120,7 +120,7 @@ llm:                         # ※CR-007により追加。節ごと省略する�
   max_context_chars: 12000   # LLM に渡すスキーマの構造の上限(文字数。1,000〜200,000)
 ```
 
-* ※CR-007により追加: `llm` の既定値は上記のとおり(`base_url`・`model` は開発時の値で、人間の指示)。`timeout_sec`・`sample_rows`・`max_context_chars`・`num_ctx` の既定値は ★ACCEPTED★(2026-10-13 人間承認)検討: 既定値/承認理由: 開発環境の Ollama(CPU)の実測(1 回 17〜100 秒)に合わせた/残存リスク: 環境によって見直しが要る。
+* ※CR-007により追加: `llm` の既定値は上記のとおり(`base_url`・`model` は開発時の値で、人間の指示)。※CR-009により `timeout_sec` の既定を 600 秒(上限)に変えた(時間がかかっても作成を打ち切らないため)。 ★ACCEPTED★(2026-10-15 人間承認)検討: 既定の待ち時間(600 秒)と nginx(660 秒)/承認理由: 依頼者「待ち時間 600 秒でいい。10 分応答がないと異常とみなして構わない」/残存リスク: 600 秒を超える LLM では `LLM_TIMEOUT` になる(異常として扱う)`timeout_sec`・`sample_rows`・`max_context_chars`・`num_ctx` の既定値は ★ACCEPTED★(2026-10-13 人間承認)検討: 既定値/承認理由: 開発環境の Ollama(CPU)の実測(1 回 17〜100 秒)に合わせた/残存リスク: 環境によって見直しが要る。
 
 * ※CR-002により `app.mcp_call_timeout_sec`(backend が MCP ツールの応答を待つ上限)を廃止した。既存の `config.yaml` に残っていても無視する(pydantic の既定で未知の項目は無視される)。
 
@@ -473,7 +473,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 
 ### 4.4 例外ハンドラ
 
-* `ApiError(code, message, http_status, ora_code=None, position=None)` → P002 §3.1 の形式(`position` は ※CR-004により追加)。
+* `ApiError(code, message, http_status, ora_code=None, position=None, extra=None)` → P002 §3.1 の形式(`position` は ※CR-004により追加。`extra` は `error` に加える任意の項目で、※CR-008により LLM の `exchange` に使う)。
 * FastAPI の `RequestValidationError` → 422 `VALIDATION_ERROR`(message: 「offset: 0 以上 100000 以下で指定してください」のように 項目名: 理由)。
 * 想定外の例外 → 500 `INTERNAL_ERROR`、スタックトレースはログのみ。
 
@@ -567,6 +567,7 @@ P002 §3.8 の検査を Oracle に送る前に行う(多層防御の 1 層目。
 #### 4.8.4 `LlmService`(`services.py`)と状態
 
 * `generate(request, scope, owner, table)`: 保存先の検査(§4.3 の `check_target`)→ `scope=table` はテーブルの実在確認(`SchemaService` と同じ。404)→ 構造の組み立て(SQLite)→ データの例(Oracle)→ チャット → 取り出し → 検査。
+* ※CR-008により追加: 応答に `exchange`(`system`=`SYSTEM_PROMPT`、`user`=組み立てたユーザーの文、`reply`=チャットの応答の全文)を加える。チャットの後のエラー(`LlmFailure`、SQL を取り出せない)は `ApiError` の追加の項目 `exchange`(`reply` は応答があればその全文、無ければ `null`)として返す(`ApiError(..., extra={"exchange": ...})`、§4.4)。`exchange` はログに出さない(§4.5)。
 * `health()`: `LlmAccess.health()`。想定外の例外は `error`(「内部エラーが発生しました」)にして `GET /api/health` を 200 のままにする。
 * LLM の HTTP クライアントは api プロセスに 1 つ(lifespan)。同時の作成は並行して LLM に送る(Ollama 側で順番に処理される) ★ACCEPTED★(2026-10-13 人間承認)検討: 同時の作成の数の制限/承認理由: 利用者 10 名程度/残存リスク: 同時に作ると Ollama 側で順番待ちになり、遅い人は `timeout_sec` を超えうる
 
@@ -620,7 +621,7 @@ P002 §4.2 の `saved_queries`・`query_template_seeds` を作る。`CREATE TABL
 | 性能: 再読み込み | 辞書の問い合わせは 6 回で固定(§3.5) | — |
 | 性能: タイムアウト | `query_timeout_sec`(call_timeout。問い合わせ 1 回ごと)と `connect_timeout_sec`(接続の確立・プールの待ち)。※CR-002により `mcp_call_timeout_sec` を削除。Query の CSV は全行の取得に往復を繰り返すため、全体の時間は `query_timeout_sec` を超えうる(※CR-004により追加) | nginx の中継の待ち時間(既定 120 秒)を、`/api/query/csv` だけ 600 秒にし、応答をバッファしない(`proxy_buffering off`)構成は **P005 の U009** で整備する ★ACCEPTED★(2026-10-09 人間承認)検討: nginx の待ち時間/承認理由: 全行の CSV の作成に足りる/残存リスク: 600 秒を超える CSV は nginx で切れる |
 | 性能: Query の実行 | 501 行だけを取得し(§3.11)、SQL を包まない | — |
-| 性能: LLM で SQL を作成(※CR-007) | LLM の応答の上限 `llm.timeout_sec`(既定 180 秒)。疎通確認は `health_timeout_sec`(既定 3 秒)で `GET /api/health` を遅らせない | nginx の中継の待ち時間(既定 120 秒)を `/api/llm/` だけ 300 秒にする構成は **P005 の U012** で整備する ★ACCEPTED★(2026-10-13 人間承認)検討: nginx の待ち時間/承認理由: `timeout_sec` の既定 180 秒より長い/残存リスク: `timeout_sec` を 300 秒以上にするときは nginx も変える |
+| 性能: LLM で SQL を作成(※CR-007) | ※CR-009により**性能の目標を設けない**(人間の指示)。時間がかかっても打ち切らないよう、LLM の応答の上限 `llm.timeout_sec` の既定を 600 秒にした(以前は 180 秒)。疎通確認は `health_timeout_sec`(既定 3 秒)で `GET /api/health` を遅らせない | nginx の中継の待ち時間(既定 120 秒)を `/api/llm/` だけ 660 秒(`timeout_sec` の上限 600 秒より長く。※CR-009により 300 秒から変更。**P005 の U014**)にする構成は **P005 の U012** で整備する ★ACCEPTED★(2026-10-13 人間承認)検討: nginx の待ち時間/承認理由: `timeout_sec` の既定 180 秒より長い/残存リスク: `timeout_sec` を 300 秒以上にするときは nginx も変える |
 | 可用性: LLM(※CR-007) | LLM に届かなくても起動・他の機能に影響しない(`status` は Oracle だけで決める) | compose の api コンテナから LLM に届く構成(`DBFAQ_LLM_BASE_URL`、既定 `http://host.docker.internal:11434`)は **P005 の U012** と **P302**。LLM 側(Ollama)をコンテナから届くように待ち受けさせるのは運用側の作業。開発環境(WSL の mirrored モード、Ollama は Windows 側)では、WSL の socat で 11435 番から `127.0.0.1:11434` へ中継し(起動・停止は `deploy/dev/llm-relay.sh`)、Git 管理外の `.env` に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435` を書く(CR-007 の備考) ★ACCEPTED★(2026-10-13 人間承認)検討: 中継を compose に含めるか/承認理由: WSL2 + Windows の Ollama という特定の環境だけの回避策/残存リスク: WSL を再起動したら中継を起動し直す必要がある(README・P302 7 章の手順) |
 | セキュリティ: LLM(※CR-007) | LLM に送るのはスキーマの構造・データの例(`sample_rows`、0 で送らない)・要求の文。LLM の SQL は自動では実行せず、実行時は §3.10 の検査・読み取り専用トランザクション・読み取り専用ユーザー(ADR-017)で守る。要求の文・SQL はログに出さない | LLM の接続先を社内の信頼できるものにするのは運用側(P302 の手順書) |
 | 可用性: 自動再起動 | アプリは Oracle が無くても起動できる(接続プールは遅延作成)。Oracle が戻れば次の呼び出しから使える(§4.1)。※CR-002により MCP 子プロセスの記述を削除 | コンテナの `restart: unless-stopped` と単一ホスト構成は **P005 のインフラ用スプリント**と **P302** で整備する |

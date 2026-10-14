@@ -58,6 +58,7 @@
 | SQL の取り出しと検査(※CR-007により追加) | ```sql ブロック、言語名なしのブロック、ブロックなしの全文、末尾のセミコロン、検査に通る | 空 → LLM_ERROR、DELETE など → guard.ok=false で SQL は返す | 単体 |
 | POST /api/llm/sql・health の llm(※CR-007により追加) | 200 の形、health の llm(ok・error・disabled)、最上位の status に影響しない | 422(要求の空白・2,001 文字、scope の組み合わせ)、404(未取得・無い表)、503・504・502、LLM の設定なしで 503 | 単体(偽の LLM)、結合(T16・T17) |
 | frontend の LLM(※CR-007により追加) | ヘッダの LLM の丸(緑・赤・灰、ツールチップ)、ボタンの有効・無効(LLM の状態・要求の長さ・作成中)、作成で入力欄に入る、編集中は確認、結果の情報(モデル・秒・検査の拒否・省略)、SC-03 の scope=pdb | エラーの表示(503 で health を取り直す・504・502)、入力欄は変わらない | 単体(Vitest) |
+| LLM とのやりとりの表示(※CR-008により追加) | 200 の `exchange`(system=指示、user=組み立てた文、reply=応答の全文)、`LLM_ERROR`(SQL を取り出せない)・`LLM_TIMEOUT`・`LLM_UNAVAILABLE`(作成時)の `error.exchange`(リプライなしは null)、ボタンの有効・無効(未作成・作成中は押せない)、ダイアログの 3 つの部分とコピー、リプライなしの表示 | LLM の設定なし・検証エラーには `exchange` が無い。ログに `exchange` が出ない | 単体、結合(T16・T17)、受入(A11) |
 | LLM の操作全体(※CR-007により追加) | compose でヘッダの LLM の丸が緑、HR.EMPLOYEES で要求から SQL を作り実行して結果が出る | LLM に届かない設定で丸が赤・ボタンが押せない | 受入(Playwright、A11) |
 | 読み取り専用ユーザーと対象スキーマ(※CR-006により追加) | `dbfaq_ro` で接続して、カレントスキーマが対象スキーマ(HR)、PDB 情報の全セクションが成功し HR の分を返す、ひな型 17 件がすべて成功(03・04 に EMPLOYEE_FIGURE.FIGURE、04 は読めない APPOWNER の表があっても成功)、スキーマ名なしの表名が HR の表になる。登録済みのひな型の更新(SQL が以前の版なら新しい版に、利用者が変えたものは残す、2 回目は何もしない) | DBA_USERS を読めないとき概要の表領域だけ「権限が無いため取得できません」 | 単体、結合(T14・T15) |
 | テーブルが無くなって戻ったとき(※CR-005により追加) | 保存 → スナップショットからテーブルが無くなる refresh → SQLite に残る(SC-02 は TABLE_NOT_FOUND)→ 同名のテーブルが戻る refresh → 一覧に出て SQL が同じ | - | 結合(T15。偽の Oracle アクセスで refresh の結果を切り替え、実際の SQLite ファイルと API を通す) ★ACCEPTED★ 検討: 実 Oracle の HR で表を消して戻す/不採用理由: テストは HR を変更しない方針(§3.2)/残存リスク: 実 Oracle の辞書の変化からの一連は A10 で確かめない(スナップショットの置き換えの処理は既存のテストで実 Oracle 由来のデータで確かめ済み) |
@@ -122,7 +123,7 @@
 
 * ※CR-006により: 開発・テストの接続ユーザーは `dbfaq_ro`(2026-10-09 に依頼者が FREEPDB1 に作成。`CREATE SESSION`、`SELECT_CATALOG_ROLE`、`READ ANY TABLE ON SCHEMA hr`)。`config.yaml` の `oracle.user` に設定し、`oracle.schema` は `HR`。テスト用 DB の準備(§3.1.1 の HR・`EMPLOYEE_FIGURE` の投入)は従来どおり `hr` や管理ユーザーで行う。
 
-* ※CR-007により: 開発用の LLM は Ollama(`http://localhost:11434`、`gemma4:e2b-it-qat`。Windows 側で動いている)。結合テスト(WSL 上)は `config.yaml` の `llm.base_url` で、受入テスト(compose)は `DBFAQ_LLM_BASE_URL` で接続先を指定する(開発環境では `deploy/dev/llm-relay.sh start` で中継を起動し、`.env` に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435`)。LLM の応答は毎回同じとは限らないため、テストは「検査に通る SELECT が返る」「実行できる」「主要な列・行数の性質」で判定し、SQL の文字列そのものは比べない(`temperature=0`・`seed` で揺れを小さくする) ★ACCEPTED★(2026-10-13 人間承認)検討: LLM のテストの判定の基準/承認理由: LLM の応答は毎回同じとは限らない/残存リスク: モデルを変えると T16・A11 の合否が変わりうる
+* ※CR-007により: 開発用の LLM は Ollama(`http://localhost:11434`、`gemma4:e2b-it-qat`。Windows 側で動いている)。結合テスト(WSL 上)は `config.yaml` の `llm.base_url` で、受入テスト(compose)は `DBFAQ_LLM_BASE_URL` で接続先を指定する(開発環境では `deploy/dev/llm-relay.sh start` で中継を起動し、`.env` に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435`)。LLM の応答は毎回同じとは限らないため、テストは「検査に通る SELECT が返る」「実行できる」「主要な列・行数の性質」で判定し、SQL の文字列そのものは比べない(`temperature=0`・`seed` で揺れを小さくする)。※CR-009により、**かかった時間では判定しない**(人間の指示。T16・A11 の待ち時間は `timeout_sec` の上限 600 秒より長くする) ★ACCEPTED★(2026-10-13 人間承認)検討: LLM のテストの判定の基準/承認理由: LLM の応答は毎回同じとは限らない/残存リスク: モデルを変えると T16・A11 の合否が変わりうる
 
 ### 3.2 テストデータとライフサイクル
 

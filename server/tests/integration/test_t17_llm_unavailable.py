@@ -54,6 +54,9 @@ async def test_unreachable(tmp_path):
     assert h["status"] == "ok" and elapsed < 4
     assert gen.status_code == 503 and gen.json()["error"]["code"] == "LLM_UNAVAILABLE"
     assert q.status_code == 200
+    # 1b(※CR-008): LLM にリクエストを送った後のエラーには exchange(リプライなし)
+    ex = gen.json()["error"]["exchange"]
+    assert "社員の数" in ex["user"] and ex["reply"] is None
 
 
 @pytest.mark.llm
@@ -72,4 +75,5 @@ async def test_not_configured(tmp_path):
     h, _, gen, q = await _run(app, _check)
     assert h["llm"] == {"status": "disabled", "model": None, "base_url": None, "message": "LLM は設定されていません"}
     assert gen.status_code == 503 and "設定されていません" in gen.json()["error"]["message"]
+    assert "exchange" not in gen.json()["error"]  # ※CR-008: 設定なしには exchange が無い
     assert q.status_code == 200

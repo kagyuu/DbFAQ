@@ -18,7 +18,7 @@ llm:                         # 自然言語から SQL を作る LLM(Ollama)。�
   provider: ollama           # いまは ollama だけ
   base_url: http://localhost:11434   # compose では環境変数 DBFAQ_LLM_BASE_URL で上書きする
   model: gemma4:e2b-it-qat
-  timeout_sec: 180           # 1 回の作成で LLM の応答を待つ上限
+  timeout_sec: 600           # 1 回の作成で LLM の応答を待つ上限(秒。1〜600。時間がかかっても打ち切らないよう上限にしている)
   health_timeout_sec: 3      # 疎通確認の上限
   temperature: 0.0
   seed: 42

@@ -41,6 +41,7 @@ class ApiError(Exception):
         ora_code: str | None = None,
         http_status: int | None = None,
         position: dict[str, int] | None = None,
+        extra: dict | None = None,
     ):
         super().__init__(message)
         self.code = code
@@ -48,6 +49,7 @@ class ApiError(Exception):
         self.ora_code = ora_code
         self.http_status = http_status or HTTP_STATUS[code]
         self.position = position
+        self.extra = extra  # error に加える任意の項目(※CR-008: LLM の exchange)
 
     def body(self) -> dict:
         err: dict = {"code": self.code, "message": self.message}
@@ -55,5 +57,7 @@ class ApiError(Exception):
             err["ora_code"] = self.ora_code
         if self.position:
             err["position"] = self.position
+        if self.extra:
+            err.update(self.extra)
         return {"error": err}
 

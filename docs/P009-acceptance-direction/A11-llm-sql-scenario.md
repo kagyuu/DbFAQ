@@ -18,7 +18,7 @@
 
 * ビルド: `cd server && uv sync && uv run python -m pytest tests/unit -q`、`cd client && npm ci && npm test && npm run build`、`docker compose build`。失敗は BLOCKED。
 * 開発用 Oracle と、**compose の api コンテナから LLM に届くこと**(`docker compose exec -T api python -c "import urllib.request;urllib.request.urlopen('<DBFAQ_LLM_BASE_URL>/api/tags',timeout=5)"` が成功)。届かなければ手順 1〜4 は BLOCKED(手順 5 は実行する)。開発環境では `deploy/dev/llm-relay.sh start` で中継を起動し、`.env` に `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435` を書いておく(CR-007 の備考)。
-* A01 が HR のスナップショットを作っていること(スイートでは A10 の後に実行する)。
+* A01 が HR のスナップショットを作っていること(スイートでは A08 の後、A06 の前に実行する。LLM の生成の直後は同じマシンの性能の測定(A05・A08)が遅くなるため。※P202 F013(CR-008))。
 
 ## 【使用するテストデータ】
 
@@ -26,13 +26,14 @@
 
 ## 【事前準備】
 
-* `e2e/tests/a11-llm-sql.spec.ts` を作る(手順 1〜4 は `-g available`、手順 5 は `-g unreachable`)。LLM の作成の待ち時間は 300 秒。
+* `e2e/tests/a11-llm-sql.spec.ts` を作る(手順 1〜4 は `-g available`、手順 5 は `-g unreachable`)。LLM の作成の待ち時間は 660 秒(※CR-009により 300 秒から変更。かかった時間では判定しない)。
 
 ## 【実行手順】
 
 1. `/` を開く → ヘッダの「Oracle」の丸の右に「LLM」と丸があり、丸が緑(`data-status="ok"`)。マウスを乗せると `gemma4:e2b-it-qat` が表示される。
-2. `/tables/HR/EMPLOYEES?tab=query` を開く → 「自然言語で SQL を作成(LLM)」があり、要求が空の間は [LLM で SQL を作成] が押せない。
+2. `/tables/HR/EMPLOYEES?tab=query` を開く → 「自然言語で SQL を作成(LLM)」があり、要求が空の間は [LLM で SQL を作成] が押せない。[LLM とのやりとり] も押せない(まだ作成していない。※CR-008)。
 3. 要求を入力して [LLM で SQL を作成] → 作成中の表示 → 入力欄が SELECT または WITH で始まる SQL になり、「LLM(gemma4:e2b-it-qat)が作成しました」が表示され、「実行できない SQL です」は表示されない。結果の表は表示されていない(自動で実行しない)。
+3b. ※CR-008により追加: [LLM とのやりとり] を押す → ダイアログに「リクエスト: システムの指示」「リクエスト: ユーザーの文」(要求の文と `Table HR.EMPLOYEES` を含む)「リプライ」(```sql を含む)が表示される。[閉じる] で閉じる。
 4. [実行] → 結果の行数が 1〜5 行。
 5. api を `DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434` で作り直す(`run-suite.sh` が行う)→ ヘッダの LLM の丸が赤(`data-status="error"`)、`/tables/HR/EMPLOYEES?tab=query` で要求を入力しても [LLM で SQL を作成] が押せず、「LLM が使えないため作成できません」が表示される。Oracle の丸は緑のまま。その後 api を元の設定で作り直す。
 

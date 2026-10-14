@@ -38,6 +38,8 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 * **CR-005(2026-10-07)**: U010 saved-queries-pdb(`docs/P007-impl-direction/U010-saved-queries-pdb.md`)に着手する。backend(T1 マイグレーション 0002・リポジトリ・ひな型の登録 → T2 PDB 情報 → T3 API 5 本)→ frontend(T4 API クライアント・`SavedQueries` → T5 `QueryTab` の共用化・`PdbIcon`・SC-03)→ T6 受入テスト A10 の順。ひな型の SQL は `server/src/dbfaq_api/pdb_templates.py`(設計時に作成し、開発用 Oracle で検査・実行を確認済み)。hr は DBA_* ・V$SESSION を読めない(`docs/ArchitectureHandbook.md` §9)。完了後、P103 で T14・T15 を実行し、T01〜T13 を回帰として再実行する。
 * **CR-006(2026-10-09)**: U011 readonly-user(`docs/P007-impl-direction/U011-readonly-user.md`)に着手する。T1 カレントスキーマ → T2 PDB 情報 → T3 ひな型と更新 → T4 テストの期待値 → T5 README・`config.example.yaml`。`config.yaml` の接続ユーザーは依頼者が `dbfaq_ro` に変えた(パスワードは読まない)。CR-005 の版のひな型の SQL は `git show 6767764:server/src/dbfaq_api/pdb_templates.py` にある。
 * **CR-007(2026-10-13)**: U012 llm-sql(`docs/P007-impl-direction/U012-llm-sql.md`)に着手する。T1 設定 → T2 OllamaClient → T3 構造・プロンプト・取り出し → T4 サービス・API・health → T5 ヘッダの丸・LlmSqlPanel → T6 中継スクリプト・nginx・compose・A11。開発用 Ollama は `http://localhost:11434`(WSL から)。compose からは `deploy/dev/llm-relay.sh start` と `.env` の `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435`。LLM の応答は 1 回数十秒かかる。
+* **CR-008(2026-10-14)**: U013 llm-exchange(`docs/P007-impl-direction/U013-llm-exchange.md`)に着手する。T1 backend の `exchange`(`ApiError` の `extra`)→ T2 `LlmSqlPanel` のボタンとダイアログ → T3 T16・T17・A11 の追加分。
+* **CR-009(2026-10-14)**: U014 llm-no-perf(`docs/P007-impl-direction/U014-llm-no-perf.md`)。待ち時間の既定(600 秒)・nginx(660 秒)・作成中の文言・T16・A11 の待ち時間。
 * 各スプリントの P102 が終わるたびに本書の「着手するスプリント」を更新する。全スプリント完了後に P103(P008 の T01〜T12 を一括実行)。
 
 ## 4. 詳細仕様の場所

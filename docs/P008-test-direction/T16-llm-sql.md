@@ -26,13 +26,14 @@
 
 ## 【事前準備】
 
-* `server/tests/integration/test_t16_llm_sql.py` を作る。`create_app(config)`(実 `OracleClient` と実 `OllamaClient`)を lifespan 付きの `httpx.AsyncClient` で呼ぶ(T14 と同じ形。LLM の応答に時間がかかるため、クライアントの上限は 300 秒)。
+* `server/tests/integration/test_t16_llm_sql.py` を作る。`create_app(config)`(実 `OracleClient` と実 `OllamaClient`)を lifespan 付きの `httpx.AsyncClient` で呼ぶ(T14 と同じ形。LLM の応答に時間がかかるため、クライアントの上限は 660 秒。※CR-009により 300 秒から変更)。
 
 ## 【実行手順】
 
 1. `GET /api/health` → `llm.status` が `ok`、`llm.model` が `gemma4:e2b-it-qat`。最上位の `status` は `ok`。
 2. `POST /api/schema/refresh` → 200。
 3. 要求 (a) で `POST /api/llm/sql`(`scope=table`、`HR`・`EMPLOYEES`)→ 200。`guard.ok=true`、`sql` が SELECT または WITH で始まる、`context.tables` の先頭が `HR.EMPLOYEES` で `HR.DEPARTMENTS` を含む、`context.sample_rows` が 3、`elapsed_ms` > 0。
+3b. ※CR-008により追加: 手順 3 の応答の `exchange.system` が LLM への指示(`exactly one Oracle SQL query` を含む)、`exchange.user` が `# Database` で始まり `# Request` と要求の文を含む、`exchange.reply` が空でなく `sql` の内容を含む。
 4. 手順 3 の `sql` を `POST /api/query` で実行 → 200、`row_count` が 1〜5。
 5. 要求 (b) で同じく作成 → `guard.ok=true`。実行 → 200、`row_count` ≥ 1。
 6. 要求 (c) で `scope=pdb` → 200、`guard.ok=true`、`context.sample_rows` が 0。実行 → 200(`dbfaq_ro` は DBA_* を読める)。
@@ -44,7 +45,7 @@
 
 ## 【期待結果】
 
-* 手順 1〜7 がすべて期待どおり。LLM の応答の SQL の文字列そのものは比べない(P006 §3.1)。
+* 手順 1〜7 がすべて期待どおり。LLM の応答の SQL の文字列そのものは比べない(P006 §3.1)。※CR-009により、かかった時間では判定しない(LLM の性能は求めない)。
 
 ## 【合否判定基準】
 

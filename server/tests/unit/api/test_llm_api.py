@@ -176,3 +176,48 @@ async def test_health_llm(tmp_path, oracle, llm_obj, llm_cfg, expected):
     body = r.json()
     assert r.status_code == 200 and body["llm"] == expected
     assert body["status"] == "ok"  # 最上位の status は Oracle だけで決める
+
+
+# ※CR-008により追加: LLM とのやりとり(P002 §3.15)
+async def test_exchange_in_response(tmp_path, oracle, llm, capsys):
+    async def fn(c):
+        return await c.post("/api/llm/sql", json={**EMP, "request": REQ})
+
+    body = (await run(tmp_path, oracle, llm, fn)).json()
+    system, user = llm.calls[0]
+    assert body["exchange"] == {"system": system, "user": user, "reply": llm.answer}
+    assert body["exchange"]["user"].startswith("# Database") and REQ in body["exchange"]["user"]
+    logs = capsys.readouterr().out
+    assert "SECRET-REQUEST" not in logs and "exactly one Oracle SQL query" not in logs  # ログに出さない
+
+
+@pytest.mark.parametrize(
+    "answer, status, reply",
+    [
+        (LlmFailure("LLM_UNAVAILABLE", "LLM に接続できません: refused"), 503, None),
+        (LlmFailure("LLM_TIMEOUT", "LLM の応答がタイムアウトしました"), 504, None),
+        ("I cannot help with that.```\n```", 502, "I cannot help with that.```\n```"),
+    ],
+)
+async def test_exchange_in_llm_errors(tmp_path, oracle, answer, status, reply):
+    llm_obj = FakeLlm(answer)
+
+    async def fn(c):
+        return await c.post("/api/llm/sql", json={**EMP, "request": REQ})
+
+    r = await run(tmp_path, oracle, llm_obj, fn)
+    assert r.status_code == status
+    ex = r.json()["error"]["exchange"]
+    assert ex["system"] == llm_obj.calls[0][0] and ex["user"] == llm_obj.calls[0][1] and ex["reply"] == reply
+
+
+@pytest.mark.parametrize(
+    "body, llm_cfg",
+    [({**EMP, "request": "x"}, None), ({**EMP, "request": "  "}, DEFAULT_LLM), ({**EMP, "table": "NO", "request": "x"}, DEFAULT_LLM)],
+)
+async def test_no_exchange_before_request(tmp_path, oracle, llm, body, llm_cfg):
+    async def fn(c):
+        return await c.post("/api/llm/sql", json=body)
+
+    r = await run(tmp_path, oracle, llm, fn, llm_cfg)
+    assert r.status_code in (503, 422, 404) and "exchange" not in r.json()["error"]

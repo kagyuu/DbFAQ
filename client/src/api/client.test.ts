@@ -134,3 +134,12 @@ test('getPdbInfo は /api/pdb を GET する', async () => {
   await getPdbInfo()
   expect(fetchMock).toHaveBeenCalledWith('/api/pdb', undefined)
 })
+
+test('LLM のエラーの exchange を ApiError に入れる(CR-008)', async () => {
+  const ex = { system: 'S', user: 'U', reply: null }
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(504, { error: { code: 'LLM_TIMEOUT', message: 't', exchange: ex } })))
+  const { generateSql } = await import('./client')
+  const err = await generateSql({ scope: 'pdb' }, 'x').catch((e) => e)
+  expect(err).toBeInstanceOf(ApiError)
+  expect(err.exchange).toEqual(ex)
+})

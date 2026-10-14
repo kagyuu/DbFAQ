@@ -13,5 +13,7 @@
 | CR-005 | Query の保存・復元(テーブルごと)と、PDB 画面(ドラム缶アイコン)・PDB の Query・運用 Query のひな型 | 完了 | 中 | [リンク](./P901-cr-direction/CR-005.md) | [リンク](./P903-cr-records/CR-005.md) |
 | CR-006 | 読み取り専用ユーザー dbfaq_ro を前提に、PDB 情報・ひな型を対象スキーマ基準にする。README に dbfaq_ro の作成手順を載せる | 完了 | 中 | [リンク](./P901-cr-direction/CR-006.md) | [リンク](./P903-cr-records/CR-006.md) |
 | CR-007 | 自然言語の要求から LLM(Ollama)で SELECT 文を作る。LLM の稼働状況をヘッダに表示する | 完了 | 中 | [リンク](./P901-cr-direction/CR-007.md) | [リンク](./P903-cr-records/CR-007.md) |
+| CR-008 | LLM で SQL を作るときの、LLM へのリクエストと LLM のリプライを表示するボタンを追加する | 完了 | 低 | [リンク](./P901-cr-direction/CR-008.md) | [リンク](./P903-cr-records/CR-008.md) |
+| CR-009 | LLM で SQL を作る機能には性能を求めない。時間がかかっても正しく SQL が作られることだけを検証する | 完了 | 低 | [リンク](./P901-cr-direction/CR-009.md) | [リンク](./P903-cr-records/CR-009.md) |
 
 状態: 未対応 / 対応中 / 反映確認中 / 完了 / 却下。優先度: 高 / 中 / 低 / N/A(却下のみ)。

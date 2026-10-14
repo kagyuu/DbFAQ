@@ -13,7 +13,7 @@ Python の uv プロジェクト(Python 3.12)。テストは `uv run python -m p
   - routers/query.py — `/api/query`(先頭 500 行)、`/api/query/csv`(全行の CSV)。CR-004 で追加
   - routers/saved_queries.py — `/api/saved-queries`(一覧・保存)、`/api/saved-queries/{id}`(更新・削除)。CR-005 で追加
   - routers/pdb.py — `/api/pdb`(PDB の情報)。CR-005 で追加
-  - routers/llm.py — `/api/llm/sql`(自然言語から LLM で SELECT を作成。実行はしない)。CR-007 で追加
+  - routers/llm.py — `/api/llm/sql`(自然言語から LLM で SELECT を作成。実行はしない。LLM とのやりとり `exchange` を返すのは CR-008)。CR-007 で追加
   - services.py — API の内部処理(`SchemaService`、Query の `QueryService`、保存済み Query の `SavedQueryService`・PDB の `PdbService`(CR-005)、LLM の `LlmService` と health の `llm`(CR-007))、`OracleFailure` → API エラーの変換
   - oracle/ — Oracle アクセス(CR-002 で `dbfaq_mcp` から移設)
     - client.py — `OracleClient`(スキーマの読み取り・テーブルデータ・疎通確認・SELECT の実行・CSV の入口)と `OracleAccess` プロトコル

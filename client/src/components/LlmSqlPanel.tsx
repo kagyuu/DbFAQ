@@ -1,8 +1,8 @@
-import { Button, Group, Modal, Stack, Text, Textarea } from '@mantine/core'
+import { Button, Code, CopyButton, Group, Modal, ScrollArea, Stack, Text, Textarea, Title } from '@mantine/core'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, generateSql } from '../api/client'
-import type { LlmSqlResult, SavedQueryTarget } from '../api/types'
+import type { LlmExchange, LlmSqlResult, SavedQueryTarget } from '../api/types'
 import { useLlmAvailable } from './LlmStatus'
 
 export const MAX_LLM_REQUEST_CHARS = 2_000
@@ -56,10 +56,56 @@ function ResultInfo({ result }: { result: LlmSqlResult }) {
   )
 }
 
+function ExchangePart({ title, text, testId }: { title: string; text: string | null; testId: string }) {
+  return (
+    <Stack gap={4}>
+      <Group justify="space-between">
+        <Title order={6}>{title}</Title>
+        {text !== null && (
+          <CopyButton value={text}>
+            {({ copied, copy }) => (
+              <Button size="compact-xs" variant="light" onClick={copy} aria-label={`コピー: ${title}`}>
+                {copied ? 'コピーしました' : 'コピー'}
+              </Button>
+            )}
+          </CopyButton>
+        )}
+      </Group>
+      {text === null ? (
+        <Text size="sm" c="dimmed" data-testid={testId}>リプライはありません(LLM から応答が返りませんでした)</Text>
+      ) : (
+        <ScrollArea.Autosize mah={320} type="auto">
+          <Code block data-testid={testId} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{text}</Code>
+        </ScrollArea.Autosize>
+      )}
+    </Stack>
+  )
+}
+
+/** LLM とのやりとりのダイアログ(P002 §2.2.9。※CR-008により追加) */
+function ExchangeDialog({ exchange, result, onClose }: { exchange: LlmExchange; result?: LlmSqlResult; onClose: () => void }) {
+  return (
+    <Modal opened onClose={onClose} title="LLM とのやりとり" size="xl" centered>
+      <Stack gap="md" data-testid="llm-exchange">
+        {result && (
+          <Text size="sm" c="dimmed">{`モデル: ${result.model} / ${(result.elapsed_ms / 1000).toFixed(1)} 秒`}</Text>
+        )}
+        <ExchangePart title="リクエスト: システムの指示" text={exchange.system} testId="llm-exchange-system" />
+        <ExchangePart title="リクエスト: ユーザーの文" text={exchange.user} testId="llm-exchange-user" />
+        <ExchangePart title="リプライ" text={exchange.reply} testId="llm-exchange-reply" />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>閉じる</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
 // 自然言語の要求から LLM で SQL を作成する(P002 §2.2.9。※CR-007により追加)
 export default function LlmSqlPanel({ target, state, update, dirty, onApply }: Props) {
   const qc = useQueryClient()
   const available = useLlmAvailable()
+  const [showExchange, setShowExchange] = useState(false)
   const dirtyRef = useRef(dirty)
   useEffect(() => {
     dirtyRef.current = dirty
@@ -68,6 +114,8 @@ export default function LlmSqlPanel({ target, state, update, dirty, onApply }: P
   const text = state.request.trim()
   const tooLong = text.length > MAX_LLM_REQUEST_CHARS
   const canGenerate = available && text !== '' && !tooLong && !state.running
+  // 直近の作成の LLM とのやりとり(成功、置き換えの確認待ち、またはエラー。※CR-008)
+  const exchange = state.running ? undefined : (state.pending ?? state.result)?.exchange ?? state.error?.exchange
 
   const generate = async () => {
     if (!canGenerate) return
@@ -114,19 +162,25 @@ export default function LlmSqlPanel({ target, state, update, dirty, onApply }: P
         <Button size="xs" variant="light" onClick={() => void generate()} disabled={!canGenerate} loading={state.running}>
           LLM で SQL を作成
         </Button>
+        <Button size="xs" variant="subtle" onClick={() => setShowExchange(true)} disabled={!exchange}>
+          LLM とのやりとり
+        </Button>
         <Stack gap={2} style={{ flex: 1 }}>
           {!available && (
             <Text size="xs" c="dimmed" data-testid="llm-unavailable">
               LLM が使えないため作成できません(ヘッダの LLM の状態を確認してください)
             </Text>
           )}
-          {state.running && <Text size="xs" c="dimmed">作成中… LLM の応答には数十秒かかることがあります</Text>}
+          {state.running && <Text size="xs" c="dimmed">作成中… LLM の応答には時間がかかります(数分かかることもあります)</Text>}
           {!state.running && state.error && (
             <Text size="xs" c="red" data-testid="llm-error">{errorText(state.error)}</Text>
           )}
           {!state.running && !state.error && state.result && <ResultInfo result={state.result} />}
         </Stack>
       </Group>
+      {showExchange && exchange && (
+        <ExchangeDialog exchange={exchange} result={state.error ? undefined : (state.pending ?? state.result)} onClose={() => setShowExchange(false)} />
+      )}
       {state.pending && (
         <Modal opened onClose={() => settle(false)} title="SQL の置き換え" centered>
           <Stack gap="md">

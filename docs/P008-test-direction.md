@@ -16,6 +16,8 @@
 | U010 saved-queries-pdb(CR-005) | T14・T15(新規)。T01〜T13 は回帰として再実行 |
 | U011 readonly-user(CR-006) | T03・T14・T15 を再オープン。その他は回帰として再実行(接続ユーザー `dbfaq_ro`) |
 | U012 llm-sql(CR-007) | T16・T17(新規)。T01〜T15 は回帰として再実行 |
+| U013 llm-exchange(CR-008) | T16・T17 を再オープン。その他は回帰として再実行 |
+| U014 llm-no-perf(CR-009) | T16 を再オープン。その他は回帰として再実行 |
 
 - [x] T01 [Oracle: HR のスナップショット](./P008-test-direction/T01-oracle-snapshot-hr.md) — OracleClient.get_schema_snapshot が HR の表・列・制約・インデックスを正しく返す ※CR-002で再実行
 - [x] T02 [Oracle: HR のページ取得](./P008-test-direction/T02-oracle-rows-hr.md) — OracleClient.get_table_rows の主キー順ページ送りと異常系 ※CR-002で再実行
@@ -32,8 +34,8 @@
 - [x] T13 [Oracle: SELECT の実行・エラー位置・CSV](./P008-test-direction/T13-oracle-query.md) — run_query・export_csv・Query API を実 Oracle で ※CR-004により追加
 - [x] T14 [Oracle: PDB の情報とひな型](./P008-test-direction/T14-oracle-pdb.md) — get_pdb_info・GET /api/pdb・ひな型 17 件を実 Oracle で ※CR-005により追加 ※CR-006で再実行(対象スキーマ・全ひな型の成功)
 - [x] T15 [API: 保存済み Query とスナップショットの置き換え](./P008-test-direction/T15-api-saved-queries.md) — 保存・重複・テーブルごとの分離、テーブルが無くなっても残り戻ると使える、再起動でひな型が重複しない ※CR-005により追加 ※CR-006で再実行(ひな型の更新)
-- [x] T16 [LLM: 自然言語から SQL を作成](./P008-test-direction/T16-llm-sql.md) — 実 Ollama と実 Oracle で、作った SELECT が検査に通り実行できる。health の llm ※CR-007により追加
-- [x] T17 [LLM に届かないとき](./P008-test-direction/T17-llm-unavailable.md) — 接続できない・モデルが無い・設定が無いときの health の llm と 503、他の機能に影響しない ※CR-007により追加
+- [x] T16 [LLM: 自然言語から SQL を作成](./P008-test-direction/T16-llm-sql.md) — 実 Ollama と実 Oracle で、作った SELECT が検査に通り実行できる。health の llm ※CR-007により追加 ※CR-008で exchange の確認を追加して再実行 ※CR-009で待ち時間を延ばし、時間で判定しないようにして再実行
+- [x] T17 [LLM に届かないとき](./P008-test-direction/T17-llm-unavailable.md) — 接続できない・モデルが無い・設定が無いときの health の llm と 503、他の機能に影響しない ※CR-007により追加 ※CR-008でエラーの exchange の確認を追加して再実行
 
 FAIL/BLOCKED が残った場合は、Reviewer Loop(P201〜P205)への引き渡しが必要。
 
@@ -52,3 +54,7 @@ FAIL/BLOCKED が残った場合は、Reviewer Loop(P201〜P205)への引き渡�
 **P103(CR-006、2026-10-09、`docs/test-records/20261009-0047-test-record.md`)**: 接続ユーザー `dbfaq_ro` で T01〜T04・T06〜T15 PASS(T05 は廃止)。pytest は 2 回とも 329 passed。
 
 **P103(CR-007、2026-10-13、`docs/test-records/20261013-0130-test-record.md`)**: T01〜T04・T06〜T17 PASS(T05 は廃止)。pytest は 2 回とも 392 passed。
+
+**P103(CR-008、2026-10-14、`docs/test-records/20261014-0143-test-record.md`)**: T01〜T04・T06〜T17 PASS(T05 は廃止。T10・T11 は CR-007 の結果を引き継ぐ)。pytest は 2 回とも 399 passed。
+
+**P103(CR-009、2026-10-14、`docs/test-records/20261014-0758-test-record.md`)**: T01〜T04・T06〜T17 PASS。pytest は 2 回とも 399 passed。
