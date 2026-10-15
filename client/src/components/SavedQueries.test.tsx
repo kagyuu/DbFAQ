@@ -5,7 +5,7 @@ import type { SavedQuery, SavedQueryTarget } from '../api/types'
 import { mockFetch } from '../test/fetchMock'
 import { renderWithProviders } from '../test/render'
 import { savedQuery, savedQueryServer } from '../test/savedQueries'
-import SavedQueries, { descriptionError, type LoadedQuery, nameError } from './SavedQueries'
+import SavedQueries, { descriptionError, type LoadedQuery, nameError, saveDefaults } from './SavedQueries'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -183,4 +183,22 @@ test('別の画面で削除済みなら上書き保存は 404 を通知し、一
   expect(await screen.findByText('上書き保存できませんでした')).toBeInTheDocument()
   expect(await screen.findByText('保存済みの Query はありません')).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByTestId('loaded-query')).toBeNull())
+})
+
+// ※CR-011により追加: LLM で作成した SQL の保存の初期値(P002 §2.2.8)
+test('saveDefaults: LLM の要求があれば名前は先頭 20 文字、説明は全文(1,000 文字まで)', () => {
+  const loaded = { id: 1, name: '部署50', description: '説明' }
+  expect(saveDefaults('給与の高い社員を上位5人、姓と部署名と給与を表示', null)).toEqual({
+    name: '給与の高い社員を上位5人、姓と部署名と給',
+    description: '給与の高い社員を上位5人、姓と部署名と給与を表示',
+  })
+  expect(saveDefaults('社員の数', loaded)).toEqual({ name: '社員の数', description: '社員の数' })
+  expect(saveDefaults('部署ごとの\n  社員の数と\t平均給与を、多い順に表示', null).name).toBe('部署ごとの 社員の数と 平均給与を、多い')
+  const long = 'あ'.repeat(1500)
+  expect(saveDefaults(long, null).description).toBe('あ'.repeat(1000))
+  expect(descriptionError(saveDefaults(long, null).description)).toBeNull()
+  expect(saveDefaults('𠮷'.repeat(30), null).name).toBe('𠮷'.repeat(10)) // サロゲートペアを切らず 20(JS の長さ)以内
+  expect(saveDefaults('𠮷'.repeat(600), null).description).toBe('𠮷'.repeat(500))
+  expect(saveDefaults(null, loaded)).toEqual({ name: '部署50 のコピー', description: '説明' })
+  expect(saveDefaults('   ', null)).toEqual({ name: '', description: '' })
 })

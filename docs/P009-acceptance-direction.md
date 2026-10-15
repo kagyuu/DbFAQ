@@ -11,10 +11,10 @@
 - [x] A05 [性能](./P009-acceptance-direction/A05-performance.md) — HR と 300 表規模での表示時間 ※CR-002で再実行 ※CR-004で Query の性能を追加
 - [x] A06 [読み取りのみ・秘密情報・公開範囲](./P009-acceptance-direction/A06-security-readonly.md) — HR のチェックサム不変、パスワード非露出、web のみ公開 ※CR-002で再実行 ※CR-004で Query API の拒否を追加
 - [x] A08 [同時利用者 10 名](./P009-acceptance-direction/A08-concurrent-users.md) — 10 名同時でエラー 0、性能目標内 ※CR-001により追加(A07 の前に単独で実行し、A07 のスイートにも含める) ※CR-002で再実行
-- [x] A09 [Query タブのシナリオ](./P009-acceptance-direction/A09-query-tab-scenario.md) — ひな形 → JOIN → 実行 → 500 行の打ち切り → CSV で全行 → エラー位置 → DELETE の拒否 ※CR-004により追加(スイートでは A02 の後に実行)
-- [x] A10 [保存済み Query と PDB 画面のシナリオ](./P009-acceptance-direction/A10-saved-queries-pdb-scenario.md) — 保存 → テーブルごとの分離 → 復元・実行 → 上書き・変更・削除 → ドラム缶 → PDB 情報 → ひな型の実行・保存 ※CR-005により追加(スイートでは A09 の後に実行) ※CR-006で手順 10・13 の期待値を変えて再実行
-- [x] A11 [LLM で SQL を作成するシナリオ](./P009-acceptance-direction/A11-llm-sql-scenario.md) — ヘッダの LLM の丸 → 要求から SQL を作成 → 実行、LLM に届かないときは赤・ボタン無効 ※CR-007により追加(スイートでは A08 の後、A06 の前に実行。※P202 F013(CR-008)により A10 の後から変更) ※CR-008で手順 2・3b を追加して再実行 ※CR-009で待ち時間を延ばして再実行
-- [x] A07 [スイートの再実行性](./P009-acceptance-direction/A07-suite-repeatability.md) — A01〜A06・A08〜A10 を 2 回続けて同じ結果(A08 は CR-001 で追加) ※CR-002で再実行 ※CR-004で A09 を追加 ※CR-005で A10 を追加して再実行 ※CR-006で再実行 ※CR-007で A11 を追加して再実行 ※CR-008で再実行 ※CR-009で再実行
+- [x] A09 [Query タブのシナリオ](./P009-acceptance-direction/A09-query-tab-scenario.md) — ひな形 → JOIN → 実行 → 500 行の打ち切り → CSV で全行 → エラー位置 → DELETE の拒否 ※CR-004により追加(スイートでは A02 の後に実行) ※CR-010で手順 1b・9 を追加して再実行
+- [x] A10 [保存済み Query と PDB 画面のシナリオ](./P009-acceptance-direction/A10-saved-queries-pdb-scenario.md) — 保存 → テーブルごとの分離 → 復元・実行 → 上書き・変更・削除 → ドラム缶 → PDB 情報 → ひな型の実行・保存 ※CR-005により追加(スイートでは A09 の後に実行) ※CR-006で手順 10・13 の期待値を変えて再実行 ※CR-010でサブタブの選択を手順に加えて再実行
+- [x] A11 [LLM で SQL を作成するシナリオ](./P009-acceptance-direction/A11-llm-sql-scenario.md) — ヘッダの LLM の丸 → 要求から SQL を作成 → 実行、LLM に届かないときは赤・ボタン無効 ※CR-007により追加(スイートでは A08 の後、A06 の前に実行。※P202 F013(CR-008)により A10 の後から変更) ※CR-008で手順 2・3b を追加して再実行 ※CR-009で待ち時間を延ばして再実行 ※CR-010で手順 2 をサブタブに変えて再実行 ※CR-011で手順 3c を追加して再実行
+- [x] A07 [スイートの再実行性](./P009-acceptance-direction/A07-suite-repeatability.md) — A01〜A06・A08〜A10 を 2 回続けて同じ結果(A08 は CR-001 で追加) ※CR-002で再実行 ※CR-004で A09 を追加 ※CR-005で A10 を追加して再実行 ※CR-006で再実行 ※CR-007で A11 を追加して再実行 ※CR-008で再実行 ※CR-009で再実行 ※CR-010で再実行 ※CR-011で再実行
 
 FAIL/BLOCKED が残った場合は、P202(修正計画)への引き渡しが必要。
 
@@ -47,3 +47,7 @@ FAIL/BLOCKED が残った場合は、P202(修正計画)への引き渡しが必�
 **P205(CR-008、2026-10-14、`docs/test-records/20261014-0205-test-record.md`)**: A01〜A11 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。
 
 **P201(CR-009、2026-10-14、`docs/test-records/20261014-0758-test-record.md`)**: A01〜A11 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。
+
+**P201(CR-010、2026-10-15、`docs/test-records/20261015-0113-test-record.md`)**: A01〜A11 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。A09・A10・A11 はサブタブの手順を追加。
+
+**P201(CR-011、2026-10-15、`docs/test-records/20261015-0129-test-record.md`)**: A01〜A11 すべて PASS(スイートを 2 回続けて実行し、出力が同一)。A11 は手順 3c(保存の初期値)を追加。

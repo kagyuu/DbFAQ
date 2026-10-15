@@ -30,6 +30,12 @@ const routes = (llm: LlmHealth = HEALTH_OK.llm as LlmHealth, gen: unknown = { bo
   'GET /api/saved-queries': { body: { items: [] } },
   'POST /api/llm/sql': gen as { body: unknown },
 })
+// LLM の部品はサブタブ「自然言語で SQL を作成」の中にある(※CR-010)
+function openLlm(ui: Parameters<typeof renderWithProviders>[0]) {
+  const r = renderWithProviders(ui)
+  fireEvent.click(screen.getByRole('tab', { name: '自然言語で SQL を作成' }))
+  return r
+}
 const editor = () => screen.getByRole('textbox', { name: 'SELECT 文' }) as HTMLTextAreaElement
 const requestBox = () => screen.getByRole('textbox', { name: 'LLM への要求' })
 const genButton = () => screen.getByRole('button', { name: 'LLM で SQL を作成' })
@@ -37,7 +43,7 @@ const genButton = () => screen.getByRole('button', { name: 'LLM で SQL を作�
 describe('LLM で SQL を作成(※CR-007)', () => {
   test('LLM が使えないとボタンを押せず、理由を表示する', async () => {
     mockFetch(routes({ status: 'error', model: 'm', base_url: 'u', message: 'LLM に接続できません' }))
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(requestBox(), { target: { value: '社員の数' } })
     expect(await screen.findByTestId('llm-unavailable')).toHaveTextContent('LLM が使えないため作成できません')
     expect(genButton()).toBeDisabled()
@@ -45,7 +51,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
 
   test('要求が空白だけ・2,001 文字では押せない', async () => {
     mockFetch(routes())
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     await vi.waitFor(() => expect(screen.queryByTestId('llm-unavailable')).toBeNull())
     expect(genButton()).toBeDisabled()
     fireEvent.change(requestBox(), { target: { value: '   ' } })
@@ -59,7 +65,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
 
   test('作成すると入力欄に入り、結果の情報を出す。自動では実行しない', async () => {
     const fetchMock = mockFetch(routes())
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(requestBox(), { target: { value: '  給与の高い社員を上位5人  ' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
     fireEvent.click(genButton())
@@ -73,7 +79,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
 
   test('入力欄が編集中なら置き換える前に確認する', async () => {
     mockFetch(routes())
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(editor(), { target: { value: 'SELECT 1 FROM DUAL' } })
     fireEvent.change(requestBox(), { target: { value: '社員の数' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
@@ -90,7 +96,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
 
   test('検査に通らない SQL・省略の表示', async () => {
     mockFetch(routes(undefined, { body: { ...GENERATED, sql: 'DELETE FROM HR.EMPLOYEES', guard: { ok: false, message: '更新系' }, context: { ...GENERATED.context, truncated: true } } }))
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(requestBox(), { target: { value: 'x' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
     fireEvent.click(genButton())
@@ -105,7 +111,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
     [502, 'LLM_ERROR', 'LLM の応答から SQL を作れませんでした: LLM に接続できません'],
   ])('エラー %s は部品の中に表示し、入力欄は変えない', async (status, code, text) => {
     const fetchMock = mockFetch(routes(undefined, { status, body: { error: { code, message: 'LLM に接続できません' } } }))
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     const before = editor().value
     fireEvent.change(requestBox(), { target: { value: 'x' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
@@ -119,7 +125,7 @@ describe('LLM で SQL を作成(※CR-007)', () => {
 
   test('PDB(detail なし)は scope=pdb で送る', async () => {
     const fetchMock = mockFetch(routes())
-    renderWithProviders(<Host pdb />)
+    openLlm(<Host pdb />)
     fireEvent.change(requestBox(), { target: { value: 'USERS 表領域' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
     fireEvent.click(genButton())
@@ -138,7 +144,7 @@ describe('LLM とのやりとり(※CR-008)', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     mockFetch(routes())
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     expect(exchangeButton()).toBeDisabled()
     fireEvent.change(requestBox(), { target: { value: '給与の高い社員を上位5人' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
@@ -162,7 +168,7 @@ describe('LLM とのやりとり(※CR-008)', () => {
       status: 504,
       body: { error: { code: 'LLM_TIMEOUT', message: 'timeout', exchange: { system: 'S', user: 'U', reply: null } } },
     }))
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(requestBox(), { target: { value: 'x' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
     fireEvent.click(genButton())
@@ -176,11 +182,78 @@ describe('LLM とのやりとり(※CR-008)', () => {
 
   test('exchange の無いエラー(設定なしなど)では押せない', async () => {
     mockFetch(routes(undefined, { status: 503, body: { error: { code: 'LLM_UNAVAILABLE', message: 'LLM は設定されていません' } } }))
-    renderWithProviders(<Host />)
+    openLlm(<Host />)
     fireEvent.change(requestBox(), { target: { value: 'x' } })
     await vi.waitFor(() => expect(genButton()).toBeEnabled())
     fireEvent.click(genButton())
     await screen.findByTestId('llm-error')
     expect(exchangeButton()).toBeDisabled()
+  })
+})
+
+
+// ※CR-011により追加: LLM で作成した Query の保存の初期値(P002 §2.2.8)
+describe('LLM で作成した Query の保存(※CR-011)', () => {
+  const REQUEST = '給与の高い社員を上位5人、姓と部署名と給与を表示'
+  const openSaveDialog = () => {
+    fireEvent.click(screen.getByRole('tab', { name: '保存済み Query' }))
+    fireEvent.click(screen.getByRole('button', { name: '名前を付けて保存' }))
+    const dialog = screen.getByRole('dialog')
+    return {
+      dialog,
+      name: within(dialog).getByRole('textbox', { name: /名前/ }) as HTMLInputElement,
+      description: within(dialog).getByRole('textbox', { name: '説明' }) as HTMLTextAreaElement,
+    }
+  }
+  const generate = async (request: string) => {
+    fireEvent.click(screen.getByRole('tab', { name: '自然言語で SQL を作成' }))
+    fireEvent.change(requestBox(), { target: { value: request } })
+    await vi.waitFor(() => expect(genButton()).toBeEnabled())
+    fireEvent.click(genButton())
+  }
+
+  test('作成の後は名前=要求の先頭 20 文字、説明=全文。編集後も同じで、書き換えて保存できる', async () => {
+    const fetchMock = mockFetch({ ...routes(), 'POST /api/saved-queries': { status: 201, body: { id: 9, scope: 'table', owner: 'HR', table: 'EMPLOYEES', name: '給与トップ5', description: '説明', sql: 'x', is_template: false, created_at: '2026-10-15T00:00:00Z', updated_at: '2026-10-15T00:00:00Z' } } })
+    openLlm(<Host />)
+    await generate(`  ${REQUEST}  `)
+    await screen.findByTestId('llm-result')
+    fireEvent.change(editor(), { target: { value: `${GENERATED.sql}\n` } })
+    const { dialog, name, description } = openSaveDialog()
+    expect(name.value).toBe('給与の高い社員を上位5人、姓と部署名と給')
+    expect(description.value).toBe(REQUEST)
+    fireEvent.change(name, { target: { value: '給与トップ5' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const post = fetchMock.mock.calls.find((c) => c[0] === '/api/saved-queries' && c[1]?.method === 'POST')!
+    expect(JSON.parse(String(post[1]!.body))).toMatchObject({ name: '給与トップ5', description: REQUEST })
+  })
+
+  test('確認ダイアログで置き換えたときは覚え、キャンセルしたときは覚えない', async () => {
+    mockFetch(routes())
+    openLlm(<Host />)
+    fireEvent.change(editor(), { target: { value: 'SELECT 1 FROM DUAL' } })
+    await generate('社員の数')
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'キャンセル' }))
+    let d = openSaveDialog()
+    expect(d.name.value).toBe('')
+    fireEvent.click(within(d.dialog).getByRole('button', { name: 'キャンセル' }))
+    fireEvent.click(screen.getByRole('tab', { name: '自然言語で SQL を作成' }))
+    fireEvent.click(genButton())
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '置き換える' }))
+    d = openSaveDialog()
+    expect(d.name.value).toBe('社員の数')
+    expect(d.description.value).toBe('社員の数')
+  })
+
+  test('ひな形を作成した後は従来どおり空', async () => {
+    mockFetch(routes())
+    openLlm(<Host />)
+    await generate('社員の数')
+    await screen.findByTestId('llm-result')
+    fireEvent.click(screen.getByRole('tab', { name: 'JOIN' }))
+    fireEvent.click(screen.getByRole('button', { name: 'ひな形を作成' }))
+    const { name, description } = openSaveDialog()
+    expect(name.value).toBe('')
+    expect(description.value).toBe('')
   })
 })

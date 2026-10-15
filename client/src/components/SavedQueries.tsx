@@ -26,6 +26,8 @@ type Props = {
   /** 入力欄の SQL */
   sql: string
   loaded: LoadedQuery | null
+  /** 入力欄の SQL を作った LLM への要求(※CR-011により追加) */
+  llmRequest?: string | null
   /** 最後のひな形・復元・保存の後に入力欄が編集されているか */
   dirty: boolean
   onRestore: (item: SavedQuery) => void
@@ -68,8 +70,28 @@ export function descriptionError(description: string): string | null {
   return description.trim().length > MAX_DESCRIPTION_CHARS ? `${MAX_DESCRIPTION_CHARS.toLocaleString()} 文字以内で入力してください` : null
 }
 
+export const LLM_NAME_CHARS = 20
+
+/** 先頭 n 文字(サロゲートペアを途中で切らず、JS の文字列の長さで n を超えない) */
+function head(text: string, n: number): string {
+  let out = ''
+  for (const c of text) {
+    if (out.length + c.length > n) break
+    out += c
+  }
+  return out
+}
+
+/** [名前を付けて保存] の初期値(P002 §2.2.8。※CR-011により LLM の要求を追加) */
+export function saveDefaults(llmRequest: string | null | undefined, loaded: LoadedQuery | null): { name: string; description: string } {
+  const req = llmRequest?.trim()
+  if (req) return { name: head(req.replace(/\s+/g, ' '), LLM_NAME_CHARS).trim(), description: head(req, MAX_DESCRIPTION_CHARS) }
+  if (loaded) return { name: `${loaded.name} のコピー`, description: loaded.description }
+  return { name: '', description: '' }
+}
+
 // 保存済み Query の一覧と保存・復元・上書き保存・変更・削除(P002 §2.2.8。※CR-005により追加)
-export default function SavedQueries({ target, targetLabel, sql, loaded, dirty, onRestore, onSaved, onUnload }: Props) {
+export default function SavedQueries({ target, targetLabel, sql, loaded, llmRequest, dirty, onRestore, onSaved, onUnload }: Props) {
   const qc = useQueryClient()
   const key = savedQueriesKey(target)
   const { data, error } = useSavedQueries(target)
@@ -178,8 +200,8 @@ export default function SavedQueries({ target, targetLabel, sql, loaded, dirty, 
         <NameDialog
           title={dialog.kind === 'create' ? 'Query を保存' : 'Query の名前と説明を変更'}
           targetLabel={targetLabel}
-          initialName={dialog.kind === 'edit' ? dialog.item.name : loaded ? `${loaded.name} のコピー` : ''}
-          initialDescription={dialog.kind === 'edit' ? dialog.item.description : (loaded?.description ?? '')}
+          initialName={dialog.kind === 'edit' ? dialog.item.name : saveDefaults(llmRequest, loaded).name}
+          initialDescription={dialog.kind === 'edit' ? dialog.item.description : saveDefaults(llmRequest, loaded).description}
           onClose={() => setDialog(null)}
           onSubmit={async (name, description) => {
             const item =

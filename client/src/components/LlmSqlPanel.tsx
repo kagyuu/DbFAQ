@@ -14,6 +14,8 @@ export interface LlmPanelState {
   result?: LlmSqlResult
   /** 入力欄が編集中のため、置き換えの確認を待っている結果 */
   pending?: LlmSqlResult
+  /** pending を作ったときの要求(※CR-011により追加) */
+  pendingRequest?: string
   error?: ApiError
 }
 
@@ -26,8 +28,8 @@ type Props = {
   update: (fn: (prev: LlmPanelState) => LlmPanelState) => void
   /** 最後のひな形・復元・保存・LLM の作成の後に入力欄が編集されているか */
   dirty: boolean
-  /** 作った SQL を入力欄に入れる(自動では実行しない) */
-  onApply: (sql: string) => void
+  /** 作った SQL を入力欄に入れる(自動では実行しない)。request はその SQL を作った要求(※CR-011) */
+  onApply: (sql: string, request: string) => void
 }
 
 const toApiError = (e: unknown) =>
@@ -119,13 +121,13 @@ export default function LlmSqlPanel({ target, state, update, dirty, onApply }: P
 
   const generate = async () => {
     if (!canGenerate) return
-    update((p) => ({ ...p, running: true, error: undefined, pending: undefined }))
+    update((p) => ({ ...p, running: true, error: undefined, pending: undefined, pendingRequest: undefined }))
     try {
       const result = await generateSql(target, text)
       if (dirtyRef.current) {
-        update((p) => ({ ...p, running: false, pending: result }))
+        update((p) => ({ ...p, running: false, pending: result, pendingRequest: text }))
       } else {
-        onApply(result.sql)
+        onApply(result.sql, text)
         update((p) => ({ ...p, running: false, result }))
       }
     } catch (e) {
@@ -138,13 +140,13 @@ export default function LlmSqlPanel({ target, state, update, dirty, onApply }: P
   const settle = (apply: boolean) => {
     const pending = state.pending
     if (!pending) return
-    if (apply) onApply(pending.sql)
-    update((p) => ({ ...p, pending: undefined, result: pending }))
+    if (apply) onApply(pending.sql, state.pendingRequest ?? '')
+    update((p) => ({ ...p, pending: undefined, pendingRequest: undefined, result: pending }))
   }
 
   return (
     <Stack gap={4} data-testid="llm-sql-panel">
-      <Text size="sm" fw={600}>自然言語で SQL を作成(LLM)</Text>
+      {/* 見出しはサブタブ「自然言語で SQL を作成」が兼ねる(※CR-010により削除) */}
       <Textarea
         aria-label="LLM への要求"
         placeholder="作りたい SQL を文章で書いてください(例: 給与の高い社員を上位 5 人、姓と部署名と給与)"

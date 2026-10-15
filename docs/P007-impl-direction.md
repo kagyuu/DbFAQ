@@ -17,7 +17,9 @@
 - [x] U011 [readonly-user](./P007-impl-direction/U011-readonly-user.md) — 読み取り専用ユーザー dbfaq_ro を前提に PDB 情報・ひな型を対象スキーマ基準に、未変更のひな型の更新、README ※CR-006により追加(※CR-007 の P007 で完了の更新漏れを修正)
 - [x] U012 [llm-sql](./P007-impl-direction/U012-llm-sql.md) — 自然言語から LLM(Ollama)で SELECT を作る、ヘッダの LLM の丸、POST /api/llm/sql、受入テスト A11 ※CR-007により追加(※CR-008 の P007 で完了の更新漏れを修正)
 - [x] U013 [llm-exchange](./P007-impl-direction/U013-llm-exchange.md) — LLM へのリクエストとリプライを表示するボタン、API の exchange ※CR-008により追加
-- [ ] U014 [llm-no-perf](./P007-impl-direction/U014-llm-no-perf.md) — LLM の性能を求めない: 待ち時間の既定 600 秒・nginx 660 秒、T16・A11 を時間で判定しない ※CR-009により追加
+- [x] U014 [llm-no-perf](./P007-impl-direction/U014-llm-no-perf.md) — LLM の性能を求めない: 待ち時間の既定 600 秒・nginx 660 秒、T16・A11 を時間で判定しない ※CR-009により追加(※CR-010 の P007 で完了の更新漏れを修正)
+- [x] U015 [query-subtabs](./P007-impl-direction/U015-query-subtabs.md) — Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と共通領域に分ける ※CR-010により追加
+- [x] U016 [llm-save-defaults](./P007-impl-direction/U016-llm-save-defaults.md) — LLM で作成した Query の保存の初期値(名前=要求の先頭 20 文字、説明=要求の全文)※CR-011により追加
 
 ## 未解決事項
 

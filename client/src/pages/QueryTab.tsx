@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Code, Group, Loader, Stack, Text, Textarea } from '@mantine/core'
+import { Alert, Button, Checkbox, Code, Group, Loader, Stack, Tabs, Text, Textarea } from '@mantine/core'
 import { type Dispatch, type SetStateAction, useCallback, useMemo, useRef } from 'react'
 import { ApiError, fetchQueryCsv, runQuery } from '../api/client'
 import { useSchema } from '../api/hooks'
@@ -9,6 +9,9 @@ import SavedQueries, { type LoadedQuery } from '../components/SavedQueries'
 import { buildSelectTemplate, candidateLabel, listJoinCandidates } from '../query/template'
 
 export const MAX_SQL_CHARS = 100_000
+
+/** Query タブのサブタブ(P002 §2.2.6。※CR-010により追加) */
+export type QuerySubTab = 'join' | 'saved' | 'llm'
 
 /** Query タブの状態。TableDetailPage が持ち、タブを切り替えても保つ(P002 §2.2.1) */
 export interface QueryState {
@@ -26,6 +29,10 @@ export interface QueryState {
   baseline?: string
   /** LLM で SQL を作成する部品の状態(※CR-007により追加) */
   llm?: LlmPanelState
+  /** 入力欄の SQL を作った LLM への要求。保存の初期値に使う(P002 §2.2.8。※CR-011により追加) */
+  llmRequest?: string | null
+  /** 選択中のサブタブ。未設定なら SC-02 は join、SC-03 は saved(※CR-010により追加) */
+  subTab?: QuerySubTab
   result?: QueryResult
   error?: { kind: 'run' | 'csv'; error: ApiError; sql: string }
 }
@@ -92,12 +99,12 @@ export default function QueryTab({ detail, state, setState }: Props) {
       update({ selected })
     } else {
       const t = templateFor(selected)
-      update({ selected, sql: t, template: t, appliedSelected: selected, baseline: t })
+      update({ selected, sql: t, template: t, appliedSelected: selected, baseline: t, llmRequest: null })
     }
   }
   const applyTemplate = () => {
     const t = templateFor(s.selected)
-    update({ sql: t, template: t, appliedSelected: s.selected, baseline: t })
+    update({ sql: t, template: t, appliedSelected: s.selected, baseline: t, llmRequest: null })
   }
 
   // 保存済み Query(P002 §2.2.8。※CR-005により追加)
@@ -106,9 +113,9 @@ export default function QueryTab({ detail, state, setState }: Props) {
     [detail],
   )
   const loadedOf = (q: SavedQuery): LoadedQuery => ({ id: q.id, name: q.name, description: q.description })
-  const restore = (q: SavedQuery) => update({ sql: q.sql, baseline: q.sql, loaded: loadedOf(q) })
+  const restore = (q: SavedQuery) => update({ sql: q.sql, baseline: q.sql, loaded: loadedOf(q), llmRequest: null })
   const saved = (q: SavedQuery, sqlChanged: boolean) =>
-    update(sqlChanged ? { loaded: loadedOf(q), baseline: q.sql } : { loaded: loadedOf(q) })
+    update(sqlChanged ? { loaded: loadedOf(q), baseline: q.sql, llmRequest: null } : { loaded: loadedOf(q) })
   // LLM で SQL を作成(P002 §2.2.9。※CR-007により追加)
   const updateLlm = useCallback(
     (fn: (prev: LlmPanelState) => LlmPanelState) =>
@@ -118,7 +125,7 @@ export default function QueryTab({ detail, state, setState }: Props) {
       }),
     [setState, initial],
   )
-  const applyLlmSql = (sql: string) => update({ sql, baseline: sql })
+  const applyLlmSql = (sql: string, request: string) => update({ sql, baseline: sql, llmRequest: request })
 
   const unload = useCallback(
     () => setState((prev) => ({ ...(prev ?? initial), loaded: null })),
@@ -174,9 +181,19 @@ export default function QueryTab({ detail, state, setState }: Props) {
     el.setSelectionRange(start, Math.max(start, end))
   }
 
+  const subTab: QuerySubTab = s.subTab ?? (detail ? 'join' : 'saved')
+
   return (
     <Stack p="md" gap="sm" data-testid="query-tab">
+      {/* サブタブ(P002 §2.2.6。※CR-010により追加)。keepMounted(既定)で非表示の部品も状態を保つ */}
+      <Tabs value={subTab} onChange={(v) => v && update({ subTab: v as QuerySubTab })} variant="outline">
+        <Tabs.List>
+          {detail && <Tabs.Tab value="join">JOIN</Tabs.Tab>}
+          <Tabs.Tab value="saved">保存済み Query</Tabs.Tab>
+          <Tabs.Tab value="llm">自然言語で SQL を作成</Tabs.Tab>
+        </Tabs.List>
       {detail && (
+      <Tabs.Panel value="join" pt="sm">
       <Stack gap={4}>
         <Text size="sm" fw={600}>JOIN するテーブル(外部キー)</Text>
         {schemaPending ? (
@@ -208,20 +225,29 @@ export default function QueryTab({ detail, state, setState }: Props) {
           )}
         </Group>
       </Stack>
+      </Tabs.Panel>
       )}
 
+      <Tabs.Panel value="saved" pt="sm">
       <SavedQueries
         target={target}
         targetLabel={detail ? `${detail.table.owner}.${detail.table.name}` : 'PDB'}
         sql={s.sql}
         loaded={s.loaded ?? null}
+        llmRequest={s.llmRequest ?? null}
         dirty={dirty}
         onRestore={restore}
         onSaved={saved}
         onUnload={unload}
       />
+      </Tabs.Panel>
 
+      <Tabs.Panel value="llm" pt="sm">
       <LlmSqlPanel target={target} state={s.llm ?? initialLlmState} update={updateLlm} dirty={dirty} onApply={applyLlmSql} />
+      </Tabs.Panel>
+      </Tabs>
+
+      {/* 共通領域: 入力欄・実行・CSV・結果(※CR-010) */}
 
       <Textarea
         ref={editor}

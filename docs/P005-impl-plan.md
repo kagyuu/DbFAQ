@@ -21,6 +21,8 @@
 | U012 | llm-sql | ※CR-007により追加。backend: `llm` の設定・環境変数、`llm/`(OllamaClient、構造とデータの例、プロンプト、SQL の取り出し)、`LlmService`、`POST /api/llm/sql`、health の `llm`。frontend: ヘッダの LLM の丸(`LlmStatus`)、`LlmSqlPanel`(SC-02・SC-03)。nginx の `/api/llm/`、compose の `DBFAQ_LLM_BASE_URL`。受入テスト A11 | 大(ファイル 新規 約 12・変更 約 14、外部システム連携あり) |
 | U013 | llm-exchange | ※CR-008により追加。backend: `LlmService` の応答とエラーに `exchange`、`ApiError` の `extra`。frontend: `LlmSqlPanel` に [LLM とのやりとり] とダイアログ、`ApiError` の `exchange`。T16・T17・A11 の追加分 | 小(ファイル 変更 約 10) |
 | U014 | llm-no-perf | ※CR-009により追加。`llm.timeout_sec` の既定 600 秒、nginx の `/api/llm/` 660 秒、作成中の表示の文言、T16・A11 の待ち時間と判定 | 小(ファイル 変更 約 8) |
+| U015 | query-subtabs | ※CR-010により追加。frontend: `QueryTab.tsx` をサブタブ(Mantine `Tabs`)と共通領域に分け、選択中のサブタブを Query タブの状態に持つ。`LlmSqlPanel.tsx` の見出しを外す。クライアントの単体テスト、受入テスト A09・A10・A11 の手順にサブタブの選択を追加 | 小(ファイル 変更 約 8) |
+| U016 | llm-save-defaults | ※CR-011により追加。frontend: `QueryState.llmRequest`(LLM の作成で覚え、ひな形・復元・保存で消す)、`LlmSqlPanel` の `onApply` に要求を渡す、`SavedQueries` の [名前を付けて保存] の初期値。クライアントの単体テスト、受入テスト A11 の保存の手順 | 小(ファイル 変更 約 7) |
 | U008 | merge-common | ※CR-003により追加。`dbfaq_common`(`config.py`・`logging.py`)を `dbfaq_api`(`config.py`・`log.py`)に移し、import を直す。振る舞いは変えない | 小(移設が中心。import の変更 約 20 ファイル) |
 
 * ※CR-002: U002(mcp-server)は U007 で廃止した(成果物のコードは `dbfaq_api/oracle` に移り、MCP のツール登録・stdio 起動は削除)。U003 の「MCP ゲートウェイ」も U007 で廃止した。U001〜U006 の記述は第 1 リリース時点の記録として残す。
@@ -125,6 +127,26 @@
 | その他 | backend: `errors.py`(`ApiError` の `extra`)、`services.py`(`LlmService`)、`schemas.py`。frontend: `src/api/client.ts`・`types.ts`(`ApiError.exchange`)、`LlmSqlPanel.tsx`。テスト: `test_llm_api.py`、`LlmSqlPanel.test.tsx`、`test_t16_llm_sql.py`・`test_t17_llm_unavailable.py`、`e2e/tests/a11-llm-sql.spec.ts` |
 | インフラ | 変更なし |
 
+### U015 query-subtabs(※CR-010により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | SC-02・SC-03 の Query タブのサブタブと共通領域(P002 §2.2.6・§2.2.1・§2.3.3)、`LlmSqlPanel` の見出し(§2.2.9) |
+| API | 変更なし |
+| データモデル | 変更なし |
+| その他 | frontend: `src/pages/QueryTab.tsx`、`src/components/LlmSqlPanel.tsx`。テスト: `QueryTab.test.tsx`・`LlmSqlPanel.test.tsx`・`PdbPage.test.tsx` など、`e2e/tests/a09-query-tab.spec.ts`・`a10-saved-queries-pdb.spec.ts`・`a11-llm-sql.spec.ts` |
+| インフラ | 変更なし |
+
+### U016 llm-save-defaults(※CR-011により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | [名前を付けて保存] の初期値(P002 §2.2.8)、LLM の作成の結果の反映(§2.2.9) |
+| API | 変更なし |
+| データモデル | 変更なし |
+| その他 | frontend: `src/pages/QueryTab.tsx`、`src/components/LlmSqlPanel.tsx`・`SavedQueries.tsx`。テスト: `SavedQueries.test.tsx`・`QueryTab.test.tsx`・`LlmSqlPanel.test.tsx`、`e2e/tests/a11-llm-sql.spec.ts` |
+| インフラ | 変更なし |
+
 ### U004 frontend-er
 
 | 種別 | 対象 |
@@ -185,14 +207,22 @@ P004 の全要求 ID は上表のいずれかのスプリントに割り当た�
 
 ※CR-008により: REQ-SCREEN-032 と REQ-API-013 の CR-008 での変更分は **U013** が担う。
 
+※CR-010により: REQ-SCREEN-033 は **U015** が担う。
+
+※CR-011により: REQ-SCREEN-034 は **U016** が担う。
+
 ※P011矛盾点#5にもとづき `GET /api/schema` 行の U005 列を修正。
 
 ## 4. 依存関係
 
 ```mermaid
 flowchart LR
-  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011 --> U012 --> U013 --> U014
+  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011 --> U012 --> U013 --> U014 --> U015 --> U016
 ```
+
+* U016(CR-011)は U015 の後に行う改修スプリント。frontend だけの変更。
+
+* U015(CR-010)は U014 の後に行う改修スプリント。frontend だけの変更。
 
 * U014(CR-009)は U013 の後に行う改修スプリント。
 

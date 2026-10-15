@@ -58,3 +58,7 @@ FAIL/BLOCKED が残った場合は、Reviewer Loop(P201〜P205)への引き渡�
 **P103(CR-008、2026-10-14、`docs/test-records/20261014-0143-test-record.md`)**: T01〜T04・T06〜T17 PASS(T05 は廃止。T10・T11 は CR-007 の結果を引き継ぐ)。pytest は 2 回とも 399 passed。
 
 **P103(CR-009、2026-10-14、`docs/test-records/20261014-0758-test-record.md`)**: T01〜T04・T06〜T17 PASS。pytest は 2 回とも 399 passed。
+
+**P103(CR-010、2026-10-15、`docs/test-records/20261015-0113-test-record.md`)**: T01〜T04・T06〜T17 PASS(回帰。backend は変更なし)。pytest は 399 passed。
+
+**P103(CR-011、2026-10-15、`docs/test-records/20261015-0129-test-record.md`)**: backend は CR-010 から変更なしのため、T01〜T04・T06〜T17 は CR-010 の結果(399 passed)を引き継ぐ。

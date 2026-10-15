@@ -31,11 +31,12 @@
 ## 【実行手順】
 
 1. `/` を開く → ヘッダの「Oracle」の丸の右に「LLM」と丸があり、丸が緑(`data-status="ok"`)。マウスを乗せると `gemma4:e2b-it-qat` が表示される。
-2. `/tables/HR/EMPLOYEES?tab=query` を開く → 「自然言語で SQL を作成(LLM)」があり、要求が空の間は [LLM で SQL を作成] が押せない。[LLM とのやりとり] も押せない(まだ作成していない。※CR-008)。
+2. `/tables/HR/EMPLOYEES?tab=query` を開き、サブタブ「自然言語で SQL を作成」を押す(※CR-010により見出し「自然言語で SQL を作成(LLM)」の確認から変更)→ 要求が空の間は [LLM で SQL を作成] が押せない。[LLM とのやりとり] も押せない(まだ作成していない。※CR-008)。
 3. 要求を入力して [LLM で SQL を作成] → 作成中の表示 → 入力欄が SELECT または WITH で始まる SQL になり、「LLM(gemma4:e2b-it-qat)が作成しました」が表示され、「実行できない SQL です」は表示されない。結果の表は表示されていない(自動で実行しない)。
 3b. ※CR-008により追加: [LLM とのやりとり] を押す → ダイアログに「リクエスト: システムの指示」「リクエスト: ユーザーの文」(要求の文と `Table HR.EMPLOYEES` を含む)「リプライ」(```sql を含む)が表示される。[閉じる] で閉じる。
+3c. ※CR-011により追加: サブタブ「保存済み Query」を押し、[名前を付けて保存] を押す → ダイアログの名前が `給与の高い社員を上位5人、姓と部署名と給`(要求の先頭 20 文字)、説明が `給与の高い社員を上位5人、姓と部署名と給与を表示`(要求の全文)。[キャンセル] で閉じる(保存しない)。
 4. [実行] → 結果の行数が 1〜5 行。
-5. api を `DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434` で作り直す(`run-suite.sh` が行う)→ ヘッダの LLM の丸が赤(`data-status="error"`)、`/tables/HR/EMPLOYEES?tab=query` で要求を入力しても [LLM で SQL を作成] が押せず、「LLM が使えないため作成できません」が表示される。Oracle の丸は緑のまま。その後 api を元の設定で作り直す。
+5. api を `DBFAQ_LLM_BASE_URL=http://llm-unreachable.invalid:11434` で作り直す(`run-suite.sh` が行う)→ ヘッダの LLM の丸が赤(`data-status="error"`)、`/tables/HR/EMPLOYEES?tab=query` でサブタブ「自然言語で SQL を作成」を押し(※CR-010)要求を入力しても [LLM で SQL を作成] が押せず、「LLM が使えないため作成できません」が表示される。Oracle の丸は緑のまま。その後 api を元の設定で作り直す。
 
 ## 【実行コマンド】
 

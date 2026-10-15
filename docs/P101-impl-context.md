@@ -40,6 +40,8 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 * **CR-007(2026-10-13)**: U012 llm-sql(`docs/P007-impl-direction/U012-llm-sql.md`)に着手する。T1 設定 → T2 OllamaClient → T3 構造・プロンプト・取り出し → T4 サービス・API・health → T5 ヘッダの丸・LlmSqlPanel → T6 中継スクリプト・nginx・compose・A11。開発用 Ollama は `http://localhost:11434`(WSL から)。compose からは `deploy/dev/llm-relay.sh start` と `.env` の `DBFAQ_LLM_BASE_URL=http://host.docker.internal:11435`。LLM の応答は 1 回数十秒かかる。
 * **CR-008(2026-10-14)**: U013 llm-exchange(`docs/P007-impl-direction/U013-llm-exchange.md`)に着手する。T1 backend の `exchange`(`ApiError` の `extra`)→ T2 `LlmSqlPanel` のボタンとダイアログ → T3 T16・T17・A11 の追加分。
 * **CR-009(2026-10-14)**: U014 llm-no-perf(`docs/P007-impl-direction/U014-llm-no-perf.md`)。待ち時間の既定(600 秒)・nginx(660 秒)・作成中の文言・T16・A11 の待ち時間。
+* **CR-010(2026-10-15)**: U015 query-subtabs(`docs/P007-impl-direction/U015-query-subtabs.md`)。frontend だけ。T1 `QueryTab` のサブタブ(Mantine `Tabs`、`keepMounted`)と共通領域 → T2 A09・A10・A11 の手順。Playwright の `getByRole('tab', { name: 'Query' })` はサブタブ「保存済み Query」にも部分一致するため `exact: true` にする。
+* **CR-011(2026-10-15)**: U016 llm-save-defaults(`docs/P007-impl-direction/U016-llm-save-defaults.md`)。frontend だけ。T1 LLM の要求を `QueryState` に覚えて [名前を付けて保存] の初期値にする → T2 A11 手順 3c。
 * 各スプリントの P102 が終わるたびに本書の「着手するスプリント」を更新する。全スプリント完了後に P103(P008 の T01〜T12 を一括実行)。
 
 ## 4. 詳細仕様の場所

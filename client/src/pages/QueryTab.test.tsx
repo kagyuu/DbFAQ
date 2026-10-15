@@ -231,10 +231,12 @@ describe('保存済み Query', () => {
       'POST /api/query': { body: RESULT },
     })
     renderWithProviders(<Host />)
+    fireEvent.click(screen.getByRole('tab', { name: '保存済み Query' })) // ※CR-010
     fireEvent.click(await screen.findByRole('button', { name: '復元: 部署50' }))
     expect(editor().value).toBe(SAVED.sql)
     expect(fetchMock.mock.calls.some(([u]) => u === '/api/saved-queries?scope=table&owner=HR&table=EMPLOYEES')).toBe(true)
     // 未編集のひな形ではないので、チェックボックスでは置き換わらない
+    fireEvent.click(screen.getByRole('tab', { name: 'JOIN' })) // ※CR-010
     fireEvent.click(await screen.findByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ }))
     expect(editor().value).toBe(SAVED.sql)
     fireEvent.click(runButton())
@@ -244,12 +246,14 @@ describe('保存済み Query', () => {
     // タブを切り替えても復元中が残る
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
     fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('tab', { name: '保存済み Query' })) // ※CR-010
     expect(screen.getByTestId('loaded-query')).toHaveTextContent('復元中: 部署50')
   })
 
   test('ひな形のままなら確認なしで復元、編集後は確認する', async () => {
     mockFetch({ '/api/schema': { body: HR_VIEW }, 'GET /api/saved-queries': { body: { items: [SAVED] } } })
     renderWithProviders(<Host />)
+    fireEvent.click(screen.getByRole('tab', { name: '保存済み Query' })) // ※CR-010
     fireEvent.click(await screen.findByRole('button', { name: '復元: 部署50' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     fireEvent.change(editor(), { target: { value: 'SELECT 1 FROM DUAL' } })
@@ -261,3 +265,63 @@ describe('保存済み Query', () => {
     expect(csvFileName('PDB', new Date(2026, 9, 7, 21, 3, 4))).toBe('PDB_query_20261007-210304.csv')
   })
 })
+
+// ※CR-010により追加: サブタブと共通領域(P002 §2.2.6)
+describe('サブタブ', () => {
+  const tab = (name: string) => screen.getByRole('tab', { name })
+
+  test('SC-02 は 3 つで初期は JOIN。選んだ部品だけを表示し、共通領域は常に表示する', async () => {
+    mockFetch({ '/api/schema': { body: HR_VIEW }, 'GET /api/saved-queries': { body: { items: [] } }, 'POST /api/query': { body: RESULT } })
+    renderWithProviders(<Host />)
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['JOIN', '保存済み Query', '自然言語で SQL を作成'])
+    expect(tab('JOIN')).toHaveAttribute('aria-selected', 'true')
+    expect(await screen.findByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '名前を付けて保存' })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'LLM への要求' })).toBeNull()
+
+    fireEvent.click(tab('保存済み Query'))
+    expect(screen.getByRole('button', { name: '名前を付けて保存' })).toBeVisible()
+    expect(screen.queryByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ })).toBeNull()
+    expect(screen.queryByRole('textbox', { name: 'LLM への要求' })).toBeNull()
+    expect(editor()).toBeVisible()
+    expect(screen.getByRole('button', { name: 'CSV ダウンロード' })).toBeVisible()
+    fireEvent.click(runButton())
+    expect(await screen.findByRole('table', { name: 'Query の結果' })).toBeVisible()
+
+    fireEvent.click(tab('自然言語で SQL を作成'))
+    expect(screen.getByRole('textbox', { name: 'LLM への要求' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '名前を付けて保存' })).toBeNull()
+    expect(editor()).toBeVisible()
+    expect(screen.getByRole('table', { name: 'Query の結果' })).toBeVisible()
+  })
+
+  test('切り替えても入力・選択を保ち、画面のタブを切り替えて戻ってもサブタブを保つ', async () => {
+    mockFetch({ '/api/schema': { body: HR_VIEW }, 'GET /api/saved-queries': { body: { items: [] } } })
+    renderWithProviders(<Host />)
+    fireEvent.click(await screen.findByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ }))
+    fireEvent.click(tab('自然言語で SQL を作成'))
+    fireEvent.change(screen.getByRole('textbox', { name: 'LLM への要求' }), { target: { value: '社員の数' } })
+    fireEvent.click(tab('JOIN'))
+    expect(screen.getByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ })).toBeChecked()
+    expect(editor().value).toContain('LEFT JOIN HR.DEPARTMENTS t1')
+    fireEvent.click(tab('自然言語で SQL を作成'))
+    expect(screen.getByRole('textbox', { name: 'LLM への要求' })).toHaveValue('社員の数')
+    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    fireEvent.click(screen.getByRole('button', { name: '切替' }))
+    expect(tab('自然言語で SQL を作成')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('textbox', { name: 'LLM への要求' })).toHaveValue('社員の数')
+  })
+
+  test('SC-03(detail なし)は 2 つで初期は保存済み Query', () => {
+    mockFetch({ '/api/schema': { body: HR_VIEW }, 'GET /api/saved-queries': { body: { items: [] } } })
+    renderWithProviders(<QueryTabPdbHost />)
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['保存済み Query', '自然言語で SQL を作成'])
+    expect(tab('保存済み Query')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: '名前を付けて保存' })).toBeVisible()
+  })
+})
+
+function QueryTabPdbHost() {
+  const [state, setState] = useState<QueryState | null>(null)
+  return <QueryTab state={state} setState={setState} />
+}

@@ -15,5 +15,7 @@
 | CR-007 | 自然言語の要求から LLM(Ollama)で SELECT 文を作る。LLM の稼働状況をヘッダに表示する | 完了 | 中 | [リンク](./P901-cr-direction/CR-007.md) | [リンク](./P903-cr-records/CR-007.md) |
 | CR-008 | LLM で SQL を作るときの、LLM へのリクエストと LLM のリプライを表示するボタンを追加する | 完了 | 低 | [リンク](./P901-cr-direction/CR-008.md) | [リンク](./P903-cr-records/CR-008.md) |
 | CR-009 | LLM で SQL を作る機能には性能を求めない。時間がかかっても正しく SQL が作られることだけを検証する | 完了 | 低 | [リンク](./P901-cr-direction/CR-009.md) | [リンク](./P903-cr-records/CR-009.md) |
+| CR-010 | Query タブにサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)を設け、SQL の入力欄・実行・CSV・結果は共通領域として常に表示する | 完了 | 中 | [リンク](./P901-cr-direction/CR-010.md) | [リンク](./P903-cr-records/CR-010.md) |
+| CR-011 | LLM で作成した Query を保存するとき、要求の先頭 20 文字を名前、要求の全文を説明の既定値にする | 完了 | 低 | [リンク](./P901-cr-direction/CR-011.md) | [リンク](./P903-cr-records/CR-011.md) |
 
 状態: 未対応 / 対応中 / 反映確認中 / 完了 / 却下。優先度: 高 / 中 / 低 / N/A(却下のみ)。

@@ -201,7 +201,7 @@ wheels = [
 
 [[package]]
 name = "dbfaq-server"
-version = "0.7.1"
+version = "0.7.3"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

@@ -31,6 +31,7 @@
 ## 【実行手順】
 
 1. `/tables/HR/EMPLOYEES` を開き [Query] タブを押す → URL に `tab=query`。入力欄が `SELECT` で始まり、`t0.EMPLOYEE_ID` と `FROM HR.EMPLOYEES t0`、`ORDER BY t0.EMPLOYEE_ID` を含む。
+1b. ※CR-010により追加: Query タブの上部にサブタブ「JOIN」「保存済み Query」「自然言語で SQL を作成」があり、「JOIN」が選ばれていて、JOIN のチェックボックスが表示され、保存済み Query の一覧と LLM への要求の入力欄は表示されていない。「保存済み Query」を押す → 保存済み Query の一覧が表示され、JOIN のチェックボックスは表示されず、入力欄・[実行]・[CSV ダウンロード] は表示されたまま。「自然言語で SQL を作成」を押す → LLM への要求の入力欄が表示され、保存済み Query の一覧は表示されず、入力欄・[実行] は表示されたまま。「JOIN」に戻す。
 2. ページを再読み込み → Query タブが選ばれたまま。
 3. チェックボックス「→ DEPARTMENTS EMP_DEPT_FK」を ON → 入力欄が `LEFT JOIN HR.DEPARTMENTS t1 ON t1.DEPARTMENT_ID = t0.DEPARTMENT_ID` と `t1.DEPARTMENT_NAME` を含む。
 4. [実行] → 結果の表が表示され、「107 行」と取得時間が表示される。1 行目の 1 列目が `100`、`DEPARTMENT_NAME` の列に `Executive` がある。`(null)` のセルがある(COMMISSION_PCT)。
@@ -39,6 +40,7 @@
 7. 入力欄を `SELECT 1\nFROM HR.EMPLOYEES\nWHERE BAR = 1` にして [実行] → `[ORA-00904]` を含むエラーと「エラー位置: 3 行目 7 文字目」が表示される。[エラー位置へ移動] を押すと、入力欄の選択範囲の開始位置が 33 になる。
 8. 入力欄を `DELETE FROM HR.EMPLOYEES` にして [実行] → 「実行できない SQL です」を含むエラーが表示される。
 9. スキーマ情報タブ・データタブに切り替えると従来どおり表示され、Query タブに戻ると手順 8 の入力が残っている。
+10. ※CR-010により追加: サブタブ「保存済み Query」を選び、[実行] を押す → 共通領域にエラー(「実行できない SQL です」)が表示される。データタブに切り替えて Query タブに戻る → 「保存済み Query」が選ばれたまま。
 
 ## 【実行コマンド】
 
@@ -46,7 +48,7 @@
 
 ## 【期待結果】
 
-* 1〜9 がすべて成り立つ。
+* 1〜10 がすべて成り立つ(※CR-010により 1b・10 を追加)。
 
 ## 【合否判定基準】
 

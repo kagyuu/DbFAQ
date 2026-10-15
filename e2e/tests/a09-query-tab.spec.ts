@@ -11,16 +11,38 @@ test('ひな形 → JOIN → 実行 → 打ち切り → CSV → エラー位置
 
   // 1
   await page.goto('/tables/HR/EMPLOYEES')
-  await page.getByRole('tab', { name: 'Query' }).click()
+  await page.getByRole('tab', { name: 'Query', exact: true }).click()
   await expect(page).toHaveURL(/tab=query/)
   await expect(editor).toHaveValue(/^SELECT\n/)
   await expect(editor).toHaveValue(/t0\.EMPLOYEE_ID/)
   await expect(editor).toHaveValue(/FROM HR\.EMPLOYEES t0/)
   await expect(editor).toHaveValue(/ORDER BY t0\.EMPLOYEE_ID/)
 
+  // 1b(※CR-010): サブタブと共通領域
+  const sub = (name: string) => page.getByRole('tab', { name, exact: true })
+  const fk = page.getByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ })
+  const saveButton = page.getByRole('button', { name: '名前を付けて保存' })
+  const llmRequest = page.getByRole('textbox', { name: 'LLM への要求' })
+  await expect(sub('JOIN')).toHaveAttribute('aria-selected', 'true')
+  await expect(fk).toBeVisible()
+  await expect(saveButton).toBeHidden()
+  await expect(llmRequest).toBeHidden()
+  await sub('保存済み Query').click()
+  await expect(saveButton).toBeVisible()
+  await expect(fk).toBeHidden()
+  await expect(editor).toBeVisible()
+  await expect(page.getByRole('button', { name: /実行/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'CSV ダウンロード' })).toBeVisible()
+  await sub('自然言語で SQL を作成').click()
+  await expect(llmRequest).toBeVisible()
+  await expect(saveButton).toBeHidden()
+  await expect(editor).toBeVisible()
+  await expect(page.getByRole('button', { name: /実行/ })).toBeVisible()
+  await sub('JOIN').click()
+
   // 2
   await page.reload()
-  await expect(page.getByRole('tab', { name: 'Query' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Query', exact: true })).toHaveAttribute('aria-selected', 'true')
 
   // 3
   await page.getByRole('checkbox', { name: /→ DEPARTMENTS EMP_DEPT_FK/ }).check()
@@ -78,6 +100,15 @@ test('ひな形 → JOIN → 実行 → 打ち切り → CSV → エラー位置
   await expect(page.getByRole('table', { name: '列' })).toBeVisible()
   await page.getByRole('tab', { name: 'データ' }).click()
   await expect(page.getByRole('table', { name: 'データ' }).locator('tbody tr')).toHaveCount(50)
-  await page.getByRole('tab', { name: 'Query' }).click()
+  await page.getByRole('tab', { name: 'Query', exact: true }).click()
   await expect(editor).toHaveValue('DELETE FROM HR.EMPLOYEES')
+
+  // 10(※CR-010): どのサブタブでも共通領域で実行でき、選択中のサブタブは画面のタブを切り替えても保つ
+  await sub('保存済み Query').click()
+  await page.getByRole('button', { name: /実行/ }).click()
+  await expect(page.getByTestId('query-error')).toContainText('実行できない SQL です')
+  await page.getByRole('tab', { name: 'データ' }).click()
+  await page.getByRole('tab', { name: 'Query', exact: true }).click()
+  await expect(sub('保存済み Query')).toHaveAttribute('aria-selected', 'true')
+  await expect(saveButton).toBeVisible()
 })

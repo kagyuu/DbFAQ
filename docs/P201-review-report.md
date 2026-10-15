@@ -1,6 +1,22 @@
 # P201 実装横断レビュー
 
-## 最新の判定(CR-009 の 1 回目)
+## 最新の判定(CR-011 の 1 回目)
+
+* P008: backend は CR-010 から変更なしのため T01〜T04・T06〜T17 は CR-010 の結果を引き継ぐ(単体 Python 352 は再実行して合格)。P009: A01〜A06・A08〜A11 PASS(2 回続けて出力が同一。A07 PASS)。A11 は手順 3c(LLM で作成した Query の保存の初期値)を加えて実行した。記録: `docs/test-records/20261015-0129-test-record.md`
+
+**判定: 全件 PASS。Closing(P301〜)へ進む(P202〜P205 は不要)。**
+
+---
+
+## (以前の判定)CR-010 の 1 回目
+
+* P008: T01〜T04・T06〜T17 PASS(回帰。backend は変更なし)。pytest は 399 passed。P009: A01〜A06・A08〜A11 PASS(2 回続けて出力が同一。A07 PASS)。A09(手順 1b・10)・A10・A11 はサブタブの手順を加えて実行した。記録: `docs/test-records/20261015-0113-test-record.md`
+
+**判定: 全件 PASS。Closing(P301〜)へ進む(P202〜P205 は不要)。**
+
+---
+
+## (以前の判定)CR-009 の 1 回目
 
 * P008: T01〜T04・T06〜T17 PASS。pytest は 2 回続けて 399 passed。P009: A01〜A06・A08〜A11 PASS(2 回続けて出力が同一。A07 PASS)。記録: `docs/test-records/20261014-0758-test-record.md`
 * LLM の作成(T16・A11)は、時間では判定せず、SQL が作られ・検査に通り・実行できることで判定した(CR-009)。

@@ -17,6 +17,12 @@ test.afterEach(async ({ request }) => cleanup(request))
 
 const editor = (page: Page) => page.getByRole('textbox', { name: 'SELECT 文' })
 const dialog = (page: Page) => page.getByRole('dialog')
+// ※CR-010: SC-02 の初期のサブタブは JOIN のため、保存済み Query を選んでから操作する
+const savedTab = (page: Page) => page.getByRole('tab', { name: '保存済み Query', exact: true })
+async function gotoQuery(page: Page, path: string) {
+  await page.goto(path)
+  await savedTab(page).click()
+}
 
 async function saveAs(page: Page, name: string, description = '') {
   await page.getByRole('button', { name: '名前を付けて保存' }).click()
@@ -27,7 +33,7 @@ async function saveAs(page: Page, name: string, description = '') {
 
 test('テーブルの Query の保存・復元・上書き・変更・削除', async ({ page }) => {
   // 1
-  await page.goto('/tables/HR/EMPLOYEES?tab=query')
+  await gotoQuery(page, '/tables/HR/EMPLOYEES?tab=query')
   await expect(page.getByText('保存済み Query (0)')).toBeVisible()
   await expect(page.getByText('保存済みの Query はありません')).toBeVisible()
 
@@ -45,11 +51,11 @@ test('テーブルの Query の保存・復元・上書き・変更・削除', a
   await expect(dialog(page)).toHaveCount(0)
 
   // 4
-  await page.goto('/tables/HR/DEPARTMENTS?tab=query')
+  await gotoQuery(page, '/tables/HR/DEPARTMENTS?tab=query')
   await expect(page.getByText('保存済み Query (0)')).toBeVisible()
 
   // 5
-  await page.goto('/tables/HR/EMPLOYEES?tab=query')
+  await gotoQuery(page, '/tables/HR/EMPLOYEES?tab=query')
   await expect(editor(page)).toHaveValue(/^SELECT\n {2}t0\.EMPLOYEE_ID/)
   await page.getByRole('button', { name: '復元: A10-部署50' }).click()
   await expect(editor(page)).toHaveValue(SQL50)
@@ -61,6 +67,7 @@ test('テーブルの Query の保存・復元・上書き・変更・削除', a
   await page.getByRole('button', { name: '上書き保存' }).click()
   await expect(page.getByText('上書き保存しました: A10-部署50')).toBeVisible()
   await page.reload()
+  await savedTab(page).click()
   await page.getByRole('button', { name: '復元: A10-部署50' }).click()
   await expect(editor(page)).toHaveValue(/DEPARTMENT_ID = 60/)
 
@@ -102,9 +109,11 @@ test('ドラム缶のアイコン → PDB 情報 → ひな型の実行・保存
   await expect(page.getByTestId('pdb-section-tablespaces')).toContainText('USERS')
 
   // 11
-  await page.getByRole('tab', { name: 'Query' }).click()
+  await page.getByRole('tab', { name: 'Query', exact: true }).click()
   await expect(page).toHaveURL(/tab=query/)
   await expect(page.getByText('JOIN するテーブル(外部キー)')).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'JOIN', exact: true })).toHaveCount(0) // ※CR-010
+  await expect(savedTab(page)).toHaveAttribute('aria-selected', 'true') // ※CR-010
   await expect(editor(page)).toHaveValue('')
   await expect(page.getByText('保存済み Query (17)')).toBeVisible()
   const t01 = page.getByTestId('saved-query-row').filter({ hasText: '01. USERS 表領域の大きさ' })
