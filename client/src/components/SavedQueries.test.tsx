@@ -130,6 +130,37 @@ test('復元: 未編集ならすぐ置き換え、編集中なら確認する', 
   expect(sqlBox().value).toBe('SELECT * FROM HR.EMPLOYEES WHERE DEPARTMENT_ID = 50')
 })
 
+test('行のクリックで復元する(CR-013)。編集中なら確認し、行のボタンのクリックでは復元しない', async () => {
+  mockFetch(savedQueryServer([savedQuery()]).routes)
+  renderWithProviders(<Host />)
+  await screen.findByText('保存済み Query (1)')
+  // 未編集なら名前のクリックですぐ置き換える
+  fireEvent.click(screen.getByText('部署50'))
+  expect(sqlBox().value).toBe('SELECT * FROM HR.EMPLOYEES WHERE DEPARTMENT_ID = 50')
+  expect(screen.getByTestId('loaded-query')).toHaveTextContent('復元中: 部署50')
+  // 編集してから行(説明)をクリック → [復元] と同じ確認 → キャンセルで変わらない
+  fireEvent.change(sqlBox(), { target: { value: 'SELECT 2 FROM DUAL' } })
+  fireEvent.click(screen.getByText('部署 50 の社員'))
+  expect(within(dialog()).getByText(/入力欄の SQL を「部署50」で置き換えますか/)).toBeInTheDocument()
+  fireEvent.click(within(dialog()).getByRole('button', { name: 'キャンセル' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(sqlBox().value).toBe('SELECT 2 FROM DUAL')
+  // [名前変更]・[削除] は行のクリックにならない(確認ダイアログではなく、それぞれのダイアログだけが開く)
+  fireEvent.click(screen.getByRole('button', { name: '名前変更: 部署50' }))
+  expect(within(dialog()).getByText('Query の名前と説明を変更')).toBeInTheDocument()
+  expect(screen.queryByText(/入力欄の SQL を「部署50」で置き換えますか/)).toBeNull()
+  fireEvent.click(within(dialog()).getByRole('button', { name: 'キャンセル' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  fireEvent.click(screen.getByRole('button', { name: '削除: 部署50' }))
+  expect(within(dialog()).getByText('「部署50」を削除しますか? 元に戻せません')).toBeInTheDocument()
+  expect(screen.queryByText(/入力欄の SQL を「部署50」で置き換えますか/)).toBeNull()
+  fireEvent.click(within(dialog()).getByRole('button', { name: 'キャンセル' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(sqlBox().value).toBe('SELECT 2 FROM DUAL')
+  // 行の上は指の形のカーソル
+  expect(screen.getAllByTestId('saved-query-row')[0]).toHaveStyle({ cursor: 'pointer' })
+})
+
 test('上書き保存は復元中の Query の名前・説明と入力欄の SQL を PUT する', async () => {
   const server = savedQueryServer([savedQuery()])
   const fetchMock = mockFetch(server.routes)
@@ -144,13 +175,16 @@ test('上書き保存は復元中の Query の名前・説明と入力欄の SQL
   expect(server.items[0].sql).toBe('SELECT 60 FROM DUAL')
 })
 
-test('編集で名前と説明を変える(SQL は元のまま)。復元中なら表示も変わる', async () => {
+test('名前変更で名前と説明を変える(SQL は元のまま)。復元中なら表示も変わる', async () => {
   const server = savedQueryServer([savedQuery()])
   mockFetch(server.routes)
   renderWithProviders(<Host />)
   fireEvent.click(await screen.findByRole('button', { name: '復元: 部署50' }))
   fireEvent.change(sqlBox(), { target: { value: 'SELECT 999 FROM DUAL' } })
-  fireEvent.click(screen.getByRole('button', { name: '編集: 部署50' }))
+  // CR-012: 行のボタンは [名前変更]。[編集] は無い
+  expect(screen.queryByRole('button', { name: '編集: 部署50' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: '名前変更: 部署50' }))
+  expect(within(dialog()).getByText('Query の名前と説明を変更')).toBeInTheDocument()
   fireEvent.change(within(dialog()).getByRole('textbox', { name: /名前/ }), { target: { value: '部署60' } })
   fireEvent.click(within(dialog()).getByRole('button', { name: '保存' }))
   expect(await screen.findByRole('button', { name: '復元: 部署60' })).toBeInTheDocument()

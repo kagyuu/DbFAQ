@@ -20,6 +20,8 @@
 - [x] U014 [llm-no-perf](./P007-impl-direction/U014-llm-no-perf.md) — LLM の性能を求めない: 待ち時間の既定 600 秒・nginx 660 秒、T16・A11 を時間で判定しない ※CR-009により追加(※CR-010 の P007 で完了の更新漏れを修正)
 - [x] U015 [query-subtabs](./P007-impl-direction/U015-query-subtabs.md) — Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と共通領域に分ける ※CR-010により追加
 - [x] U016 [llm-save-defaults](./P007-impl-direction/U016-llm-save-defaults.md) — LLM で作成した Query の保存の初期値(名前=要求の先頭 20 文字、説明=要求の全文)※CR-011により追加
+- [x] U017 [rename-button](./P007-impl-direction/U017-rename-button.md) — 保存済み Query の一覧の [編集] を [名前変更] に ※CR-012により追加
+- [x] U018 [row-click-restore](./P007-impl-direction/U018-row-click-restore.md) — 保存済み Query の一覧の行のクリックで復元 ※CR-013により追加
 
 ## 未解決事項
 

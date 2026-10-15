@@ -1,6 +1,6 @@
 # DbFAQ INDEX
 
-Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図とテーブル詳細(スキーマ情報・データ・Query のタブ。Query は CR-004)を見る運用者向けツール(v0.7.3)。CR-005 で Query の保存・復元(テーブルごと・PDB)と、ER 図のドラム缶のアイコンから開く PDB 画面(PDB 情報・Query・運用 Query のひな型)を追加。CR-006 で推奨の接続ユーザーを読み取り専用ユーザー dbfaq_ro にし(作り方は README)、PDB 画面とひな型を対象スキーマ基準にした。CR-007 で Query タブに自然言語から LLM(Ollama)で SQL を作る機能と、ヘッダの LLM の状態を追加した。CR-008 で LLM へのリクエストとリプライの表示を追加した。CR-010 で Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と共通領域(入力欄・実行・CSV・結果)に分けた。CR-011 で LLM で作成した Query の保存の初期値(名前=要求の先頭 20 文字、説明=要求の全文)を追加した。
+Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保存し(CR-002 で MCP を廃止)、ブラウザで ER 図とテーブル詳細(スキーマ情報・データ・Query のタブ。Query は CR-004)を見る運用者向けツール(v0.7.5)。CR-005 で Query の保存・復元(テーブルごと・PDB)と、ER 図のドラム缶のアイコンから開く PDB 画面(PDB 情報・Query・運用 Query のひな型)を追加。CR-006 で推奨の接続ユーザーを読み取り専用ユーザー dbfaq_ro にし(作り方は README)、PDB 画面とひな型を対象スキーマ基準にした。CR-007 で Query タブに自然言語から LLM(Ollama)で SQL を作る機能と、ヘッダの LLM の状態を追加した。CR-008 で LLM へのリクエストとリプライの表示を追加した。CR-010 で Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と共通領域(入力欄・実行・CSV・結果)に分けた。CR-011 で LLM で作成した Query の保存の初期値(名前=要求の先頭 20 文字、説明=要求の全文)を追加した。CR-012 で保存済み Query の一覧の [編集] を [名前変更] にした。CR-013 で一覧の行のクリックで復元するようにした。
 
 ## ソースツリー
 
@@ -37,6 +37,6 @@ Oracle のスキーマを backend(FastAPI)が直接読み取って SQLite に保
 - [docs/P302-deliver.md](./docs/P302-deliver.md) — 納品物まとめ・起動手順・リリース判定
 - [docs/BUILD_HISTORY.md](./docs/BUILD_HISTORY.md) — ビルド履歴
 - [docs/CR.md](./docs/CR.md) — 変更要求(CR)の状態の台帳
-- [docs/P901-cr-direction/](./docs/P901-cr-direction/) — 変更要求書(CR-001: 要対応 2 件のテスト追加、CR-002: MCP の廃止と backend への統合、CR-003: dbfaq_common の dbfaq_api への統合、CR-004: Query タブ、CR-005: Query の保存・復元と PDB 画面、CR-006: 読み取り専用ユーザー dbfaq_ro と対象スキーマ基準、CR-007: LLM で SQL を作成、CR-008: LLM とのやりとりの表示、CR-009: LLM の性能を求めない、CR-010: Query タブのサブタブ、CR-011: LLM で作成した Query の保存の初期値)
+- [docs/P901-cr-direction/](./docs/P901-cr-direction/) — 変更要求書(CR-001: 要対応 2 件のテスト追加、CR-002: MCP の廃止と backend への統合、CR-003: dbfaq_common の dbfaq_api への統合、CR-004: Query タブ、CR-005: Query の保存・復元と PDB 画面、CR-006: 読み取り専用ユーザー dbfaq_ro と対象スキーマ基準、CR-007: LLM で SQL を作成、CR-008: LLM とのやりとりの表示、CR-009: LLM の性能を求めない、CR-010: Query タブのサブタブ、CR-011: LLM で作成した Query の保存の初期値、CR-012: [編集] を [名前変更] に、CR-013: 行のクリックで復元)
 - [docs/P903-cr-records/](./docs/P903-cr-records/) — CR の対処記録(スコープ決定・反映確認・ADR 判定)
 - [docs/P001-requirement-old/](./docs/P001-requirement-old/) — CR 対応前の要件定義の原本(無効)

@@ -2,8 +2,8 @@
 
 ## 1. 概要
 
-* アプリケーション: DbFAQ v0.7.3(第 1 リリース + CR-001〜CR-011)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を表示する。Query タブ(CR-004)では、スキーマ情報からひな形(外部キーで JOIN)を作って任意の SELECT 文を実行し、先頭 500 行を表で、全行を CSV で得る。CR-005 で、Query の SQL を名前と説明付きでテーブルごとに保存・復元できるようにし(テーブルが無くなっても残り、同名のテーブルが戻れば再び使える)、ER 図の画面のドラム缶のアイコンから開く PDB 画面(PDB 情報と、テーブルに属さない Query。運用 Query のひな型 17 件)を追加した。CR-006 で、推奨の接続ユーザーを読み取り専用ユーザー `dbfaq_ro` にし(開発・テストもこのユーザー)、PDB 画面とひな型を対象スキーマ(`oracle.schema`)基準にした。README に `dbfaq_ro` を作る理由・作り方・`config.yaml` への登録を載せた。CR-007 で、Query タブで自然言語の要求から LLM(Ollama)に SELECT 文を作らせる機能(作るだけで自動では実行しない)と、ヘッダの LLM の状態の丸を追加した。CR-008 で、LLM に送ったリクエストと LLM のリプライを表示する [LLM とのやりとり] を追加した。CR-009 で、LLM で SQL を作る機能には性能を求めないことにした(待ち時間の既定 600 秒、時間ではなく作成できることを検証)。CR-010 で、Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と、常に表示する共通領域(入力欄・実行・CSV・結果)に分けた。CR-011 で、LLM で作成した SQL を保存するときの名前・説明の初期値を要求の先頭 20 文字・全文にした。
-* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003、2026-10-04 に CR-004、2026-10-07 に CR-005、2026-10-09 に CR-006、2026-10-13 に CR-007、2026-10-14 に CR-008・CR-009、2026-10-15 に CR-010・CR-011 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
+* アプリケーション: DbFAQ v0.7.5(第 1 リリース + CR-001〜CR-013)。Oracle のスキーマを backend(FastAPI)が python-oracledb で直接読み取り SQLite に保存し(CR-002 で MCP サーバを廃止)、ブラウザで ER 図(拡大縮小・ミニマップ・クリックで詳細へ)とテーブル詳細(スキーマ情報/データ/Query のタブ)を表示する。Query タブ(CR-004)では、スキーマ情報からひな形(外部キーで JOIN)を作って任意の SELECT 文を実行し、先頭 500 行を表で、全行を CSV で得る。CR-005 で、Query の SQL を名前と説明付きでテーブルごとに保存・復元できるようにし(テーブルが無くなっても残り、同名のテーブルが戻れば再び使える)、ER 図の画面のドラム缶のアイコンから開く PDB 画面(PDB 情報と、テーブルに属さない Query。運用 Query のひな型 17 件)を追加した。CR-006 で、推奨の接続ユーザーを読み取り専用ユーザー `dbfaq_ro` にし(開発・テストもこのユーザー)、PDB 画面とひな型を対象スキーマ(`oracle.schema`)基準にした。README に `dbfaq_ro` を作る理由・作り方・`config.yaml` への登録を載せた。CR-007 で、Query タブで自然言語の要求から LLM(Ollama)に SELECT 文を作らせる機能(作るだけで自動では実行しない)と、ヘッダの LLM の状態の丸を追加した。CR-008 で、LLM に送ったリクエストと LLM のリプライを表示する [LLM とのやりとり] を追加した。CR-009 で、LLM で SQL を作る機能には性能を求めないことにした(待ち時間の既定 600 秒、時間ではなく作成できることを検証)。CR-010 で、Query タブをサブタブ(JOIN・保存済み Query・自然言語で SQL を作成)と、常に表示する共通領域(入力欄・実行・CSV・結果)に分けた。CR-011 で、LLM で作成した SQL を保存するときの名前・説明の初期値を要求の先頭 20 文字・全文にした。CR-012 で、保存済み Query の一覧の [編集] を [名前変更] にした。CR-013 で、保存済み Query の一覧の行をクリックすると復元するようにした。
+* 作成日: 2026-09-23(2026-09-24 に CR-001、2026-09-27 に CR-002、2026-09-28 に CR-003、2026-10-04 に CR-004、2026-10-07 に CR-005、2026-10-09 に CR-006、2026-10-13 に CR-007、2026-10-14 に CR-008・CR-009、2026-10-15 に CR-010・CR-011、2026-10-16 に CR-012・CR-013 で更新)。実行モード: `一気通貫`(`docs/.mode`)。
 * 結果: 単体テスト 182 件(Python 128、クライアント 54)、結合テスト T01〜T04・T06〜T12(T05 は CR-002 で廃止)、受け入れ結合テスト A01〜A08 がすべて合格(CR-002 の P205: docs/test-records/20260927-0244-test-record.md。CR-003 後も再実行して合格: docs/test-records/20260927-2358-test-record.md、20260928-0001-test-record.md)。
 * CR-004 後の結果: 単体テスト 292 件(Python 203、クライアント 89)、結合テスト T01〜T04・T06〜T13、受け入れ結合テスト A01〜A09 がすべて合格(P205: docs/test-records/20261004-2110-test-record.md。HR のベースラインは 8 表。P202 F010)。
 * CR-005 後の結果: 単体テスト 389 件(Python 278、クライアント 111)、結合テスト T01〜T04・T06〜T15、受け入れ結合テスト A01〜A10 がすべて合格(P103: docs/test-records/20261007-0100-test-record.md、P205: docs/test-records/20261007-0130-test-record.md)。
@@ -13,14 +13,16 @@
 * CR-009 後の結果: 単体テスト 479 件(Python 352、クライアント 127)、結合テスト T01〜T04・T06〜T17、受け入れ結合テスト A01〜A11 がすべて合格(docs/test-records/20261014-0758-test-record.md)。
 * CR-010 後の結果: 単体テスト 482 件(Python 352、クライアント 130)、結合テスト T01〜T04・T06〜T17(回帰)、受け入れ結合テスト A01〜A11 がすべて合格(docs/test-records/20261015-0113-test-record.md)。
 * CR-011 後の結果: 単体テスト 486 件(Python 352、クライアント 134)、結合テスト T01〜T04・T06〜T17(CR-010 の結果を引き継ぐ)、受け入れ結合テスト A01〜A11 がすべて合格(docs/test-records/20261015-0129-test-record.md)。
-* リリース判定: **OK**(11 章。出荷影響「要対応」0 件。CR-010・CR-011 の ★FIXME★ 計 7 件(10.5 の #104〜#110)は 2026-10-16 に依頼者が受け入れた)。
+* CR-012 後の結果: 単体テスト 486 件(Python 352、クライアント 134)、結合テスト T01〜T04・T06〜T17(CR-010 の結果を引き継ぐ)、受け入れ結合テスト A01〜A11 がすべて合格(docs/test-records/20261016-0028-test-record.md)。
+* CR-013 後の結果: 単体テスト 487 件(Python 352、クライアント 135)、結合テスト T01〜T04・T06〜T17(CR-010 の結果を引き継ぐ)、受け入れ結合テスト A01〜A11 がすべて合格(docs/test-records/20261016-0055-test-record.md)。
+* リリース判定: **OK**(11 章。出荷影響「要対応」0 件。CR-012・CR-013 の ★FIXME★ 計 5 件(10.5 の #111〜#115)は 2026-10-16 に依頼者が受け入れた)。
 
 ## 2. 参照した成果物
 
 * 仕様: docs/P001-requirement.md、P002-frontend-spec.md、P003-backend-spec.md、P004-traceability-matrix.md、P005-impl-plan.md、P006-test-plan.md
 * 指示: docs/P007-impl-direction.md(U001〜U014)、P008-test-direction.md(T01〜T17。T05 は廃止)、P009-acceptance-direction.md(A01〜A11)
 * レビュー・修正: docs/P010-design-review.md、P011-impact-analysis.md、P201-review-report.md、P202-fix-plan.md(fixed/F001〜F013)、P202-fix-plan/P202-fix-resolved.md、P202-fix-plan/P202-fix-unresolved.md(未解決なし)、P204-impact-analysis.md
-* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)、20260924-2352-test-record.md(CR-001 の P201)、20260927-0233-test-record.md(CR-002 の P103)、20260927-0238-test-record.md(CR-002 の P201 1 回目)、20260927-0244-test-record.md(CR-002 の P205)、20260927-2358-test-record.md(CR-003 の P103)、20260928-0001-test-record.md(CR-003 の P201)、20261004-1430・1440・2110(CR-004)、20261007-0100(CR-005 の P103)・20261007-0115(CR-005 の P201 1 回目)・20261007-0130(CR-005 の P205)、20261009-0047(CR-006 の P103)・20261009-0051(CR-006 の P201)、20261013-0130(CR-007 の P103)・20261013-0137(CR-007 の P201)、20261014-0143(CR-008 の P103)・20261014-0159(CR-008 の P201 1 回目)・20261014-0205(CR-008 の P205)、20261014-0758(CR-009 の P103・P201)、20261015-0113(CR-010 の P103・P201)、20261015-0129(CR-011 の P103・P201)
+* テスト記録: docs/test-records/20260923-0315-test-record.md(P103)、20260923-0320-test-record.md(P201 1 回目)、20260923-0350-test-record.md(P205)、20260924-2352-test-record.md(CR-001 の P201)、20260927-0233-test-record.md(CR-002 の P103)、20260927-0238-test-record.md(CR-002 の P201 1 回目)、20260927-0244-test-record.md(CR-002 の P205)、20260927-2358-test-record.md(CR-003 の P103)、20260928-0001-test-record.md(CR-003 の P201)、20261004-1430・1440・2110(CR-004)、20261007-0100(CR-005 の P103)・20261007-0115(CR-005 の P201 1 回目)・20261007-0130(CR-005 の P205)、20261009-0047(CR-006 の P103)・20261009-0051(CR-006 の P201)、20261013-0130(CR-007 の P103)・20261013-0137(CR-007 の P201)、20261014-0143(CR-008 の P103)・20261014-0159(CR-008 の P201 1 回目)・20261014-0205(CR-008 の P205)、20261014-0758(CR-009 の P103・P201)、20261015-0113(CR-010 の P103・P201)、20261015-0129(CR-011 の P103・P201)、20261016-0028(CR-012 の P103・P201)、20261016-0045(CR-013 の P103・P201 1 回目)、20261016-0055(CR-013 の P205)
 * 技術: docs/ADR.md(ADR-002〜018)、docs/ADR_master.md(廃止した ADR-001)、docs/ArchitectureHandbook.md、./INDEX.md、server/INDEX.md、client/INDEX.md
 * 配布資産: compose.yaml、deploy/api.Dockerfile、deploy/web.Dockerfile、deploy/nginx.conf、config.example.yaml、.dockerignore、server/pyproject.toml、client/package.json、README.md、docs/BUILD_HISTORY.md
 * 存在しないもの: docs/P000-concept-analysis.md(要求はプロンプトで受領)、.env.example(設定は config.yaml。compose の上書き用の環境変数は 7 章に記載)、(CR は docs/CR.md。CR-001・CR-002 完了、CR-003 は P904 で完了にする)
@@ -102,6 +104,8 @@
 | REQ-SCREEN-032 | REQ-SCREEN-032 | LLM へのリクエストとリプライを表示するボタン(エラー時も、コピー可)(CR-008) | P006 §2.1「LLM とのやりとりの表示」 | A11 手順 2・3b、T16 手順 3b、T17 手順 1b、U013 | a11、test_t16、test_t17、LlmSqlPanel.test.tsx、test_llm_api.py | PASS | docs/test-records/20261014-0205-test-record.md | OK | - |
 | REQ-SCREEN-033 | REQ-SCREEN-033 | Query タブのサブタブ(JOIN・保存済み Query・自然言語で SQL を作成。SC-03 は 2 つ)と常に表示する共通領域(CR-010) | P006 §2.1「Query タブのサブタブ」 | A09 手順 1b・10、A10、A11、U015-T1 | `e2e/tests/a09-query-tab.spec.ts`、`client/src/pages/QueryTab.test.tsx`(サブタブ) | PASS | docs/test-records/20261015-0113-test-record.md | OK | - |
 | REQ-SCREEN-034 | REQ-SCREEN-034 | LLM で作成した Query の保存の初期値(名前=要求の先頭 20 文字、説明=要求の全文。1,000 文字で切る)(CR-011) | P006 §2.1「LLM で作成した Query の保存の初期値」 | A11 手順 3c、U016-T1 | `e2e/tests/a11-llm-sql.spec.ts`、`client/src/components/SavedQueries.test.tsx`(`saveDefaults`)、`LlmSqlPanel.test.tsx`(CR-011) | PASS | docs/test-records/20261015-0129-test-record.md | OK | - |
+| REQ-SCREEN-035 | REQ-SCREEN-035 | 保存済み Query の一覧の [編集] を [名前変更] に(CR-012) | P006 §2.1「frontend の保存済み Query」の名前変更 | A10 手順 8、U017-T1 | `e2e/tests/a10-saved-queries-pdb.spec.ts`、`client/src/components/SavedQueries.test.tsx`(名前変更) | PASS | docs/test-records/20261016-0028-test-record.md | OK | - |
+| REQ-SCREEN-036 | REQ-SCREEN-036 | 保存済み Query の一覧の行のクリックで復元(行のボタンを除く)(CR-013) | P006 §2.1「frontend の保存済み Query」の行のクリック | A10 手順 7b、U018-T1 | `e2e/tests/a10-saved-queries-pdb.spec.ts`、`client/src/components/SavedQueries.test.tsx`(行のクリック) | PASS | docs/test-records/20261016-0055-test-record.md | OK | - |
 | REQ-LLM-001 | REQ-LLM-001 | LLM の設定(config.yaml の llm、DBFAQ_LLM_BASE_URL)(CR-007) | P006 §2.1「LLM の設定」「LLM アクセス」 | T17、U012-T1・T2 | test_config.py、test_client.py、test_t17 | PASS | 同上 | OK | - |
 | REQ-LLM-002 | REQ-LLM-002 | LLM に渡す情報・SQL の取り出し・検査(CR-007) | P006 §2.1「LLM に渡す情報とプロンプト」「SQL の取り出しと検査」 | T16、U012-T3 | test_context.py、test_prompt.py、test_t16 | PASS | 同上 | OK | - |
 | REQ-ARCH-003 | REQ-ARCH-003 | スキーマ情報と保存済み Query(CR-005)を SQLite に保存し再起動後も保持 | P006 §2.3 | A04(手順 8 は CR-005)、U003-T1・T2、U010-T1 | a04-restart.sh、test_migrate.py、test_saved_query_repo.py | PASS | docs/test-records/20261007-0130-test-record.md | OK | - |
@@ -127,11 +131,11 @@
 
 | 対象 | バージョンの定義 | 実行時の確認方法 |
 |---|---|---|
-| backend | `server/pyproject.toml` の `project.version = "0.7.3"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
-| フロントエンド | `client/package.json` の `version = "0.7.3"` | 画面には表示しない(10 章) |
+| backend | `server/pyproject.toml` の `project.version = "0.7.5"`、`dbfaq_api.__version__`(FastAPI の `version` も同じ値を使う) | `curl http://localhost:8088/api/health` の `backend.version` |
+| フロントエンド | `client/package.json` の `version = "0.7.5"` | 画面には表示しない(10 章) |
 | E2E | `e2e/package.json` の `version = "0.1.0"` | - |
 
-* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B029)。CR-011 は画面の保存のダイアログの初期値だけを変えたため PATCH を上げて **0.7.3** にした。CR-010 は画面の配置(Query タブのサブタブ)だけを変え、API・データの契約を変えないため PATCH を上げて **0.7.2** にした(backend は版数だけ)。CR-009 は API・画面の構成を変えず、設定の既定(`llm.timeout_sec` 180 → 600 秒)と nginx の待ち時間・表示の文言だけを変えたため PATCH を上げて **0.7.1** にした。CR-008 は `POST /api/llm/sql` の応答とエラーに `exchange` を、画面に [LLM とのやりとり] を後方互換で追加したため MINOR を上げて **0.7.0** にした(backend・frontend)。CR-007 は API(`POST /api/llm/sql`、health の `llm`、エラーコード 3 つ)と画面を後方互換で追加したため MINOR を上げて **0.6.0** にした(backend・frontend)。CR-006 は API の形を変えないが、`GET /api/pdb` の内容(概要の項目名、表領域の割り当て・セグメントの使用量が対象スキーマの分になる)と、Query のスキーマ名の無い表名の解釈(カレントスキーマを対象スキーマにする)が変わるため、MINOR を上げて **0.5.0** にした(backend・frontend)。CR-005 は API(保存済み Query の 4 本と `GET /api/pdb`、エラーコード `SAVED_QUERY_NOT_FOUND`・`QUERY_NAME_CONFLICT`)とデータモデル(SQLite の `saved_queries`・`query_template_seeds`。マイグレーション 0002)を追加した。既存の API・テーブルは変えていない後方互換の機能追加のため MINOR を上げて **0.4.0** にした(backend・frontend)。CR-004 は API を追加した(`POST /api/query`・`POST /api/query/csv`、エラーの任意項目 `position`、エラーコード `SQL_REJECTED`。既存の API は変えていない。`docs/P903-cr-records/CR-004.md` で「API契約変更」に分類)後方互換の機能追加のため MINOR を上げて **0.3.0** にした(backend・frontend)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
+* ビルド履歴: [docs/BUILD_HISTORY.md](./BUILD_HISTORY.md)(B001〜B033)。CR-013 は画面の操作(一覧の行のクリックで復元)を足しただけで API・データの契約を変えないため PATCH を上げて **0.7.5** にした。CR-012 は画面のボタンの名前だけを変えたため PATCH を上げて **0.7.4** にした。CR-011 は画面の保存のダイアログの初期値だけを変えたため PATCH を上げて **0.7.3** にした。CR-010 は画面の配置(Query タブのサブタブ)だけを変え、API・データの契約を変えないため PATCH を上げて **0.7.2** にした(backend は版数だけ)。CR-009 は API・画面の構成を変えず、設定の既定(`llm.timeout_sec` 180 → 600 秒)と nginx の待ち時間・表示の文言だけを変えたため PATCH を上げて **0.7.1** にした。CR-008 は `POST /api/llm/sql` の応答とエラーに `exchange` を、画面に [LLM とのやりとり] を後方互換で追加したため MINOR を上げて **0.7.0** にした(backend・frontend)。CR-007 は API(`POST /api/llm/sql`、health の `llm`、エラーコード 3 つ)と画面を後方互換で追加したため MINOR を上げて **0.6.0** にした(backend・frontend)。CR-006 は API の形を変えないが、`GET /api/pdb` の内容(概要の項目名、表領域の割り当て・セグメントの使用量が対象スキーマの分になる)と、Query のスキーマ名の無い表名の解釈(カレントスキーマを対象スキーマにする)が変わるため、MINOR を上げて **0.5.0** にした(backend・frontend)。CR-005 は API(保存済み Query の 4 本と `GET /api/pdb`、エラーコード `SAVED_QUERY_NOT_FOUND`・`QUERY_NAME_CONFLICT`)とデータモデル(SQLite の `saved_queries`・`query_template_seeds`。マイグレーション 0002)を追加した。既存の API・テーブルは変えていない後方互換の機能追加のため MINOR を上げて **0.4.0** にした(backend・frontend)。CR-004 は API を追加した(`POST /api/query`・`POST /api/query/csv`、エラーの任意項目 `position`、エラーコード `SQL_REJECTED`。既存の API は変えていない。`docs/P903-cr-records/CR-004.md` で「API契約変更」に分類)後方互換の機能追加のため MINOR を上げて **0.3.0** にした(backend・frontend)。CR-001 はテストの追加だけでアプリケーションの画面・API・データ契約を変えていないため、版数は 0.1.0 のまま。CR-002 は API 契約を変えた(`GET /api/health` から `mcp` を削除、エラーコード `MCP_UNAVAILABLE` を削除。`docs/P903-cr-records/CR-002.md` で「API契約変更」に分類)ため、MAJOR が 0 の間の規則により MINOR を上げて **0.2.0** にした(backend・frontend。E2E は変更が無いため 0.1.0 のまま)。CR-003 は API・画面・データ契約を変えない内部構成の変更(パッケージの統合)のため PATCH を上げて **0.2.1** にした(backend・frontend は同じ版数で揃えている。frontend のコードは変えていない)。B001〜B003 の作業ツリーは 9579d85 としてコミット済み。B004(CR-001)の変更はその次のコミットに含まれる。
 
 ## 6. 配布資産一覧
 
@@ -209,6 +213,8 @@
 * 2026-09-27 に CR-002(MCP の廃止と backend への統合)として: P103 で T01〜T04・T06〜T12 PASS(docs/test-records/20260927-0233-test-record.md)。P201 1 回目で A03 FAIL(ホスト名を解決できないとき health が 500)と T08 の所見(Oracle に届かない間プールの close が約 2 分戻らない)を見つけ、F007・F008 で修正(docs/test-records/20260927-0238-test-record.md)。P205 で単体 + 結合の pytest を 2 回続けて 144 passed、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260927-0244-test-record.md)。版数を 0.2.0 に上げた後にも `run-suite.sh` を 1 回実行し全 PASS、`/api/health` の `backend.version` が 0.2.0(B007)。
 * 2026-09-27〜28 に CR-003(`dbfaq_common` を `dbfaq_api` に統合)として: 単体 + 結合の pytest を 2 回続けて 144 passed、T10〜T12 PASS(docs/test-records/20260927-2358-test-record.md)、A01〜A06・A08 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20260928-0001-test-record.md)。版数を 0.2.1 に上げた後にも単体 128 + 54 passed、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.2.1(B009)。
 * 2026-10-04 に CR-004(Query タブ)として: P103 で T02〜T04・T07・T09〜T11・T13 PASS、T01・T06・T08・T12 FAIL(docs/test-records/20261004-1430-test-record.md)。P201 1 回目で A01・A03・A05 FAIL、A06 は偽の PASS(docs/test-records/20261004-1440-test-record.md)。原因は開発用 Oracle の HR に 2026-09-29 に表 `EMPLOYEE_FIGURE` が追加されたことと、チェックサムのスクリプトが LOB の表に対応せず失敗を検出しなかったこと。F009(チェックサムの修正)・F010(依頼者の判断で 8 表を新しいベースラインに)の後、P205 で単体 + 結合の pytest を 2 回続けて 225 passed、A01〜A06・A08・A09 を 2 回続けて全 PASS・出力同一(A07 PASS)(docs/test-records/20261004-2110-test-record.md)。版数を 0.3.0 に上げた後にも単体 203 + 89 passed、クライアントのビルド成功、`run-suite.sh` 1 回全 PASS、`backend.version` が 0.3.0(B011)。
+* 2026-10-16 に CR-013(行のクリックで復元)として: クライアント単体を 2 回続けて 135 passed(行のクリックの 1 件を追加)、単体 Python 352 passed(結合は backend が変わらないため CR-010 の結果を引き継ぐ)、A01〜A11 を 2 回続けて全 PASS・結果同一(A07 PASS)。A10 に手順 7b(行のクリック)を追加した。P201 の 1 回目は A05 の大規模の ER 図の表示が 2 回目に 3,402 ms で FAIL(docs/test-records/20261016-0045-test-record.md)。単独では再現せず、測定環境のばらつきと判断し(P202 F014。コードの変更なし)、P205 で 2 回続けて全 PASS(docs/test-records/20261016-0055-test-record.md)。版数を 0.7.5 に上げた後の確認は B033。
+* 2026-10-16 に CR-012([編集] を [名前変更] に)として: クライアント単体を 2 回続けて 134 passed、単体 Python 352 passed(結合は backend が変わらないため CR-010 の結果を引き継ぐ)、A01〜A11 を 2 回続けて全 PASS・結果同一(A07 PASS)。A10 の手順 8 を [名前変更] に変えた(docs/test-records/20261016-0028-test-record.md)。版数を 0.7.4 に上げた後の確認は B031。
 * 2026-10-15 に CR-011(LLM で作成した Query の保存の初期値)として: クライアント単体を 2 回続けて 134 passed、単体 Python 352 passed(結合は backend が変わらないため CR-010 の結果を引き継ぐ)、A01〜A11 を 2 回続けて全 PASS・出力同一(A07 PASS)。A11 に手順 3c(保存の初期値)を追加した(docs/test-records/20261015-0129-test-record.md)。版数を 0.7.3 に上げた後の確認は B029。
 * 2026-10-15 に CR-010(Query タブのサブタブ)として: クライアント単体を 2 回続けて 130 passed、単体 + 結合の pytest 399 passed(回帰)、A01〜A11 を 2 回続けて全 PASS・出力同一(A07 PASS)。A09・A10・A11 はサブタブの手順を追加した(docs/test-records/20261015-0113-test-record.md)。版数を 0.7.2 に上げた後の確認は B027。
 * 2026-10-14 に CR-009(LLM の性能を求めない)として: 単体 + 結合の pytest を 2 回続けて 399 passed、T12 PASS(nginx の `/api/llm/` 660 秒)、A01〜A11 を 2 回続けて全 PASS・出力同一(A07 PASS)。T16・A11 は時間では判定せず、作成・検査・実行で判定した(docs/test-records/20261014-0758-test-record.md)。版数を 0.7.1 に上げた後の確認は B025。
@@ -251,7 +257,7 @@
 
 * ヘッダの Oracle 状態表示(60 秒ごとの health 取得)、データタブのページ番号の URL 保持、関数索引の式の表示。CR-004: Query タブの入力内容をタブの切り替えで保持、[エラー位置へ移動]、Ctrl+Enter での実行、CSV 応答の `X-Row-Count` ヘッダ。CR-005: 保存済み Query の一覧のひな型の印・更新日時、[名前を付けて保存] の名前の初期値「 のコピー」。いずれも実装・テスト済み。要求書に追加するか、削るかを人間が判断する(CR の起票候補)。
 
-### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件、CR-004・CR-005 の各 12 件、CR-006 の 3 件、CR-007 の 12 件、CR-008 の 2 件、CR-009 の 2 件、CR-010 の 4 件、CR-011 の 3 件はすべて解消済み)
+### 10.5 ★FIXME★ 一覧(第 1 リリースの 58 件、CR-002・CR-003 の各 1 件、CR-004・CR-005 の各 12 件、CR-006 の 3 件、CR-007 の 12 件、CR-008 の 2 件、CR-009 の 2 件、CR-010 の 4 件、CR-011 の 3 件、CR-012 の 2 件、CR-013 の 3 件はすべて解消済み)
 
 **未解消の★FIXME★: 0件。** 2026-09-24 に人間が下表の 58 件をすべて確認し、Agent の想定をそのまま受け入れた。各箇所の ★FIXME★ は ★ACCEPTED★ に書き換え、検討内容・承認理由・残存リスクを同じ行に記載した。同じ判断で `server/src/dbfaq_mcp/snapshot.py` の `iso_utc` の注記(#50 と同じ論点)も ★ACCEPTED★ にした。#57 は指示文中の手順の説明であり、印ではないため書き換えていない。
 
@@ -446,14 +452,54 @@
 | 109 | `docs/P002-frontend-spec.md` §2.2.8([名前を付けて保存]) | 名前は 1 行の入力欄のため、要求の改行・連続する空白を 1 つの空白にまとめてから先頭 20 文字を取る | -(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
 | 110 | `docs/P901-cr-direction/CR-011.md` 優先度の判断理由 | 優先度の指定が無く、ルーブリック(影響度 低 × 緊急度 低)で「低」と仮置き | -(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
 
+#### CR-012 で付いた ★FIXME★(2 件。2026-10-16 に解消。未解消 0 件)
+
+**未解消の★FIXME★: 0件。** 2026-10-16 に依頼者が下表の 2 件を受け入れ(「このままでよいです」)、各箇所の ★FIXME★ を ★ACCEPTED★ に書き換えた。以下は当時の一覧。
+
+| # | 所在(ファイル・章節) | 想定で補った内容 | CR起票候補か |
+| --- | --- | --- | --- |
+| 111 | `docs/P901-cr-direction/CR-012.md` 変更要求の内容 | ボタンの名前だけを変え、ダイアログで説明も変えられる機能は残した(ダイアログの題名「Query の名前と説明を変更」もそのまま) | 説明を変えられなくする場合は CR(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 112 | `docs/P901-cr-direction/CR-012.md` 優先度の判断理由 | 優先度の指定が無く、ルーブリック(影響度 低 × 緊急度 低)で「低」と仮置き | -(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+
+#### CR-013 で付いた ★FIXME★(3 件。2026-10-16 に解消。未解消 0 件)
+
+**未解消の★FIXME★: 0件。** 2026-10-16 に依頼者が下表の 3 件を受け入れ(「このままでよいです」)、各箇所の ★FIXME★ を ★ACCEPTED★ に書き換えた。以下は当時の一覧。
+
+| # | 所在(ファイル・章節) | 想定で補った内容 | CR起票候補か |
+| --- | --- | --- | --- |
+| 113 | `docs/P901-cr-direction/CR-013.md` 変更要求の内容、`docs/P002-frontend-spec.md` §2.2.8(行のクリック) | 行の中のボタン([復元]・[名前変更]・[削除])のクリックは行のクリックにせず、ボタンの操作だけを行う | ボタンの上でも復元する場合は CR(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 114 | 同上 | 行の上ではマウスのカーソルを指の形にする | -(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+| 115 | `docs/P901-cr-direction/CR-013.md` 優先度の判断理由 | 優先度の指定が無く、ルーブリック(影響度 低 × 緊急度 低)で「低」と仮置き | -(2026-10-16 に依頼者が受け入れ。★ACCEPTED★ に書き換えた) |
+
 ### 10.6 その他
 
-* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002・CR-003 の変更(B005〜B009)はコミット ac666af に含まれる。CR-004 の変更(B010・B011)はコミット 805fd6b に含まれる。CR-005 の変更(B012〜B014)はコミット 6767764 に含まれる。CR-006 の変更(B015・B016)はコミット 9b268aa に含まれる。CR-007 の変更(B017〜B019)はコミット 22a124d に含まれる。CR-008・CR-009 の変更(B020〜B025)はコミット c85cd46 に含まれる。CR-010・CR-011 の変更(B026〜B029)は CR-010・CR-011 のコミットに含まれる。コミットとリモートへのプッシュは人間の判断で行う。
+* B001〜B003 は 9579d85 としてコミット済み。★FIXME★ の受け入れと CR-001 の変更はその次のコミット(a316427)に含まれる。CR-002・CR-003 の変更(B005〜B009)はコミット ac666af に含まれる。CR-004 の変更(B010・B011)はコミット 805fd6b に含まれる。CR-005 の変更(B012〜B014)はコミット 6767764 に含まれる。CR-006 の変更(B015・B016)はコミット 9b268aa に含まれる。CR-007 の変更(B017〜B019)はコミット 22a124d に含まれる。CR-008・CR-009 の変更(B020〜B025)はコミット c85cd46 に含まれる。CR-010・CR-011 の変更(B026〜B029)はコミット 838d82d に含まれる。CR-012・CR-013 の変更(B030〜B033)は CR-012・CR-013 のコミットに含まれる。コミットとリモートへのプッシュは人間の判断で行う。
 * CR-002 で廃止した MCP サーバを Claude Desktop などから単体で使っていた場合、その使い方はできなくなった(P001 §3.1 の旧 ★ACCEPTED★。依頼者の指示「MCP の部分は廃止」による)。
 * `e2e/scripts/run-suite.sh` はボリュームを消すため、運用環境では実行しない。
+* 所見(F014、CR-013): A05 の大規模(300 表)の ER 図の表示は開発環境で通常 2.0〜2.7 秒で、上限 3 秒との余裕が小さい。CR-013 の P201 で一度 3,402 ms になった(単独では再現せず)。上限を見直す場合は CR(`docs/ArchitectureHandbook.md` §9)。
 * 所見(F011 の関連): A09 は [実行] ボタンを正規表現 `/実行/` で探している。いまは HR.EMPLOYEES の保存済み Query に「実行」を含む名前が無いため合格するが、そのような名前で保存すると A09 が失敗しうる(A10 は F011 で完全一致に直した)。A09 は失敗していないため直していない。
 
 ## 11. リリース判定
+
+**OK**(CR-012・CR-013。2026-10-16 に ★FIXME★ 5 件の受け入れにより保留から変更)
+
+根拠(CR-013 後):
+
+* テスト: 単体・受け入れ結合がすべて合格(結合は CR-010 の結果を引き継ぐ)。スイートの再実行性(A07)も確認した。
+* 出荷影響「要対応」: **0 件**。CR-013 で追加した REQ-SCREEN-036 は OK(4 章)。
+* 未解消の ★FIXME★: **0 件**(10.5)。#111〜#115 は 2026-10-16 に依頼者が受け入れ、★ACCEPTED★ に書き換えた。
+
+以下は CR-012 時点の根拠(履歴):
+
+**保留**(CR-012)
+
+根拠(CR-012 後):
+
+* テスト: 単体・受け入れ結合がすべて合格(結合は CR-010 の結果を引き継ぐ)。スイートの再実行性(A07)も確認した。
+* 出荷影響「要対応」: **0 件**。CR-012 で追加した REQ-SCREEN-035 は OK(4 章)。
+* 未解消の ★FIXME★: **2 件**(10.5 の #111・#112)。依頼者が確認して ★ACCEPTED★ にするか CR にすれば OK にできる。
+
+以下は CR-011 時点の根拠(履歴):
 
 **OK**(CR-010・CR-011。2026-10-16 に ★FIXME★ 7 件の受け入れにより保留から変更)
 

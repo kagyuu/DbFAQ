@@ -23,6 +23,8 @@
 | U014 | llm-no-perf | ※CR-009により追加。`llm.timeout_sec` の既定 600 秒、nginx の `/api/llm/` 660 秒、作成中の表示の文言、T16・A11 の待ち時間と判定 | 小(ファイル 変更 約 8) |
 | U015 | query-subtabs | ※CR-010により追加。frontend: `QueryTab.tsx` をサブタブ(Mantine `Tabs`)と共通領域に分け、選択中のサブタブを Query タブの状態に持つ。`LlmSqlPanel.tsx` の見出しを外す。クライアントの単体テスト、受入テスト A09・A10・A11 の手順にサブタブの選択を追加 | 小(ファイル 変更 約 8) |
 | U016 | llm-save-defaults | ※CR-011により追加。frontend: `QueryState.llmRequest`(LLM の作成で覚え、ひな形・復元・保存で消す)、`LlmSqlPanel` の `onApply` に要求を渡す、`SavedQueries` の [名前を付けて保存] の初期値。クライアントの単体テスト、受入テスト A11 の保存の手順 | 小(ファイル 変更 約 7) |
+| U017 | rename-button | ※CR-012により追加。frontend: `SavedQueries` の一覧の各行の [編集] を [名前変更] に(aria-label も)。クライアントの単体テスト、受入テスト A10 手順 8 | 小(ファイル 変更 約 3) |
+| U018 | row-click-restore | ※CR-013により追加。frontend: `SavedQueries` の一覧の行のクリックで復元(行のカーソル、ボタンのクリックは伝播を止める)。クライアントの単体テスト、受入テスト A10 手順 7b | 小(ファイル 変更 約 3) |
 | U008 | merge-common | ※CR-003により追加。`dbfaq_common`(`config.py`・`logging.py`)を `dbfaq_api`(`config.py`・`log.py`)に移し、import を直す。振る舞いは変えない | 小(移設が中心。import の変更 約 20 ファイル) |
 
 * ※CR-002: U002(mcp-server)は U007 で廃止した(成果物のコードは `dbfaq_api/oracle` に移り、MCP のツール登録・stdio 起動は削除)。U003 の「MCP ゲートウェイ」も U007 で廃止した。U001〜U006 の記述は第 1 リリース時点の記録として残す。
@@ -147,6 +149,26 @@
 | その他 | frontend: `src/pages/QueryTab.tsx`、`src/components/LlmSqlPanel.tsx`・`SavedQueries.tsx`。テスト: `SavedQueries.test.tsx`・`QueryTab.test.tsx`・`LlmSqlPanel.test.tsx`、`e2e/tests/a11-llm-sql.spec.ts` |
 | インフラ | 変更なし |
 
+### U017 rename-button(※CR-012により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | 保存済み Query の一覧の各行のボタン [名前変更](P002 §2.2.6・§2.2.8) |
+| API | 変更なし |
+| データモデル | 変更なし |
+| その他 | frontend: `src/components/SavedQueries.tsx`。テスト: `SavedQueries.test.tsx`、`e2e/tests/a10-saved-queries-pdb.spec.ts` |
+| インフラ | 変更なし |
+
+### U018 row-click-restore(※CR-013により追加)
+
+| 種別 | 対象 |
+|---|---|
+| 画面 | 保存済み Query の一覧の行のクリック(P002 §2.2.8) |
+| API | 変更なし |
+| データモデル | 変更なし |
+| その他 | frontend: `src/components/SavedQueries.tsx`。テスト: `SavedQueries.test.tsx`、`e2e/tests/a10-saved-queries-pdb.spec.ts` |
+| インフラ | 変更なし |
+
 ### U004 frontend-er
 
 | 種別 | 対象 |
@@ -211,14 +233,22 @@ P004 の全要求 ID は上表のいずれかのスプリントに割り当た�
 
 ※CR-011により: REQ-SCREEN-034 は **U016** が担う。
 
+※CR-012により: REQ-SCREEN-035 は **U017** が担う。
+
+※CR-013により: REQ-SCREEN-036 は **U018** が担う。
+
 ※P011矛盾点#5にもとづき `GET /api/schema` 行の U005 列を修正。
 
 ## 4. 依存関係
 
 ```mermaid
 flowchart LR
-  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011 --> U012 --> U013 --> U014 --> U015 --> U016
+  U001 --> U002 --> U003 --> U004 --> U005 --> U006 --> U007 --> U008 --> U009 --> U010 --> U011 --> U012 --> U013 --> U014 --> U015 --> U016 --> U017 --> U018
 ```
+
+* U018(CR-013)は U017 の後に行う改修スプリント。frontend だけの変更(行のクリック)。
+
+* U017(CR-012)は U016 の後に行う改修スプリント。frontend だけの変更(ボタンの名前)。
 
 * U016(CR-011)は U015 の後に行う改修スプリント。frontend だけの変更。
 

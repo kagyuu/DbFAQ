@@ -78,8 +78,16 @@ test('テーブルの Query の保存・復元・上書き・変更・削除', a
   await dialog(page).getByRole('button', { name: 'キャンセル' }).click()
   await expect(editor(page)).toHaveValue('SELECT 1 FROM DUAL')
 
-  // 8
-  await page.getByRole('button', { name: '編集: A10-部署50' }).click()
+  // 7b(CR-013: 行のクリックでも [復元] と同じ)
+  await page.getByTestId('saved-query-row').filter({ hasText: 'A10-部署50' }).getByText('A10-部署50', { exact: true }).click()
+  await expect(dialog(page)).toContainText('入力欄の SQL を「A10-部署50」で置き換えますか')
+  await dialog(page).getByRole('button', { name: '置き換える' }).click()
+  await expect(editor(page)).toHaveValue(/DEPARTMENT_ID = 60/)
+  await expect(page.getByTestId('loaded-query')).toHaveText('復元中: A10-部署50')
+
+  // 8(CR-012: [編集] は無く [名前変更])
+  await expect(page.getByRole('button', { name: '編集: A10-部署50' })).toHaveCount(0)
+  await page.getByRole('button', { name: '名前変更: A10-部署50' }).click()
   await dialog(page).getByRole('textbox', { name: /名前/ }).fill('A10-部署60')
   await dialog(page).getByRole('button', { name: '保存' }).click()
   await expect(page.getByRole('button', { name: '復元: A10-部署60' })).toBeVisible()

@@ -1,6 +1,6 @@
 [project]
 name = "dbfaq-server"
-version = "0.7.3"
+version = "0.7.5"
 description = "DbFAQ backend (FastAPI)"
 readme = "INDEX.md"
 requires-python = ">=3.12"

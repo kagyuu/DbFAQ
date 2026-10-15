@@ -42,6 +42,8 @@ Executor が着手前に読む要約。まずこの文書と、着手するス�
 * **CR-009(2026-10-14)**: U014 llm-no-perf(`docs/P007-impl-direction/U014-llm-no-perf.md`)。待ち時間の既定(600 秒)・nginx(660 秒)・作成中の文言・T16・A11 の待ち時間。
 * **CR-010(2026-10-15)**: U015 query-subtabs(`docs/P007-impl-direction/U015-query-subtabs.md`)。frontend だけ。T1 `QueryTab` のサブタブ(Mantine `Tabs`、`keepMounted`)と共通領域 → T2 A09・A10・A11 の手順。Playwright の `getByRole('tab', { name: 'Query' })` はサブタブ「保存済み Query」にも部分一致するため `exact: true` にする。
 * **CR-011(2026-10-15)**: U016 llm-save-defaults(`docs/P007-impl-direction/U016-llm-save-defaults.md`)。frontend だけ。T1 LLM の要求を `QueryState` に覚えて [名前を付けて保存] の初期値にする → T2 A11 手順 3c。
+* **CR-012(2026-10-16)**: U017 rename-button(`docs/P007-impl-direction/U017-rename-button.md`)。frontend だけ。T1 `SavedQueries` の一覧の [編集] を [名前変更] に(aria-label も)→ T2 A10 手順 8。
+* **CR-013(2026-10-16)**: U018 row-click-restore(`docs/P007-impl-direction/U018-row-click-restore.md`)。frontend だけ。T1 `SavedQueries` の一覧の行のクリックで復元(行のボタンは `stopPropagation`)→ T2 A10 手順 7b。
 * 各スプリントの P102 が終わるたびに本書の「着手するスプリント」を更新する。全スプリント完了後に P103(P008 の T01〜T12 を一括実行)。
 
 ## 4. 詳細仕様の場所

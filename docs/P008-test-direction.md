@@ -62,3 +62,7 @@ FAIL/BLOCKED が残った場合は、Reviewer Loop(P201〜P205)への引き渡�
 **P103(CR-010、2026-10-15、`docs/test-records/20261015-0113-test-record.md`)**: T01〜T04・T06〜T17 PASS(回帰。backend は変更なし)。pytest は 399 passed。
 
 **P103(CR-011、2026-10-15、`docs/test-records/20261015-0129-test-record.md`)**: backend は CR-010 から変更なしのため、T01〜T04・T06〜T17 は CR-010 の結果(399 passed)を引き継ぐ。
+
+**P103(CR-012、2026-10-16、`docs/test-records/20261016-0028-test-record.md`)**: backend は CR-010 から変更なしのため、T01〜T04・T06〜T17 は CR-010 の結果(399 passed)を引き継ぐ。単体 Python 352 は再実行して合格。
+
+**P103(CR-013、2026-10-16、`docs/test-records/20261016-0045-test-record.md`)**: backend は CR-010 から変更なしのため、T01〜T04・T06〜T17 は CR-010 の結果(399 passed)を引き継ぐ。単体 Python 352 は再実行して合格。

@@ -168,7 +168,8 @@ export default function SavedQueries({ target, targetLabel, sql, loaded, llmRequ
           <Table verticalSpacing={2} highlightOnHover aria-label="保存済み Query の一覧" style={{ tableLayout: 'fixed' }}>
             <Table.Tbody>
               {items.map((q) => (
-                <Table.Tr key={q.id} data-testid="saved-query-row">
+                // 行のクリックでも復元する(※CR-013。行の中のボタンは伝播を止めて、ボタンの操作だけにする)
+                <Table.Tr key={q.id} data-testid="saved-query-row" onClick={() => restore(q)} style={{ cursor: 'pointer' }}>
                   <Table.Td w={18}>{loaded?.id === q.id ? '●' : ''}</Table.Td>
                   <Table.Td w="30%">
                     <Group gap={4} wrap="nowrap">
@@ -184,9 +185,9 @@ export default function SavedQueries({ target, targetLabel, sql, loaded, llmRequ
                   <Table.Td w={120}><Text size="xs" c="dimmed">{shortDateTime(q.updated_at)}</Text></Table.Td>
                   <Table.Td w={190}>
                     <Group gap={4} wrap="nowrap">
-                      <Button size="compact-xs" variant="light" onClick={() => restore(q)} aria-label={`復元: ${q.name}`}>復元</Button>
-                      <Button size="compact-xs" variant="subtle" onClick={() => setDialog({ kind: 'edit', item: q })} aria-label={`編集: ${q.name}`}>編集</Button>
-                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => setDialog({ kind: 'delete', item: q })} aria-label={`削除: ${q.name}`}>削除</Button>
+                      <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); restore(q) }} aria-label={`復元: ${q.name}`}>復元</Button>
+                      <Button size="compact-xs" variant="subtle" onClick={(e) => { e.stopPropagation(); setDialog({ kind: 'edit', item: q }) }} aria-label={`名前変更: ${q.name}`}>名前変更</Button>
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={(e) => { e.stopPropagation(); setDialog({ kind: 'delete', item: q }) }} aria-label={`削除: ${q.name}`}>削除</Button>
                     </Group>
                   </Table.Td>
                 </Table.Tr>

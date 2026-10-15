@@ -130,3 +130,4 @@
 * F011(CR-005、2026-10-07): A10 の [実行] のロケータを完全一致の名前にした。記録: `fixed/F011-a10-run-button-locator.md`
 * F012(CR-005、2026-10-07): ER 図の最初のテストの待ち時間を 5 秒にした(15 回続けて合格)。記録: `fixed/F012-er-test-first-layout-timeout.md`
 * F013(CR-008、2026-10-14): スイートで A11 を A05・A08 の後、A06 の前に移した。記録: `fixed/F013-suite-order-llm.md`
+* F014(CR-013、2026-10-16): A05 の大規模の ER 図の表示の一時的な超過(3,402 ms)。単独では再現せず、測定環境のばらつきと判断。コードの変更なし、`docs/ArchitectureHandbook.md` §9 に余裕の小ささを記録。記録: `fixed/F014-a05-large-er-variance.md`

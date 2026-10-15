@@ -36,3 +36,9 @@
 入力: `docs/P201-review-report.md`(CR-008 の 1 回目)。
 
 - [x] F013 [スイートの A11 の順序](./P202-fix-plan/fixed/F013-suite-order-llm.md) — A05・A07: LLM の生成(A11)の直後に性能の測定(A05)が走り、ER 図の表示が 3 秒を超える(テストの順序)
+
+## CR-013(2026-10-16)
+
+入力: `docs/P201-review-report.md`(CR-013 の 1 回目)。
+
+- [x] F014 [大規模の ER 図の表示時間のばらつき](./P202-fix-plan/fixed/F014-a05-large-er-variance.md) — A05・A07: スイートの 2 回目に 300 表の ER 図の表示が 3,402 ms(単独では再現せず。測定環境のばらつき。コードの変更なし)

@@ -19,7 +19,7 @@
   - LlmStatus.tsx — LLM 状態の丸(Oracle の丸の並び)と `useLlmAvailable`。CR-007 で追加
   - LlmSqlPanel.tsx — 自然言語から LLM で SQL を作成(ボタンの無効化、置き換えの確認、結果・エラー)。SC-02・SC-03 で共用。CR-007 で追加。LLM とのやりとり(リクエスト・リプライ)のダイアログは CR-008
   - ResultTable.tsx — データタブと Query タブの結果の表(`(null)`、切り詰めのツールチップ)。CR-004 で DataTab から切り出し
-  - SavedQueries.tsx — 保存済み Query の一覧・保存・復元・上書き保存・変更・削除とダイアログ(SC-02・SC-03 で共用)。CR-005 で追加。LLM で作成した SQL の保存の初期値(`saveDefaults`)は CR-011
+  - SavedQueries.tsx — 保存済み Query の一覧・保存・復元・上書き保存・変更・削除とダイアログ(SC-02・SC-03 で共用)。CR-005 で追加。LLM で作成した SQL の保存の初期値(`saveDefaults`)は CR-011。一覧の [名前変更] は CR-012、行のクリックで復元は CR-013
   - PdbIcon.tsx — SC-01 のドラム缶のアイコン(`/pdb` へ)、ドラム缶の絵、PDB 名。CR-005 で追加
 - src/query/ — Query タブ(CR-004)
   - template.ts — SELECT 文のひな形(外部キーの JOIN、識別子のクォート)
